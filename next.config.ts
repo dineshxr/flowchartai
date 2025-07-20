@@ -66,15 +66,15 @@ const withNextIntl = createNextIntlPlugin();
  *
  * https://www.content-collections.dev/docs/quickstart/next
  */
-export default withContentCollections(withNextIntl(nextConfig));
+export default nextConfig;
 
 // Add OpenNext Cloudflare development support
-if (process.env.NODE_ENV === 'development') {
-  import('@opennextjs/cloudflare')
-    .then(({ initOpenNextCloudflareForDev }) => {
-      initOpenNextCloudflareForDev();
-    })
-    .catch(() => {
-      // Silently fail if package is not available
-    });
-}
+// if (process.env.NODE_ENV === 'development') {
+//   import('@opennextjs/cloudflare')
+//     .then(({ initOpenNextCloudflareForDev }) => {
+//       initOpenNextCloudflareForDev();
+//     })
+//     .catch(() => {
+//       // Silently fail if package is not available
+//     });
+// }

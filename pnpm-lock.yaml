@@ -50,6 +50,9 @@ importers:
       '@fumadocs/content-collections':
         specifier: ^1.1.8
         version: 1.1.8(@content-collections/core@0.8.0(typescript@5.7.3))(@content-collections/mdx@0.2.0(@content-collections/core@0.8.0(typescript@5.7.3))(acorn@8.14.0)(react-dom@19.0.0(react@19.0.0))(react@19.0.0))(fumadocs-core@15.1.2(@types/react@19.0.9)(next@15.2.1(@babel/core@7.24.5)(@opentelemetry/api@1.9.0)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)(sass@1.51.0))(react-dom@19.0.0(react@19.0.0))(react@19.0.0))
+      '@google/generative-ai':
+        specifier: ^0.24.1
+        version: 0.24.1
       '@hookform/resolvers':
         specifier: ^4.1.0
         version: 4.1.0(react-hook-form@7.54.2(react@19.0.0))
@@ -2117,6 +2120,10 @@ packages:
       '@content-collections/core': 0.x.x
       '@content-collections/mdx': 0.x.x
       fumadocs-core: ^14.0.0 || ^15.0.0
+
+  '@google/generative-ai@0.24.1':
+    resolution: {integrity: sha512-MqO+MLfM6kjxcKoy0p1wRzG3b4ZZXtPI+z2IE26UogS2Cm/XHO+7gGRBh6gcJsOiIVoH93UwKvW4HdgiOZCy9Q==}
+    engines: {node: '>=18.0.0'}
 
   '@hexagon/base64@1.1.28':
     resolution: {integrity: sha512-lhqDEAvWixy3bZ+UOYbPwUbBkwBq5C1LAJ/xPC8Oi+lL54oyakv/npbA0aU2hgCsx/1NUd4IBvV03+aUBWxerw==}
@@ -9725,6 +9732,8 @@ snapshots:
       '@content-collections/core': 0.8.0(typescript@5.7.3)
       '@content-collections/mdx': 0.2.0(@content-collections/core@0.8.0(typescript@5.7.3))(acorn@8.14.0)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
       fumadocs-core: 15.1.2(@types/react@19.0.9)(next@15.2.1(@babel/core@7.24.5)(@opentelemetry/api@1.9.0)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)(sass@1.51.0))(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
+
+  '@google/generative-ai@0.24.1': {}
 
   '@hexagon/base64@1.1.28': {}
 

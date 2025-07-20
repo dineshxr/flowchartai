@@ -41,6 +41,7 @@
     "@excalidraw/excalidraw": "^0.18.0",
     "@excalidraw/mermaid-to-excalidraw": "^1.1.2",
     "@fumadocs/content-collections": "^1.1.8",
+    "@google/generative-ai": "^0.24.1",
     "@hookform/resolvers": "^4.1.0",
     "@next/third-parties": "^15.3.0",
     "@opennextjs/cloudflare": "^1.4.0",
