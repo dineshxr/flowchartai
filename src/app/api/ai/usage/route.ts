@@ -3,15 +3,14 @@ import {
   getUserAIUsageStats,
   getUserPlanLevel,
 } from '@/lib/ai-usage';
-import { auth } from '@/lib/auth';
+// import { auth } from '@/lib/auth';
 import { headers } from 'next/headers';
 
 export async function GET() {
   try {
     // 身份验证
-    const session = await auth.api.getSession({
-      headers: await headers(),
-    });
+    // Temporarily disabled auth check
+    const session = null; // await auth.api.getSession({ headers: await headers() });
 
     if (!session?.user?.id) {
       return new Response(
