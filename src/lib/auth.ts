@@ -33,7 +33,6 @@ export const authOptions: NextAuthOptions = {
             const { error: insertError } = await supabase
               .from('users')
               .insert({
-                id: user.id,
                 email: user.email!,
                 name: user.name,
                 avatar_url: user.image,
@@ -64,6 +63,9 @@ export const authOptions: NextAuthOptions = {
 
         if (user) {
           session.user.id = user.id;
+        } else {
+          // Fallback to email if user not found in DB
+          session.user.id = session.user.email;
         }
       }
       return session;
