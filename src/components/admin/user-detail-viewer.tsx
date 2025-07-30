@@ -69,13 +69,8 @@ export function UserDetailViewer({ user }: UserDetailViewerProps) {
     setError('');
 
     try {
-      await authClient.admin.banUser({
-        userId: user.id,
-        banReason,
-        banExpiresIn: banExpiresAt
-          ? Math.floor((banExpiresAt.getTime() - Date.now()) / 1000)
-          : undefined,
-      });
+      // Admin functionality temporarily disabled - using NextAuth
+      console.warn('Admin ban functionality not available with NextAuth');
 
       toast.success(t('ban.success'));
       // Reset form
@@ -103,9 +98,8 @@ export function UserDetailViewer({ user }: UserDetailViewerProps) {
     setError('');
 
     try {
-      await authClient.admin.unbanUser({
-        userId: user.id,
-      });
+      // Admin functionality temporarily disabled - using NextAuth
+      console.warn('Admin unban functionality not available with NextAuth');
 
       toast.success(t('unban.success'));
       // Trigger refresh
