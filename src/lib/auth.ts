@@ -63,9 +63,12 @@ export const authOptions: NextAuthOptions = {
 
         if (user) {
           session.user.id = user.id;
+          // Set default role for now (can be extended later)
+          session.user.role = 'user';
         } else {
           // Fallback to email if user not found in DB
           session.user.id = session.user.email;
+          session.user.role = 'user';
         }
       }
       return session;
