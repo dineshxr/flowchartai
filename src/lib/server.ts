@@ -2,7 +2,7 @@ import 'server-only';
 
 import { headers } from 'next/headers';
 import { cache } from 'react';
-import { auth } from './auth';
+// import { auth } from './auth'; // Temporarily disabled
 
 /**
  * Get the current session

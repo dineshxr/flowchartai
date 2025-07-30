@@ -14,6 +14,7 @@ export async function recordAIUsage(
     tokensUsed?: number;
     model?: string;
     success?: boolean;
+    errorMessage?: string;
     metadata?: any;
   } = {}
 ) {
@@ -26,7 +27,10 @@ export async function recordAIUsage(
         tokens_used: options.tokensUsed || 0,
         model: options.model,
         success: options.success ?? true,
-        metadata: options.metadata,
+        metadata: {
+          ...options.metadata,
+          ...(options.errorMessage && { errorMessage: options.errorMessage })
+        },
       });
 
     if (error) {

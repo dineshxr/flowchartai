@@ -1,6 +1,6 @@
 import { getDb } from '@/db';
 import { flowcharts } from '@/db/schema';
-import { auth } from '@/lib/auth';
+// import { auth } from '@/lib/auth'; // Temporarily disabled
 import { desc, eq } from 'drizzle-orm';
 import { headers } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
@@ -16,9 +16,8 @@ const createFlowchartSchema = z.object({
 // GET /api/flowcharts - Get user's flowcharts
 export async function GET(request: NextRequest) {
   try {
-    const session = await auth.api.getSession({
-      headers: await headers(),
-    });
+    // Temporarily disabled auth check
+    const session = null; // await auth.api.getSession({ headers: await headers() });
 
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -53,9 +52,8 @@ export async function GET(request: NextRequest) {
 // POST /api/flowcharts - Create new flowchart
 export async function POST(request: NextRequest) {
   try {
-    const session = await auth.api.getSession({
-      headers: await headers(),
-    });
+    // Temporarily disabled auth check
+    const session = null; // await auth.api.getSession({ headers: await headers() });
 
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

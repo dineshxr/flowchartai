@@ -1,6 +1,6 @@
 import { getDb } from '@/db';
 import { flowcharts } from '@/db/schema';
-import { auth } from '@/lib/auth';
+// import { auth } from '@/lib/auth'; // Temporarily disabled
 import { and, eq } from 'drizzle-orm';
 import { headers } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
