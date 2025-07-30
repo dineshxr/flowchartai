@@ -1,16 +1,15 @@
 import {
   canUserUseAI,
   getUserAIUsageStats,
-  getUserPlanLevel,
-} from '@/lib/ai-usage';
-// import { auth } from '@/lib/auth';
+} from '@/lib/ai-usage-supabase';
+import { authOptions } from '@/lib/auth';
+import { getServerSession } from 'next-auth';
 import { headers } from 'next/headers';
 
 export async function GET() {
   try {
-    // 身份验证
-    // Temporarily disabled auth check
-    const session = null; // await auth.api.getSession({ headers: await headers() });
+    // Authentication check
+    const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
       return new Response(
@@ -27,18 +26,16 @@ export async function GET() {
 
     const userId = session.user.id;
 
-    // 获取使用量统计、限制信息和计划类型
-    const [stats, limits, planLevel] = await Promise.all([
+    // Get usage stats and limits
+    const [stats, limits] = await Promise.all([
       getUserAIUsageStats(userId),
       canUserUseAI(userId),
-      getUserPlanLevel(userId),
     ]);
 
     return new Response(
       JSON.stringify({
         stats,
         limits,
-        planLevel,
       }),
       {
         status: 200,
