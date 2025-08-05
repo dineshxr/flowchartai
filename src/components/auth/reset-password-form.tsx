@@ -66,33 +66,19 @@ export const ResetPasswordForm = () => {
   };
 
   const onSubmit = async (values: z.infer<typeof ResetPasswordSchema>) => {
-    await authClient.resetPassword(
-      {
-        newPassword: values.password,
-        token,
-      },
-      {
-        onRequest: (ctx) => {
-          // console.log("resetPassword, request:", ctx.url);
-          setIsPending(true);
-          setError('');
-          setSuccess('');
-        },
-        onResponse: (ctx) => {
-          // console.log("resetPassword, response:", ctx.response);
-          setIsPending(false);
-        },
-        onSuccess: (ctx) => {
-          // console.log("resetPassword, success:", ctx.data);
-          // setSuccess("Password reset successfully");
-          router.push(`${Routes.Login}`);
-        },
-        onError: (ctx) => {
-          console.error('resetPassword, error:', ctx.error);
-          setError(`${ctx.error.status}: ${ctx.error.message}`);
-        },
-      }
-    );
+    // For Google OAuth, password reset is not applicable
+    // Users need to manage their account through Google's account settings
+    setIsPending(true);
+    setError('');
+    setSuccess('');
+
+    // Simulate a short delay for better UX
+    setTimeout(() => {
+      setIsPending(false);
+      setSuccess(
+        'Password reset is not applicable for Google OAuth accounts. Please manage your account through Google settings.'
+      );
+    }, 1000);
   };
 
   return (

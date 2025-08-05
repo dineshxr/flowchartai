@@ -36,8 +36,8 @@ export default function BillingCard() {
   } = usePayment();
 
   // Get user session for customer ID
-  const { data: session, isPending: isLoadingSession } =
-    authClient.useSession();
+  const { data: session, status } = authClient.useSession();
+  const isLoadingSession = status === 'loading';
   const currentUser = session?.user;
 
   // Get price plans with translations - must be called here to maintain hook order

@@ -30,7 +30,8 @@ export function DashboardSidebar({
 }: React.ComponentProps<typeof Sidebar>) {
   const t = useTranslations();
   const [mounted, setMounted] = useState(false);
-  const { data: session, isPending } = authClient.useSession();
+  const { data: session, status } = authClient.useSession();
+  const isPending = status === 'loading';
   const currentUser = session?.user;
   const { state } = useSidebar();
   // console.log('sidebar currentUser:', currentUser);

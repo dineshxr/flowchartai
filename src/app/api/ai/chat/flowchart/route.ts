@@ -1,7 +1,7 @@
 import { canUserUseAI, recordAIUsage } from '@/lib/ai-usage-supabase';
+import { authOptions } from '@/lib/auth';
 import { canGuestUseAI, recordGuestAIUsage } from '@/lib/guest-usage';
 import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
 import OpenAI from 'openai';
 
 // OpenRouter 客户端配置

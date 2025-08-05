@@ -1,4 +1,4 @@
-import { NextAuthOptions } from 'next-auth';
+import type { NextAuthOptions } from 'next-auth';
 import GoogleProvider from 'next-auth/providers/google';
 import { supabase } from './supabase';
 
@@ -30,13 +30,11 @@ export const authOptions: NextAuthOptions = {
 
           // If user doesn't exist, create them
           if (!existingUser) {
-            const { error: insertError } = await supabase
-              .from('users')
-              .insert({
-                email: user.email!,
-                name: user.name,
-                avatar_url: user.image,
-              });
+            const { error: insertError } = await supabase.from('users').insert({
+              email: user.email!,
+              name: user.name,
+              avatar_url: user.image,
+            });
 
             if (insertError) {
               console.error('Error creating user:', insertError);
@@ -88,5 +86,3 @@ export const authOptions: NextAuthOptions = {
     strategy: 'jwt',
   },
 };
-
-

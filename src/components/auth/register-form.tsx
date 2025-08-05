@@ -72,47 +72,17 @@ export const RegisterForm = ({
   });
 
   const onSubmit = async (values: z.infer<typeof RegisterSchema>) => {
-    // 1. if requireEmailVerification is true, callbackURL will be used in the verification email,
-    // the user will be redirected to the callbackURL after the email is verified.
-    // 2. if requireEmailVerification is false, the user will not be redirected to the callbackURL,
-    // we should redirect to the callbackURL manually in the onSuccess callback.
-    await authClient.signUp.email(
-      {
-        email: values.email,
-        password: values.password,
-        name: values.name,
-        callbackURL: callbackUrl,
-      },
-      {
-        onRequest: (ctx) => {
-          console.log('register, request:', ctx.url);
-          setIsPending(true);
-          setError('');
-          setSuccess('');
-        },
-        onResponse: (ctx) => {
-          console.log('register, response:', ctx.response);
-          setIsPending(false);
-        },
-        onSuccess: (ctx) => {
-          // sign up success, user information stored in ctx.data
-          // console.log("register, success:", ctx.data);
-          setSuccess(t('checkEmail'));
-
-          // add affonso affiliate
-          // https://affonso.io/app/affiliate-program/connect
-          if (websiteConfig.features.enableAffonsoAffiliate) {
-            console.log('register, affonso affiliate:', values.email);
-            window.Affonso.signup(values.email);
-          }
-        },
-        onError: (ctx) => {
-          // sign up fail, display the error message
-          console.error('register, error:', ctx.error);
-          setError(`${ctx.error.status}: ${ctx.error.message}`);
-        },
-      }
-    );
+    // For Google OAuth, email/password registration is not applicable
+    // Users need to use the Google login button
+    setIsPending(true);
+    setError('');
+    setSuccess('');
+    
+    // Simulate a short delay for better UX
+    setTimeout(() => {
+      setIsPending(false);
+      setError('Email/password registration is not applicable for Google OAuth accounts. Please use the Google login button.');
+    }, 1000);
   };
 
   const togglePasswordVisibility = () => {

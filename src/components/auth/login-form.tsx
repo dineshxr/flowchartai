@@ -72,37 +72,17 @@ export const LoginForm = ({
   });
 
   const onSubmit = async (values: z.infer<typeof LoginSchema>) => {
-    // 1. if callbackUrl is provided, user will be redirected to the callbackURL after login successfully.
-    // if user email is not verified, a new verification email will be sent to the user with the callbackURL.
-    // 2. if callbackUrl is not provided, we should redirect manually in the onSuccess callback.
-    await authClient.signIn.email(
-      {
-        email: values.email,
-        password: values.password,
-        callbackURL: callbackUrl,
-      },
-      {
-        onRequest: (ctx) => {
-          // console.log("login, request:", ctx.url);
-          setIsPending(true);
-          setError('');
-          setSuccess('');
-        },
-        onResponse: (ctx) => {
-          // console.log("login, response:", ctx.response);
-          setIsPending(false);
-        },
-        onSuccess: (ctx) => {
-          // console.log("login, success:", ctx.data);
-          // setSuccess("Login successful");
-          // router.push(callbackUrl || "/dashboard");
-        },
-        onError: (ctx) => {
-          console.error('login, error:', ctx.error);
-          setError(`${ctx.error.status}: ${ctx.error.message}`);
-        },
-      }
-    );
+    // For Google OAuth, email/password login is not applicable
+    // Users need to use the Google login button
+    setIsPending(true);
+    setError('');
+    setSuccess('');
+    
+    // Simulate a short delay for better UX
+    setTimeout(() => {
+      setIsPending(false);
+      setError('Email/password login is not applicable for Google OAuth accounts. Please use the Google login button.');
+    }, 1000);
   };
 
   const togglePasswordVisibility = () => {

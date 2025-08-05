@@ -1,9 +1,9 @@
 import 'server-only';
 
+import { getServerSession } from 'next-auth';
 import { headers } from 'next/headers';
 import { cache } from 'react';
 import { authOptions } from './auth';
-import { getServerSession } from 'next-auth';
 
 /**
  * Get the current session

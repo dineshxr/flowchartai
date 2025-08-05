@@ -53,32 +53,19 @@ export const ForgotPasswordForm = ({ className }: { className?: string }) => {
   }, [searchParams, form]);
 
   const onSubmit = async (values: z.infer<typeof ForgotPasswordSchema>) => {
-    await authClient.forgetPassword(
-      {
-        email: values.email,
-        redirectTo: `${Routes.ResetPassword}`,
-      },
-      {
-        onRequest: (ctx) => {
-          // console.log('forgotPassword, request:', ctx.url);
-          setIsPending(true);
-          setError('');
-          setSuccess('');
-        },
-        onResponse: (ctx) => {
-          // console.log('forgotPassword, response:', ctx.response);
-          setIsPending(false);
-        },
-        onSuccess: (ctx) => {
-          // console.log('forgotPassword, success:', ctx.data);
-          setSuccess(t('checkEmail'));
-        },
-        onError: (ctx) => {
-          console.error('forgotPassword, error:', ctx.error);
-          setError(`${ctx.error.status}: ${ctx.error.message}`);
-        },
-      }
-    );
+    // For Google OAuth, password reset is not applicable
+    // Users need to manage their account through Google's account settings
+    setIsPending(true);
+    setError('');
+    setSuccess('');
+
+    // Simulate a short delay for better UX
+    setTimeout(() => {
+      setIsPending(false);
+      setSuccess(
+        'Password reset is not applicable for Google OAuth accounts. Please manage your account through Google settings.'
+      );
+    }, 1000);
   };
 
   return (

@@ -149,7 +149,8 @@ export function FlowchartMakerHero() {
 
                 {/* description */}
                 <p className="mx-auto mt-8 max-w-4xl text-balance text-lg text-muted-foreground">
-                  Create professional flowcharts instantly with AI. Just describe your process and watch it come to life.
+                  Create professional flowcharts instantly with AI. Just
+                  describe your process and watch it come to life.
                 </p>
 
                 {/* input form */}

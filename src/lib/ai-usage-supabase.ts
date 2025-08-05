@@ -19,19 +19,17 @@ export async function recordAIUsage(
   } = {}
 ) {
   try {
-    const { error } = await supabase
-      .from('ai_usage')
-      .insert({
-        user_id: userId,
-        usage_type: usageType,
-        tokens_used: options.tokensUsed || 0,
-        model: options.model,
-        success: options.success ?? true,
-        metadata: {
-          ...options.metadata,
-          ...(options.errorMessage && { errorMessage: options.errorMessage })
-        },
-      });
+    const { error } = await supabase.from('ai_usage').insert({
+      user_id: userId,
+      usage_type: usageType,
+      tokens_used: options.tokensUsed || 0,
+      model: options.model,
+      success: options.success ?? true,
+      metadata: {
+        ...options.metadata,
+        ...(options.errorMessage && { errorMessage: options.errorMessage }),
+      },
+    });
 
     if (error) {
       console.error('Error recording AI usage:', error);
@@ -51,7 +49,7 @@ export async function canUserUseAI(userId: string) {
     // Get today's usage count
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    
+
     const { data: usage, error } = await supabase
       .from('ai_usage')
       .select('*')
@@ -104,8 +102,9 @@ export async function getUserAIUsageStats(userId: string) {
     }
 
     const totalUsage = usage?.length || 0;
-    const successfulUsage = usage?.filter(u => u.success).length || 0;
-    const totalTokens = usage?.reduce((sum, u) => sum + (u.tokens_used || 0), 0) || 0;
+    const successfulUsage = usage?.filter((u) => u.success).length || 0;
+    const totalTokens =
+      usage?.reduce((sum, u) => sum + (u.tokens_used || 0), 0) || 0;
 
     return {
       totalUsage,

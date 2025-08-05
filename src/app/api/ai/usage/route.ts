@@ -1,7 +1,4 @@
-import {
-  canUserUseAI,
-  getUserAIUsageStats,
-} from '@/lib/ai-usage-supabase';
+import { canUserUseAI, getUserAIUsageStats } from '@/lib/ai-usage-supabase';
 import { authOptions } from '@/lib/auth';
 import { getServerSession } from 'next-auth';
 import { headers } from 'next/headers';
