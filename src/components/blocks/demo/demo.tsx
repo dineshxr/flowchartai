@@ -27,19 +27,19 @@ export default function DemoSection() {
                   className="size-full object-cover object-center"
                   controls
                   preload="metadata"
-                  poster="https://cdn.flowchartai.org/static/demo-thumbnail.png"
+                  poster="https://cdn.infogiph.com/static/demo-thumbnail.png"
                 >
                   <source
-                    src="https://cdn.flowchartai.org/static/demo.mp4"
+                    src="https://cdn.infogiph.com/static/demo.mp4"
                     type="video/mp4"
                   />
-                  <track
+                  {/* <track
                     kind="captions"
                     src=""
                     srcLang="en"
                     label="English captions"
                     default
-                  />
+                  /> */}
                   Your browser does not support the video tag.
                 </video>
               </div>

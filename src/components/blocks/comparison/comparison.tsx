@@ -71,56 +71,56 @@ export default function ComparisonSection() {
             </ul>
           </div>
 
-          {/* FlowChart AI */}
+          {/* Infogiph */}
           <div className="lg:pl-0">
             <div className="mb-8">
               <h3 className="text-2xl font-semibold">
-                {t('flowchartAi.title')}
+                {t('diagramAi.title')}
               </h3>
               <p className="mt-4 text-muted-foreground">
-                {t('flowchartAi.subtitle')}
+                {t('diagramAi.subtitle')}
               </p>
             </div>
 
             <ul className="space-y-4">
               <li className="pb-4 border-b border-dashed">
                 <span className="text-sm leading-relaxed">
-                  {t('flowchartAi.item-1')}
+                  {t('diagramAi.item-1')}
                 </span>
               </li>
               <li className="pb-4 border-b border-dashed">
                 <span className="text-sm leading-relaxed">
-                  {t('flowchartAi.item-2')}
+                  {t('diagramAi.item-2')}
                 </span>
               </li>
               <li className="pb-4 border-b border-dashed">
                 <span className="text-sm leading-relaxed">
-                  {t('flowchartAi.item-3')}
+                  {t('diagramAi.item-3')}
                 </span>
               </li>
               <li className="pb-4 border-b border-dashed">
                 <span className="text-sm leading-relaxed">
-                  {t('flowchartAi.item-4')}
+                  {t('diagramAi.item-4')}
                 </span>
               </li>
               <li className="pb-4 border-b border-dashed">
                 <span className="text-sm leading-relaxed">
-                  {t('flowchartAi.item-5')}
+                  {t('diagramAi.item-5')}
                 </span>
               </li>
               <li className="pb-4 border-b border-dashed">
                 <span className="text-sm leading-relaxed">
-                  {t('flowchartAi.item-6')}
+                  {t('diagramAi.item-6')}
                 </span>
               </li>
               <li className="pb-4 border-b border-dashed">
                 <span className="text-sm leading-relaxed">
-                  {t('flowchartAi.item-7')}
+                  {t('diagramAi.item-7')}
                 </span>
               </li>
               <li className="pb-4 border-b border-dashed">
                 <span className="text-sm leading-relaxed">
-                  {t('flowchartAi.item-8')}
+                  {t('diagramAi.item-8')}
                 </span>
               </li>
             </ul>

@@ -25,25 +25,34 @@ export default async function middleware(req: NextRequest) {
   const { nextUrl, headers } = req;
   console.log('>> middleware start, pathname', nextUrl.pathname);
 
-  // do not use getSession() here, it will cause error related to edge runtime
-  // const session = await getSession();
-  const { data: session } = await betterFetch<Session>(
-    '/api/auth/get-session',
-    {
-      baseURL: req.nextUrl.origin,
-      headers: {
-        cookie: req.headers.get('cookie') || '', // Forward the cookies from the request
-      },
-    }
-  );
-  const isLoggedIn = !!session;
-  // console.log('middleware, isLoggedIn', isLoggedIn);
-
   // Get the pathname of the request (e.g. /zh/dashboard to /dashboard)
   const pathnameWithoutLocale = getPathnameWithoutLocale(
     nextUrl.pathname,
     LOCALES
   );
+
+  // Skip authentication check for animate route to avoid slow loading
+  const isAnimateRoute = pathnameWithoutLocale === '/animate';
+
+  let isLoggedIn = false;
+  let session = null;
+
+  if (!isAnimateRoute) {
+    // do not use getSession() here, it will cause error related to edge runtime
+    // const session = await getSession();
+    const { data: sessionData } = await betterFetch<Session>(
+      '/api/auth/get-session',
+      {
+        baseURL: req.nextUrl.origin,
+        headers: {
+          cookie: req.headers.get('cookie') || '', // Forward the cookies from the request
+        },
+      }
+    );
+    session = sessionData;
+    isLoggedIn = !!session;
+    // console.log('middleware, isLoggedIn', isLoggedIn);
+  }
 
   // If the route can not be accessed by logged in users, redirect if the user is logged in
   if (isLoggedIn) {

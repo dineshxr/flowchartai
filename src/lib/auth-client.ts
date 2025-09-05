@@ -18,11 +18,15 @@ export const authClient = createAuthClient({
     // https://www.better-auth.com/docs/concepts/typescript#inferring-additional-fields-on-client
     inferAdditionalFields<typeof auth>(),
     // https://www.better-auth.com/docs/plugins/one-tap
-    oneTapClient({
-      clientId: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID!,
-      autoSelect: false,
-      cancelOnTapOutside: true,
-      context: 'signin',
-    }),
+    ...(process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID
+      ? [
+          oneTapClient({
+            clientId: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID!,
+            autoSelect: false,
+            cancelOnTapOutside: true,
+            context: 'signin',
+          }),
+        ]
+      : []),
   ],
 });

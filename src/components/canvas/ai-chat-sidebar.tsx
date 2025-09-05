@@ -47,6 +47,7 @@ import {
   Edit,
   MessageCircle,
   Pencil,
+  Play,
   Plus,
   Sparkles,
   User,
@@ -806,6 +807,16 @@ const AiChatSidebar: React.FC<AiChatSidebarProps> = ({
           errorData.message || 'You have reached your AI usage limit.'
         );
       }
+
+      if (response.status === 503) {
+        // Handle service unavailable errors (missing API key)
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(
+          errorData.message ||
+            'AI service is temporarily unavailable. Please try again later.'
+        );
+      }
+
       throw new Error(`HTTP error! status: ${response.status}`);
     }
 
@@ -994,6 +1005,71 @@ const AiChatSidebar: React.FC<AiChatSidebarProps> = ({
     return <MarkdownRenderer content={text} />;
   };
 
+  const handleAnimateFlowchart = async () => {
+    if (!excalidrawAPI || !isAPIReady) {
+      toast({
+        title: 'Canvas not ready',
+        description: 'Please wait for the canvas to load before animating.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    try {
+      // Get current canvas data
+      const elements = excalidrawAPI.getSceneElements();
+      const appState = excalidrawAPI.getAppState();
+      const files = excalidrawAPI.getFiles();
+
+      if (!elements || elements.length === 0) {
+        toast({
+          title: 'No content to animate',
+          description: 'Please create or generate a flowchart first.',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      // Prepare data for animation
+      const { collaborators, ...cleanAppState } = appState;
+      const animationData = {
+        type: 'excalidraw',
+        version: 2,
+        source: 'https://excalidraw.com',
+        elements,
+        appState: cleanAppState,
+        files,
+      };
+
+      // Store data in localStorage with unique key
+      const animationKey = `flowchart-animation-${Date.now()}`;
+      console.log('Storing animation data:', {
+        key: animationKey,
+        elements: elements.length,
+        appState: Object.keys(cleanAppState),
+        files: Object.keys(files).length,
+        dataLength: JSON.stringify(animationData).length,
+      });
+      localStorage.setItem(animationKey, JSON.stringify(animationData));
+
+      // Open animation in new tab with key reference
+      const animationUrl = `/animate?key=${animationKey}`;
+      window.open(animationUrl, '_blank', 'width=1200,height=800');
+
+      toast({
+        title: 'Animation opened',
+        description: 'Flowchart animation opened in a new tab.',
+      });
+    } catch (error) {
+      console.error('Error preparing animation:', error);
+      toast({
+        title: 'Animation failed',
+        description: 'Failed to prepare flowchart for animation.',
+        variant: 'destructive',
+      });
+    }
+  };
+
   const renderMessageContent = (message: Message) => {
     if (message.error) {
       return (
@@ -1030,7 +1106,20 @@ const AiChatSidebar: React.FC<AiChatSidebarProps> = ({
                 </div>
               ))}
         </div>
-        {/* Flowchart is automatically added to canvas, no need for manual button */}
+        {/* Animation button for flowchart messages */}
+        {message.isFlowchart && (
+          <div className="mt-3">
+            <Button
+              onClick={handleAnimateFlowchart}
+              size="sm"
+              variant="outline"
+              className="h-8 px-3 flex items-center gap-2 text-blue-600 hover:text-blue-700 border-blue-200 hover:border-blue-300"
+            >
+              <Play className="h-3 w-3" />
+              <span className="text-xs">Animate Flowchart</span>
+            </Button>
+          </div>
+        )}
       </div>
     );
   };

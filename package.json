@@ -1,5 +1,5 @@
 {
-  "name": "mksaas-template",
+  "name": "infogiph",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -24,7 +24,8 @@
     "migrate-assets": "node scripts/migrate-assets.js",
     "update-asset-paths": "node scripts/update-asset-paths.js",
     "test-cdn-resources": "node scripts/test-cdn-resources.js",
-    "test-new-images": "node scripts/test-new-images.js"
+    "test-new-images": "node scripts/test-new-images.js",
+    "init-supabase": "tsx scripts/init-supabase.ts"
   },
   "dependencies": {
     "@ai-sdk/openai": "^1.1.13",
@@ -79,6 +80,7 @@
     "@react-email/components": "0.0.33",
     "@react-email/render": "1.0.5",
     "@stripe/stripe-js": "^5.6.0",
+    "@supabase/supabase-js": "^2.57.2",
     "@tabler/icons-react": "^3.31.0",
     "@tanstack/react-table": "^8.21.2",
     "@types/canvas-confetti": "^1.9.0",
@@ -98,6 +100,7 @@
     "dotted-map": "^2.2.3",
     "drizzle-orm": "^0.39.3",
     "embla-carousel-react": "^8.5.2",
+    "excalidraw-animate": "^0.7.1",
     "framer-motion": "^12.4.7",
     "fumadocs-core": "^15.1.2",
     "fumadocs-ui": "^15.1.2",

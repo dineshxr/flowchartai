@@ -55,9 +55,9 @@ export function GuestUsageIndicator({ className }: GuestUsageIndicatorProps) {
                 </div>
               )}
               <Button size="sm" asChild className="flex items-center gap-1">
-                <LocaleLink href="/auth/register">
+                <LocaleLink href="/auth/login">
                   <UserPlus className="h-3 w-3" />
-                  Sign Up
+                  Sign In
                 </LocaleLink>
               </Button>
             </div>
@@ -67,14 +67,14 @@ export function GuestUsageIndicator({ className }: GuestUsageIndicatorProps) {
           {!canUseAI && (
             <div className="p-3 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-800">
               <p className="text-sm text-amber-800 dark:text-amber-200">
-                You've used your free AI request. Sign up to get more requests!
+                You've used your free AI request. Sign in to get more requests!
               </p>
             </div>
           )}
 
           {/* Bottom explanation text */}
           <div className="text-xs text-muted-foreground text-center pt-2 border-t">
-            Sign up for more requests
+            Sign in for more requests
           </div>
         </div>
       </CardContent>

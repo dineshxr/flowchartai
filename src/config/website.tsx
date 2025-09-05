@@ -23,8 +23,8 @@ export const websiteConfig: WebsiteConfig = {
       logoDark: '/logo.png',
     },
     social: {
-      github: 'https://github.com/tanchaowen84/flowchartai',
-      twitter: 'https://x.com/tanchaowen84',
+      github: 'https://github.com/dinesh/infogiph',
+      twitter: 'https://x.com/infogiph',
       discord: 'https://discord.gg/Pfdyhqqu',
     },
   },
@@ -67,15 +67,15 @@ export const websiteConfig: WebsiteConfig = {
   },
   mail: {
     provider: 'resend',
-    fromEmail: 'FlowChart AI <noreply@flowchartai.org>',
-    supportEmail: 'FlowChart AI Support <support@flowchartai.org>',
+    fromEmail: 'Infogiph <noreply@infogiph.com>',
+    supportEmail: 'Infogiph Support <support@infogiph.com>',
   },
   newsletter: {
     provider: 'resend',
     autoSubscribeAfterSignUp: true,
   },
   storage: {
-    provider: 's3',
+    provider: 'supabase',
   },
   payment: {
     provider: 'creem',

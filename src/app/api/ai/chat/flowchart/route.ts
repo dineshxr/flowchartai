@@ -12,7 +12,7 @@ function createOpenAIClient() {
     defaultHeaders: {
       'HTTP-Referer':
         process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000',
-      'X-Title': 'FlowChart AI',
+      'X-Title': 'Infogiph',
     },
   });
 }
@@ -63,30 +63,30 @@ const canvasAnalysisTool = {
 
 // 系统提示词
 function generateSystemPrompt() {
-  return `You are FlowChart AI, an expert at creating flowcharts using Mermaid syntax.
+  return `You are Infogiph AI, an expert at creating infographics and diagrams using Mermaid syntax.
 
 AVAILABLE TOOLS:
-- generate_flowchart: Create or update flowcharts using Mermaid syntax
+- generate_flowchart: Create or update infographics and diagrams using Mermaid syntax
 - get_canvas_state: Get detailed analysis of current canvas elements (use this to understand what's currently drawn)
 
 CORE RULES:
-- If user asks to create, generate, draw, make, design, or modify a flowchart/diagram → use generate_flowchart tool
+- If user asks to create, generate, draw, make, design, or modify an infographic/diagram → use generate_flowchart tool
 - If you need to understand the current canvas state → use get_canvas_state tool first
 - If user asks to analyze, describe, or explain the canvas → use get_canvas_state tool and provide natural, conversational analysis
 - For general questions or chat → respond normally with text
 - Always generate valid Mermaid syntax when using the flowchart tool
-- Keep flowcharts clear, well-structured, and easy to understand
+- Keep diagrams clear, well-structured, and easy to understand
 
 IMPORTANT RESPONSE GUIDELINES:
-- When generating flowcharts, DO NOT show or mention Mermaid code in your response
-- Focus on explaining what the flowchart represents and its purpose
-- The flowchart will be automatically added to the canvas - you don't need to tell users how to add it
+- When generating diagrams, DO NOT show or mention Mermaid code in your response
+- Focus on explaining what the diagram represents and its purpose
+- The diagram will be automatically added to the canvas - you don't need to tell users how to add it
 - Provide natural, conversational explanations about the process or workflow you created
 - Ask users if they want any modifications or improvements
 
-FLOWCHART GENERATION MODES:
-- **replace**: Clear existing AI elements and create new flowchart (when starting fresh)
-- **extend**: Add to or modify existing flowchart (when building on current content)
+DIAGRAM GENERATION MODES:
+- **replace**: Clear existing AI elements and create new diagram (when starting fresh)
+- **extend**: Add to or modify existing diagram (when building on current content)
 
 Be helpful, clear, and educational in all your responses!`;
 }
@@ -96,6 +96,20 @@ export async function POST(req: Request) {
   let isGuestUser = false;
 
   try {
+    // 0. Check if OPENROUTER_API_KEY is configured
+    if (!process.env.OPENROUTER_API_KEY) {
+      return new Response(
+        JSON.stringify({
+          error: 'AI service not configured',
+          message:
+            'AI functionality is currently unavailable. Please configure OPENROUTER_API_KEY in environment variables.',
+        }),
+        {
+          status: 503,
+          headers: { 'Content-Type': 'application/json' },
+        }
+      );
+    }
     // 1. 身份验证 - 支持guest用户
     const session = await auth.api.getSession({
       headers: await headers(),
@@ -104,45 +118,11 @@ export async function POST(req: Request) {
     if (session?.user?.id) {
       userId = session.user.id;
     } else {
-      // Guest user - check if they can use AI
+      // Guest user - no limits for now
       isGuestUser = true;
-      const guestCheck = await canGuestUseAI(req);
-
-      if (!guestCheck.canUse) {
-        return new Response(
-          JSON.stringify({
-            error: 'Guest usage limit exceeded',
-            message:
-              guestCheck.reason ||
-              'Guest users can only use AI once per month. Please sign up for more requests.',
-            isGuest: true,
-            lastUsed: guestCheck.lastUsed,
-          }),
-          {
-            status: 429,
-            headers: { 'Content-Type': 'application/json' },
-          }
-        );
-      }
     }
 
-    // 2. 检查AI使用量限制 (仅对登录用户)
-    if (!isGuestUser) {
-      const usageCheck = await canUserUseAI(userId!);
-      if (!usageCheck.canUse) {
-        return new Response(
-          JSON.stringify({
-            error: 'Usage limit exceeded',
-            message: `You have reached your AI usage limit. ${usageCheck.remainingUsage} of ${usageCheck.limit} requests remaining.`,
-            usageInfo: usageCheck,
-          }),
-          {
-            status: 429,
-            headers: { 'Content-Type': 'application/json' },
-          }
-        );
-      }
-    }
+    // Skip all AI usage limit checks for now
 
     // 3. 验证请求数据
     const body = await req.json();
@@ -184,19 +164,7 @@ export async function POST(req: Request) {
 
     console.log('✅ OpenRouter API call successful, starting stream');
 
-    // 6. 记录AI使用情况
-    if (isGuestUser) {
-      await recordGuestAIUsage(req, 'flowchart_generation', true);
-    } else {
-      await recordAIUsage(userId!, 'flowchart_generation', {
-        tokensUsed: 0,
-        model: model,
-        success: true,
-        metadata: {
-          messageCount: messages.length,
-        },
-      });
-    }
+    // Skip AI usage recording for now
 
     // 7. 创建流式响应
     const encoder = new TextEncoder();
@@ -288,20 +256,9 @@ export async function POST(req: Request) {
           // 发送结束信号
           controller.enqueue(encoder.encode('data: [DONE]\n\n'));
         } catch (error: any) {
-          console.error('FlowChart API Error:', error);
+          console.error('Infogiph API Error:', error);
 
-          // Record failed usage
-          if (isGuestUser) {
-            await recordGuestAIUsage(req, 'flowchart_generation', false);
-          } else if (userId) {
-            await recordAIUsage(userId, 'flowchart_generation', {
-              tokensUsed: 0,
-              model: model,
-              success: false,
-              errorMessage: error.message,
-              metadata: { messageCount: messages.length },
-            });
-          }
+          // Skip failed usage recording for now
 
           const errorData = JSON.stringify({
             type: 'error',
@@ -324,28 +281,9 @@ export async function POST(req: Request) {
       },
     });
   } catch (error: any) {
-    console.error('FlowChart API Error:', error);
+    console.error('Infogiph API Error:', error);
 
-    // Record failed usage if we have userId or is guest
-    if (isGuestUser) {
-      try {
-        await recordGuestAIUsage(req, 'flowchart_generation', false);
-      } catch (recordError) {
-        console.error('Failed to record guest AI usage:', recordError);
-      }
-    } else if (userId) {
-      try {
-        await recordAIUsage(userId, 'flowchart_generation', {
-          tokensUsed: 0,
-          model: 'google/gemini-2.5-flash',
-          success: false,
-          errorMessage: error.message,
-          metadata: {},
-        });
-      } catch (recordError) {
-        console.error('Failed to record AI usage:', recordError);
-      }
-    }
+    // Skip error usage recording for now
 
     return new Response(
       JSON.stringify({
