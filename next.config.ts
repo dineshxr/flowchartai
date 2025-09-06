@@ -13,7 +13,7 @@ const nextConfig: NextConfig = {
     removeConsole: process.env.NODE_ENV === 'production',
   },
 
-  // Add CORS headers
+  // Add CORS headers and API route headers
   async headers() {
     return [
       {
@@ -32,6 +32,44 @@ const nextConfig: NextConfig = {
             value: 'Content-Type, Authorization',
           },
         ],
+      },
+      {
+        source: '/api/:path*',
+        headers: [
+          {
+            key: 'Access-Control-Allow-Origin',
+            value: 'https://www.infogiph.com',
+          },
+          {
+            key: 'Access-Control-Allow-Methods',
+            value: 'GET, POST, PUT, DELETE, OPTIONS',
+          },
+          {
+            key: 'Access-Control-Allow-Headers',
+            value: 'Content-Type, Authorization, X-Requested-With',
+          },
+          {
+            key: 'Access-Control-Allow-Credentials',
+            value: 'true',
+          },
+        ],
+      },
+    ];
+  },
+
+  // Add redirects for proper domain handling
+  async redirects() {
+    return [
+      {
+        source: '/:path*',
+        has: [
+          {
+            type: 'host',
+            value: 'flowchartai-wine.vercel.app',
+          },
+        ],
+        destination: 'https://www.infogiph.com/:path*',
+        permanent: true,
       },
     ];
   },
