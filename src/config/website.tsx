@@ -75,7 +75,7 @@ export const websiteConfig: WebsiteConfig = {
     autoSubscribeAfterSignUp: true,
   },
   storage: {
-    provider: 'supabase',
+    provider: 's3',
   },
   payment: {
     provider: 'creem',

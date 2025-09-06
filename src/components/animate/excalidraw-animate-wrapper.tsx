@@ -42,7 +42,7 @@ const ExcalidrawAnimateWrapper: React.FC<ExcalidrawAnimateWrapperProps> = ({
           console.log('First few elements:', parsedData.elements.slice(0, 3));
           console.log(
             'Elements types:',
-            parsedData.elements.map((el) => el.type)
+            parsedData.elements.map((el: any) => el.type)
           );
         }
 

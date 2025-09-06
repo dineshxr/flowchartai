@@ -184,10 +184,10 @@ export function UserDetailViewer({ user }: UserDetailViewerProps) {
 
             {/* information */}
             <div className="text-muted-foreground">
-              {t('joined')}: {formatDate(user.createdAt)}
+              {t('joined')}: {user.createdAt ? formatDate(user.createdAt) : 'N/A'}
             </div>
             <div className="text-muted-foreground">
-              {t('updated')}: {formatDate(user.updatedAt)}
+              {t('updated')}: {user.updatedAt ? formatDate(user.updatedAt) : 'N/A'}
             </div>
           </div>
           <Separator />
@@ -246,6 +246,14 @@ export function UserDetailViewer({ user }: UserDetailViewerProps) {
                         'justify-start text-left font-normal cursor-pointer',
                         !banExpiresAt && 'text-muted-foreground'
                       )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {banExpiresAt ? formatDate(banExpiresAt) : t('ban.selectDate')}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0">
+                    <Calendar
+                      mode="single"
                       selected={banExpiresAt}
                       onSelect={setBanExpiresAt}
                       initialFocus

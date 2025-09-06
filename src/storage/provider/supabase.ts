@@ -126,9 +126,7 @@ export class SupabaseProvider implements StorageProvider {
       // Create a signed URL for upload
       const { data, error } = await supabase.storage
         .from(this.bucketName)
-        .createSignedUploadUrl(filePath, {
-          expiresIn,
-        });
+        .createSignedUploadUrl(filePath);
 
       if (error) {
         throw new Error(`Failed to create signed upload URL: ${error.message}`);
