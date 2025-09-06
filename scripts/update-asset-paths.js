@@ -14,7 +14,7 @@ const glob = require('glob');
 
 // 配置
 const CDN_BASE_URL =
-  process.env.STORAGE_PUBLIC_URL || 'https://cdn.infogiph.com';
+  process.env.STORAGE_PUBLIC_URL || 'https://cdn.flowchartai.org';
 const CDN_STATIC_PATH = `${CDN_BASE_URL}/static`;
 
 // 需要处理的文件类型

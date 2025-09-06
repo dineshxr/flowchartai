@@ -1,7 +1,8 @@
 import { getDb } from '@/db';
 import { flowcharts } from '@/db/schema';
-import { auth } from '@/lib/auth';
+import { authOptions } from '@/lib/auth';
 import { and, eq } from 'drizzle-orm';
+import { getServerSession } from 'next-auth';
 import { headers } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
@@ -20,9 +21,7 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
-    const session = await auth.api.getSession({
-      headers: await headers(),
-    });
+    const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -67,9 +66,7 @@ export async function PUT(
 ) {
   try {
     const { id } = await params;
-    const session = await auth.api.getSession({
-      headers: await headers(),
-    });
+    const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -137,9 +134,7 @@ export async function DELETE(
 ) {
   try {
     const { id } = await params;
-    const session = await auth.api.getSession({
-      headers: await headers(),
-    });
+    const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

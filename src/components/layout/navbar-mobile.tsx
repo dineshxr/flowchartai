@@ -37,7 +37,8 @@ export function NavbarMobile({
   const [open, setOpen] = React.useState<boolean>(false);
   const localePathname = useLocalePathname();
   const [mounted, setMounted] = useState(false);
-  const { data: session, isPending } = authClient.useSession();
+  const { data: session, status } = authClient.useSession();
+  const isPending = status === 'loading';
   const currentUser = session?.user;
 
   useEffect(() => {

@@ -1,7 +1,7 @@
-import { canUserUseAI, recordAIUsage } from '@/lib/ai-usage';
-import { auth } from '@/lib/auth';
+import { canUserUseAI, recordAIUsage } from '@/lib/ai-usage-supabase';
+import { authOptions } from '@/lib/auth';
 import { canGuestUseAI, recordGuestAIUsage } from '@/lib/guest-usage';
-import { headers } from 'next/headers';
+import { getServerSession } from 'next-auth';
 import OpenAI from 'openai';
 
 // OpenRouter 客户端配置
@@ -111,9 +111,7 @@ export async function POST(req: Request) {
       );
     }
     // 1. 身份验证 - 支持guest用户
-    const session = await auth.api.getSession({
-      headers: await headers(),
-    });
+    const session = await getServerSession(authOptions);
 
     if (session?.user?.id) {
       userId = session.user.id;

@@ -10,15 +10,7 @@ import { useRouter } from 'next/navigation';
 import { useCallback, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 
-export function FlowchartMakerHero({
-  title = 'AI Flowchart Maker',
-  description = 'Create professional flowcharts instantly with AI. Just describe your process and watch it come to life.',
-  placeholder = 'Describe the flowchart you want to create...',
-}: {
-  title?: string;
-  description?: string;
-  placeholder?: string;
-}) {
+export function FlowchartMakerHero() {
   const router = useRouter();
   const currentUser = useCurrentUser();
 
@@ -152,12 +144,13 @@ export function FlowchartMakerHero({
               <div className="text-center sm:mx-auto lg:mr-auto lg:mt-0">
                 {/* title */}
                 <h1 className="mt-8 text-balance text-5xl font-bricolage-grotesque lg:mt-16 xl:text-[5rem]">
-                  {title}
+                  AI Flowchart Maker
                 </h1>
 
                 {/* description */}
                 <p className="mx-auto mt-8 max-w-4xl text-balance text-lg text-muted-foreground">
-                  {description}
+                  Create professional flowcharts instantly with AI. Just
+                  describe your process and watch it come to life.
                 </p>
 
                 {/* input form */}
@@ -169,7 +162,7 @@ export function FlowchartMakerHero({
                         onChange={handleInputChange}
                         onFocus={handleFocus}
                         onBlur={handleBlur}
-                        placeholder={placeholder}
+                        placeholder="Describe the flowchart you want to create..."
                         className={inputClassName}
                         disabled={isLoading}
                       />

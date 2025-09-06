@@ -53,27 +53,20 @@ export const GoogleOneTap = ({
     try {
       console.log('🎉 Google One Tap credential received, triggering OAuth...');
 
-      // Trigger Better Auth's Google OAuth flow
-      await authClient.signIn.social(
-        {
-          provider: 'google',
-          callbackURL: callbackUrl,
-          errorCallbackURL: Routes.AuthError,
-        },
-        {
-          onRequest: () => {
-            console.log('Google OAuth flow initiated from One Tap');
-          },
-          onSuccess: () => {
-            console.log('Google login successful');
-            onSuccess?.();
-          },
-          onError: (ctx) => {
-            console.error('Google login error:', ctx.error);
-            onError?.(ctx.error);
-          },
+      // Trigger NextAuth.js Google OAuth flow
+      try {
+        const result = await authClient.signIn.social({ provider: 'google' });
+        if (result?.error) {
+          console.error('Google login error:', result.error);
+          onError?.(result.error);
+        } else {
+          console.log('Google login successful');
+          onSuccess?.();
         }
-      );
+      } catch (error) {
+        console.error('Google login error:', error);
+        onError?.(error);
+      }
     } catch (error) {
       console.error('Error processing Google One Tap:', error);
       onError?.(error);

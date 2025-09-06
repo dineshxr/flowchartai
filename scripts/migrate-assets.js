@@ -116,15 +116,15 @@ async function uploadFile(s3Client, file) {
 function getCacheControl(filePath) {
   if (filePath.includes('favicon') || filePath.includes('logo')) {
     return 'public, max-age=86400'; // 1天
-  }
-  if (
+  } else if (
     filePath.endsWith('.svg') ||
     filePath.endsWith('.png') ||
     filePath.endsWith('.jpg')
   ) {
     return 'public, max-age=2592000'; // 30天
+  } else {
+    return 'public, max-age=3600'; // 1小时
   }
-  return 'public, max-age=3600'; // 1小时
 }
 
 /**
@@ -135,7 +135,9 @@ function formatSize(bytes) {
   const k = 1024;
   const sizes = ['B', 'KB', 'MB', 'GB'];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return Number.parseFloat((bytes / k ** i).toFixed(2)) + ' ' + sizes[i];
+  return (
+    Number.parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
+  );
 }
 
 /**
@@ -211,9 +213,9 @@ async function main() {
     if (successCount > 0) {
       console.log('\n🎉 迁移完成！');
       console.log(
-        '💡 现在可以通过 https://cdn.infogiph.com/static/ 访问这些文件'
+        `💡 现在可以通过 https://cdn.flowchartai.org/static/ 访问这些文件`
       );
-      console.log('💡 例如: https://cdn.infogiph.com/static/logo.png');
+      console.log(`💡 例如: https://cdn.flowchartai.org/static/logo.png`);
     }
   } catch (error) {
     console.error('❌ 迁移过程中出现错误:', error.message);
