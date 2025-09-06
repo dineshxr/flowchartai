@@ -5,4 +5,11 @@ export type Session = NextAuthSession;
 
 export type User = NextAuthUser & {
   id: string;
+  role?: string;
+  emailVerified?: Date | null;
+  banned?: boolean;
+  banReason?: string | null;
+  banExpires?: Date | null;
+  createdAt?: Date;
+  updatedAt?: Date;
 };

@@ -123,12 +123,12 @@ export function UserDetailViewer({ user }: UserDetailViewerProps) {
         >
           <div className="flex items-center gap-2 pl-3">
             <UserAvatar
-              name={user.name}
-              image={user.image}
+              name={user.name || ''}
+              image={user.image || ''}
               className="size-8 border"
             />
             <span className="hover:underline hover:underline-offset-4">
-              {user.name}
+              {user.name || 'User'}
             </span>
           </div>
         </Button>
@@ -137,13 +137,13 @@ export function UserDetailViewer({ user }: UserDetailViewerProps) {
         <DrawerHeader className="gap-1">
           <div className="flex items-center gap-4">
             <UserAvatar
-              name={user.name}
-              image={user.image}
+              name={user.name || ''}
+              image={user.image || ''}
               className="size-12 border"
             />
             <div>
-              <DrawerTitle>{user.name}</DrawerTitle>
-              <DrawerDescription>{user.email}</DrawerDescription>
+              <DrawerTitle>{user.name || 'User'}</DrawerTitle>
+              <DrawerDescription>{user.email || ''}</DrawerDescription>
             </div>
           </div>
         </DrawerHeader>
@@ -246,18 +246,6 @@ export function UserDetailViewer({ user }: UserDetailViewerProps) {
                         'justify-start text-left font-normal cursor-pointer',
                         !banExpiresAt && 'text-muted-foreground'
                       )}
-                    >
-                      <CalendarIcon />
-                      {banExpiresAt ? (
-                        formatDate(banExpiresAt)
-                      ) : (
-                        <span>{t('ban.selectDate')}</span>
-                      )}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar
-                      mode="single"
                       selected={banExpiresAt}
                       onSelect={setBanExpiresAt}
                       initialFocus
