@@ -1,120 +1,67 @@
 import { websiteConfig } from '@/config/website';
-import { getDb } from '@/db/index';
 import { defaultMessages } from '@/i18n/messages';
 import { LOCALE_COOKIE_NAME, routing } from '@/i18n/routing';
-import { sendEmail } from '@/mail';
 import { subscribe } from '@/newsletter';
-import { betterAuth } from 'better-auth';
-import { drizzleAdapter } from 'better-auth/adapters/drizzle';
-import { admin, oneTap } from 'better-auth/plugins';
 import { parse as parseCookies } from 'cookie';
+import type { NextAuthOptions } from 'next-auth';
+import GoogleProvider from 'next-auth/providers/google';
 import type { Locale } from 'next-intl';
-import { getBaseUrl, getUrlWithLocaleInCallbackUrl } from './urls/urls';
+import { getBaseUrl } from './urls/urls';
 
 /**
- * Better Auth configuration
+ * NextAuth.js configuration
  *
  * docs:
- * https://mksaas.com/docs/auth
- * https://www.better-auth.com/docs/reference/options
+ * https://next-auth.js.org/configuration/options
  */
-export const auth = betterAuth({
-  baseURL: getBaseUrl(),
-  appName: defaultMessages.Metadata.name,
-  database: drizzleAdapter(await getDb(), {
-    provider: 'pg', // or "mysql", "sqlite"
-  }),
-  session: {
-    // https://www.better-auth.com/docs/concepts/session-management#cookie-cache
-    cookieCache: {
-      enabled: true,
-      maxAge: 60 * 60, // Cache duration in seconds
-    },
-    // https://www.better-auth.com/docs/concepts/session-management#session-expiration
-    expiresIn: 60 * 60 * 24 * 7,
-    updateAge: 60 * 60 * 24,
-    // https://www.better-auth.com/docs/concepts/session-management#session-freshness
-    // https://www.better-auth.com/docs/concepts/users-accounts#authentication-requirements
-    // disable freshness check for user deletion
-    freshAge: 0 /* 60 * 60 * 24 */,
-  },
-  // Email and password authentication disabled - Google only
-  emailAndPassword: {
-    enabled: false,
-  },
-  socialProviders: {
-    // Google OAuth only
-    google: {
+export const authOptions: NextAuthOptions = {
+  providers: [
+    GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID!,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
-    },
-  },
-  account: {
-    // https://www.better-auth.com/docs/concepts/users-accounts#account-linking
-    accountLinking: {
-      enabled: true,
-      trustedProviders: ['google'],
-    },
-  },
-  user: {
-    // https://www.better-auth.com/docs/concepts/database#extending-core-schema
-    additionalFields: {
-      customerId: {
-        type: 'string',
-        required: false,
-      },
-    },
-    // https://www.better-auth.com/docs/concepts/users-accounts#delete-user
-    deleteUser: {
-      enabled: true,
-    },
-  },
-  databaseHooks: {
-    // https://www.better-auth.com/docs/concepts/database#database-hooks
-    user: {
-      create: {
-        after: async (user) => {
-          // Auto subscribe user to newsletter after sign up if enabled in website config
-          if (user.email && websiteConfig.newsletter.autoSubscribeAfterSignUp) {
-            try {
-              const subscribed = await subscribe(user.email);
-              if (!subscribed) {
-                console.error(
-                  `Failed to subscribe user ${user.email} to newsletter`
-                );
-              } else {
-                console.log(`User ${user.email} subscribed to newsletter`);
-              }
-            } catch (error) {
-              console.error('Newsletter subscription error:', error);
-            }
-          }
-        },
-      },
-    },
-  },
-  plugins: [
-    // https://www.better-auth.com/docs/plugins/admin
-    // support user management, ban/unban user, manage user roles, etc.
-    admin({
-      // https://www.better-auth.com/docs/plugins/admin#default-ban-reason
-      // defaultBanReason: 'Spamming',
-      defaultBanExpiresIn: undefined,
-      bannedUserMessage:
-        'You have been banned from this application. Please contact support if you believe this is an error.',
     }),
-    // https://www.better-auth.com/docs/plugins/one-tap
-    // Google One Tap integration
-    oneTap(),
   ],
-  onAPIError: {
-    // https://www.better-auth.com/docs/reference/options#onapierror
-    errorURL: '/auth/error',
-    onError: (error, ctx) => {
-      console.error('auth error:', error);
+  pages: {
+    signIn: '/auth/signin',
+    error: '/auth/error',
+  },
+  session: {
+    strategy: 'jwt',
+    maxAge: 60 * 60 * 24 * 7, // 7 days
+  },
+  callbacks: {
+    async signIn({ user, account, profile }) {
+      // Auto subscribe user to newsletter after sign up if enabled in website config
+      if (user.email && websiteConfig.newsletter.autoSubscribeAfterSignUp) {
+        try {
+          const subscribed = await subscribe(user.email);
+          if (!subscribed) {
+            console.error(
+              `Failed to subscribe user ${user.email} to newsletter`
+            );
+          } else {
+            console.log(`User ${user.email} subscribed to newsletter`);
+          }
+        } catch (error) {
+          console.error('Newsletter subscription error:', error);
+        }
+      }
+      return true;
+    },
+    async jwt({ token, user, account }) {
+      if (user) {
+        token.id = user.id;
+      }
+      return token;
+    },
+    async session({ session, token }) {
+      if (token) {
+        session.user.id = token.id as string;
+      }
+      return session;
     },
   },
-});
+};
 
 /**
  * Gets the locale from a request by parsing the cookies

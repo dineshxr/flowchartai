@@ -1,6 +1,8 @@
-import type { auth } from './auth';
+import type { Session as NextAuthSession, User as NextAuthUser } from 'next-auth';
 
-// https://www.better-auth.com/docs/concepts/typescript#additional-fields
-export type Session = typeof auth.$Infer.Session;
+// NextAuth.js types
+export type Session = NextAuthSession;
 
-export type User = typeof auth.$Infer.Session.user;
+export type User = NextAuthUser & {
+  id: string;
+};
