@@ -44,7 +44,7 @@ export default async function LocaleLayout({
   return (
     <html suppressHydrationWarning lang={locale}>
       <head>
-        <AdSense />
+        {/* <AdSense /> */}
         <AffonsoScript />
         <PromotekitScript />
       </head>
