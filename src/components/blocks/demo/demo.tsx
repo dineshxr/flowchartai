@@ -27,10 +27,10 @@ export default function DemoSection() {
                   className="size-full object-cover object-center"
                   controls
                   preload="metadata"
-                  poster="https://cdn.infogiph.com/static/demo-thumbnail.png"
+                  poster="/images/demo-thumbnail.png"
                 >
                   <source
-                    src="https://cdn.infogiph.com/static/demo.mp4"
+                    src="/videos/demo.mp4"
                     type="video/mp4"
                   />
                   {/* <track
