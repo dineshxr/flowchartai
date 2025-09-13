@@ -153,7 +153,7 @@ export function FlowchartMakerHero({
 
               <div className="text-center sm:mx-auto lg:mr-auto lg:mt-0">
                 {/* title */}
-                <h1 className="mt-8 text-balance text-5xl font-bricolage-grotesque lg:mt-16 xl:text-[5rem]">
+                <h1 className="mt-8 text-balance text-5xl font-sans lg:mt-16 xl:text-[5rem]">
                   {title}
                 </h1>
 

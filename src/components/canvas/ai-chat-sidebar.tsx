@@ -575,11 +575,11 @@ const AiChatSidebar: React.FC<AiChatSidebarProps> = ({
           'New elements have been added to your existing flowchart.';
       } else {
         toastTitle =
-          aiElementsCount > 0 ? 'Flowchart updated!' : 'Flowchart added!';
+          aiElementsCount > 0 ? 'Flowchart updated!' : 'Flowchart generated!';
         toastDescription =
           aiElementsCount > 0
-            ? 'Previous AI flowchart replaced with updated version.'
-            : 'Your AI-generated flowchart has been added to the canvas.';
+            ? 'Previous AI flowchart replaced with updated version. You can make changes by describing what you want to modify.'
+            : 'Your flowchart has been generated! You can make changes by simply describing what you want to modify.';
       }
 
       toast({
@@ -1146,7 +1146,7 @@ const AiChatSidebar: React.FC<AiChatSidebarProps> = ({
               <Edit className="h-4 w-4" />
             </Button>
             <h2 className="text-base font-medium text-gray-900">
-              FlowChart AI
+              Infogiph
             </h2>
             {isLoading && (
               <div className="flex items-center gap-1">
