@@ -1,3 +1,6 @@
+'use client';
+
+import { useConsent } from '@/hooks/use-consent';
 import Script from 'next/script';
 
 /**
@@ -5,6 +8,12 @@ import Script from 'next/script';
  * Loads the AdSense script for ad serving and site verification
  */
 export function AdSense() {
+  const { consentGranted, ready } = useConsent();
+
+  if (!ready || !consentGranted) {
+    return null;
+  }
+
   return (
     <Script
       async
