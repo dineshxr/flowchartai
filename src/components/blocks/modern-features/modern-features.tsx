@@ -1,72 +1,78 @@
 'use client';
 
-import { motion, useScroll, useTransform, useInView } from 'framer-motion';
-import { useRef } from 'react';
-import { 
-  Zap, 
-  Sparkles, 
-  Download, 
-  Share2, 
-  Palette, 
-  Code, 
-  Users, 
-  Clock,
-  ArrowRight
-} from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { motion, useInView, useScroll, useTransform } from 'framer-motion';
+import {
+  ArrowRight,
+  Clock,
+  Code,
+  Download,
+  Palette,
+  Share2,
+  Sparkles,
+  Users,
+  Zap,
+} from 'lucide-react';
+import { useRef } from 'react';
 
 const features = [
   {
     icon: Zap,
-    title: "Lightning Fast Generation",
-    description: "Create complex flowcharts in seconds with our advanced AI engine. No more hours of manual drawing.",
-    color: "from-yellow-400 to-orange-500",
-    delay: 0
+    title: 'Lightning Fast Generation',
+    description:
+      'Create complex flowcharts in seconds with our advanced AI engine. No more hours of manual drawing.',
+    color: 'from-yellow-400 to-orange-500',
+    delay: 0,
   },
   {
     icon: Sparkles,
-    title: "Smart AI Understanding",
-    description: "Our AI comprehends natural language and converts your ideas into professional flowcharts automatically.",
-    color: "from-blue-400 to-purple-500",
-    delay: 0.1
+    title: 'Smart AI Understanding',
+    description:
+      'Our AI comprehends natural language and converts your ideas into professional flowcharts automatically.',
+    color: 'from-blue-400 to-purple-500',
+    delay: 0.1,
   },
   {
     icon: Palette,
-    title: "Beautiful Templates",
-    description: "Choose from dozens of professionally designed templates or create your own custom styles.",
-    color: "from-pink-400 to-red-500",
-    delay: 0.2
+    title: 'Beautiful Templates',
+    description:
+      'Choose from dozens of professionally designed templates or create your own custom styles.',
+    color: 'from-pink-400 to-red-500',
+    delay: 0.2,
   },
   {
     icon: Code,
-    title: "Developer Friendly",
-    description: "Export to multiple formats including SVG, PNG, PDF, and even code documentation.",
-    color: "from-green-400 to-blue-500",
-    delay: 0.3
+    title: 'Developer Friendly',
+    description:
+      'Export to multiple formats including SVG, PNG, PDF, and even code documentation.',
+    color: 'from-green-400 to-blue-500',
+    delay: 0.3,
   },
   {
     icon: Users,
-    title: "Team Collaboration",
-    description: "Share and collaborate with your team in real-time. Comments, suggestions, and live editing.",
-    color: "from-purple-400 to-pink-500",
-    delay: 0.4
+    title: 'Team Collaboration',
+    description:
+      'Share and collaborate with your team in real-time. Comments, suggestions, and live editing.',
+    color: 'from-purple-400 to-pink-500',
+    delay: 0.4,
   },
   {
     icon: Clock,
-    title: "Version History",
-    description: "Never lose your work. Automatic saving and complete version history for all your flowcharts.",
-    color: "from-indigo-400 to-cyan-500",
-    delay: 0.5
-  }
+    title: 'Version History',
+    description:
+      'Never lose your work. Automatic saving and complete version history for all your flowcharts.',
+    color: 'from-indigo-400 to-cyan-500',
+    delay: 0.5,
+  },
 ];
 
 export default function ModernFeaturesSection() {
   const containerRef = useRef<HTMLDivElement>(null);
-  const isInView = useInView(containerRef, { once: true, margin: "-100px" });
+  const isInView = useInView(containerRef, { once: true, margin: '-100px' });
 
   const { scrollYProgress } = useScroll({
     target: containerRef,
-    offset: ["start end", "end start"]
+    offset: ['start end', 'end start'],
   });
 
   const y = useTransform(scrollYProgress, [0, 1], [100, -100]);
@@ -108,10 +114,10 @@ export default function ModernFeaturesSection() {
           <h2 className="text-5xl md:text-6xl font-bold bg-gradient-to-r from-gray-900 via-blue-800 to-purple-800 dark:from-white dark:via-blue-200 dark:to-purple-200 bg-clip-text text-transparent mb-6">
             Everything you need
           </h2>
-          
+
           <p className="text-xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto leading-relaxed">
-            From simple diagrams to complex workflows, our platform provides all the tools 
-            you need to visualize your ideas professionally.
+            From simple diagrams to complex workflows, our platform provides all
+            the tools you need to visualize your ideas professionally.
           </p>
         </motion.div>
 
@@ -128,7 +134,9 @@ export default function ModernFeaturesSection() {
             >
               <div className="relative p-8 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-3xl border border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 transition-all duration-300 h-full">
                 {/* Icon with gradient background */}
-                <div className={`w-16 h-16 rounded-2xl bg-gradient-to-br ${feature.color} p-4 mb-6 group-hover:scale-110 transition-transform duration-300`}>
+                <div
+                  className={`w-16 h-16 rounded-2xl bg-gradient-to-br ${feature.color} p-4 mb-6 group-hover:scale-110 transition-transform duration-300`}
+                >
                   <feature.icon className="w-full h-full text-white" />
                 </div>
 
@@ -136,7 +144,7 @@ export default function ModernFeaturesSection() {
                 <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-4 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors duration-300">
                   {feature.title}
                 </h3>
-                
+
                 <p className="text-gray-600 dark:text-gray-300 leading-relaxed mb-6">
                   {feature.description}
                 </p>

@@ -1,14 +1,14 @@
 'use client';
 
-import { motion, useScroll, useTransform } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useCurrentUser } from '@/hooks/use-current-user';
 import { cn } from '@/lib/utils';
-import { Send, Sparkles, ArrowRight, Zap } from 'lucide-react';
+import { motion, useScroll, useTransform } from 'framer-motion';
+import { ArrowRight, Send, Sparkles, Zap } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { useRouter } from 'next/navigation';
-import { useCallback, useState, useRef } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { toast } from 'sonner';
 
 export default function ModernHeroSection() {
@@ -23,7 +23,7 @@ export default function ModernHeroSection() {
 
   const { scrollYProgress } = useScroll({
     target: containerRef,
-    offset: ["start start", "end start"]
+    offset: ['start start', 'end start'],
   });
 
   const y = useTransform(scrollYProgress, [0, 1], [0, -50]);
@@ -97,8 +97,8 @@ export default function ModernHeroSection() {
           }}
           transition={{
             duration: 20,
-            repeat: Infinity,
-            ease: "easeInOut"
+            repeat: Number.POSITIVE_INFINITY,
+            ease: 'easeInOut',
           }}
         />
         <motion.div
@@ -110,8 +110,8 @@ export default function ModernHeroSection() {
           }}
           transition={{
             duration: 25,
-            repeat: Infinity,
-            ease: "easeInOut"
+            repeat: Number.POSITIVE_INFINITY,
+            ease: 'easeInOut',
           }}
         />
         <motion.div
@@ -123,8 +123,8 @@ export default function ModernHeroSection() {
           }}
           transition={{
             duration: 18,
-            repeat: Infinity,
-            ease: "easeInOut"
+            repeat: Number.POSITIVE_INFINITY,
+            ease: 'easeInOut',
           }}
         />
       </div>
@@ -164,8 +164,8 @@ export default function ModernHeroSection() {
             transition={{ duration: 0.8, delay: 0.4 }}
             className="mt-8 text-xl md:text-2xl text-gray-600 dark:text-gray-300 max-w-4xl mx-auto leading-relaxed"
           >
-            Transform your ideas into beautiful flowcharts instantly. 
-            Just describe what you want to create, and watch our AI bring it to life.
+            Transform your ideas into beautiful flowcharts instantly. Just
+            describe what you want to create, and watch our AI bring it to life.
           </motion.p>
 
           {/* Input form */}
@@ -184,12 +184,14 @@ export default function ModernHeroSection() {
                   onBlur={() => setIsFocused(false)}
                   placeholder="Describe the process you want to visualize..."
                   className={cn(
-                    "w-full h-16 text-lg px-6 pr-16 rounded-2xl border-2 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm",
-                    "transition-all duration-300 ease-in-out",
-                    "placeholder:text-gray-400 dark:placeholder:text-gray-500",
-                    isFocused && "border-blue-500 shadow-lg shadow-blue-500/20 scale-[1.02]",
-                    !isFocused && "border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-600",
-                    isLoading && "opacity-50 cursor-not-allowed"
+                    'w-full h-16 text-lg px-6 pr-16 rounded-2xl border-2 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm',
+                    'transition-all duration-300 ease-in-out',
+                    'placeholder:text-gray-400 dark:placeholder:text-gray-500',
+                    isFocused &&
+                      'border-blue-500 shadow-lg shadow-blue-500/20 scale-[1.02]',
+                    !isFocused &&
+                      'border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-600',
+                    isLoading && 'opacity-50 cursor-not-allowed'
                   )}
                   disabled={isLoading}
                 />
@@ -198,17 +200,23 @@ export default function ModernHeroSection() {
                   size="icon"
                   disabled={isLoading || !input.trim()}
                   className={cn(
-                    "absolute right-2 top-1/2 -translate-y-1/2 h-12 w-12 rounded-xl",
-                    "bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700",
-                    "transition-all duration-300 ease-in-out",
-                    "shadow-lg hover:shadow-xl",
-                    input.trim() && !isLoading ? "scale-100" : "scale-90 opacity-50"
+                    'absolute right-2 top-1/2 -translate-y-1/2 h-12 w-12 rounded-xl',
+                    'bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700',
+                    'transition-all duration-300 ease-in-out',
+                    'shadow-lg hover:shadow-xl',
+                    input.trim() && !isLoading
+                      ? 'scale-100'
+                      : 'scale-90 opacity-50'
                   )}
                 >
                   {isLoading ? (
                     <motion.div
                       animate={{ rotate: 360 }}
-                      transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                      transition={{
+                        duration: 1,
+                        repeat: Number.POSITIVE_INFINITY,
+                        ease: 'linear',
+                      }}
                     >
                       <Zap className="h-5 w-5" />
                     </motion.div>
@@ -227,9 +235,9 @@ export default function ModernHeroSection() {
               className="mt-6 flex flex-wrap gap-2 justify-center"
             >
               {[
-                "User registration process",
-                "Coffee brewing steps",
-                "Project workflow"
+                'User registration process',
+                'Coffee brewing steps',
+                'Project workflow',
               ].map((example, index) => (
                 <button
                   key={index}
@@ -252,19 +260,19 @@ export default function ModernHeroSection() {
             {[
               {
                 icon: Zap,
-                title: "Lightning Fast",
-                description: "Generate flowcharts in seconds, not hours"
+                title: 'Lightning Fast',
+                description: 'Generate flowcharts in seconds, not hours',
               },
               {
                 icon: Sparkles,
-                title: "AI-Powered",
-                description: "Smart algorithms understand your requirements"
+                title: 'AI-Powered',
+                description: 'Smart algorithms understand your requirements',
               },
               {
                 icon: ArrowRight,
-                title: "Export Ready",
-                description: "Download in multiple formats instantly"
-              }
+                title: 'Export Ready',
+                description: 'Download in multiple formats instantly',
+              },
             ].map((feature, index) => (
               <motion.div
                 key={index}
@@ -293,12 +301,12 @@ export default function ModernHeroSection() {
       >
         <motion.div
           animate={{ y: [0, 10, 0] }}
-          transition={{ duration: 2, repeat: Infinity }}
+          transition={{ duration: 2, repeat: Number.POSITIVE_INFINITY }}
           className="w-6 h-10 border-2 border-gray-400 dark:border-gray-600 rounded-full flex justify-center"
         >
           <motion.div
             animate={{ y: [0, 12, 0] }}
-            transition={{ duration: 2, repeat: Infinity }}
+            transition={{ duration: 2, repeat: Number.POSITIVE_INFINITY }}
             className="w-1 h-3 bg-gray-400 dark:bg-gray-600 rounded-full mt-2"
           />
         </motion.div>

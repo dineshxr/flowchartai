@@ -5,7 +5,7 @@
  *
  * This page is used to manage users for the admin,
  * it is protected and only accessible to the admin role
- * 
+ *
  * Temporarily disabled due to NextAuth migration type conflicts
  */
 export default function UsersPage() {

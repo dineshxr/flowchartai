@@ -50,12 +50,16 @@ export async function GET(
         updatedAt: flowchart.updatedAt,
       });
     } catch (dbError) {
-      console.warn('Database connection failed, returning mock flowchart:', dbError);
+      console.warn(
+        'Database connection failed, returning mock flowchart:',
+        dbError
+      );
       // Return a mock flowchart to allow app to function without database
       return NextResponse.json({
         id: id,
         title: 'Untitled',
-        content: '{"type":"excalidraw","version":2,"source":"https://excalidraw.com","elements":[],"appState":{"gridSize":null,"viewBackgroundColor":"#ffffff"}}',
+        content:
+          '{"type":"excalidraw","version":2,"source":"https://excalidraw.com","elements":[],"appState":{"gridSize":null,"viewBackgroundColor":"#ffffff"}}',
         thumbnail: null,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
@@ -124,7 +128,10 @@ export async function PUT(
         message: 'Flowchart updated successfully',
       });
     } catch (dbError) {
-      console.warn('Database connection failed, returning mock update success:', dbError);
+      console.warn(
+        'Database connection failed, returning mock update success:',
+        dbError
+      );
       // Return success to allow app to function without database
       return NextResponse.json({
         success: true,
@@ -186,7 +193,10 @@ export async function DELETE(
         message: 'Flowchart deleted successfully',
       });
     } catch (dbError) {
-      console.warn('Database connection failed, returning mock delete success:', dbError);
+      console.warn(
+        'Database connection failed, returning mock delete success:',
+        dbError
+      );
       // Return success to allow app to function without database
       return NextResponse.json({
         success: true,

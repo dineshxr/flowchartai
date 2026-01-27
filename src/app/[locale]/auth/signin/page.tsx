@@ -1,5 +1,5 @@
-import { redirect } from 'next/navigation';
 import type { Locale } from 'next-intl';
+import { redirect } from 'next/navigation';
 
 interface SigninPageProps {
   params: Promise<{ locale: Locale }>;
@@ -26,8 +26,8 @@ export default async function SigninPage({
   });
 
   const queryStr = queryString.toString();
-  const redirectUrl = queryStr 
-    ? `/${locale}/auth/login?${queryStr}` 
+  const redirectUrl = queryStr
+    ? `/${locale}/auth/login?${queryStr}`
     : `/${locale}/auth/login`;
 
   redirect(redirectUrl);

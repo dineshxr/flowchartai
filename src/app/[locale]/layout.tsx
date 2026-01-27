@@ -1,9 +1,5 @@
 import { Analytics } from '@/analytics/analytics';
-import {
-  fontNotoSans,
-  fontNotoSansMono,
-  fontNotoSerif,
-} from '@/assets/fonts';
+import { fontNotoSans, fontNotoSansMono, fontNotoSerif } from '@/assets/fonts';
 import AffonsoScript from '@/components/affiliate/affonso';
 import PromotekitScript from '@/components/affiliate/promotekit';
 import { AdSense } from '@/components/analytics/adsense';

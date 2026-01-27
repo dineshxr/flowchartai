@@ -117,7 +117,9 @@ export function SidebarUser({ user, className }: SidebarUserProps) {
               />
 
               <div className="grid flex-1 text-left text-sm leading-tight">
-                <span className="truncate font-semibold">{user.name || 'User'}</span>
+                <span className="truncate font-semibold">
+                  {user.name || 'User'}
+                </span>
                 <span className="truncate text-xs">{user.email || ''}</span>
               </div>
               <ChevronsUpDown className="ml-auto size-4" />
@@ -137,7 +139,9 @@ export function SidebarUser({ user, className }: SidebarUserProps) {
                   className="size-8 border"
                 />
                 <div className="grid flex-1 text-left text-sm leading-tight">
-                  <span className="truncate font-semibold">{user.name ?? ''}</span>
+                  <span className="truncate font-semibold">
+                    {user.name ?? ''}
+                  </span>
                   <span className="truncate text-xs">{user.email ?? ''}</span>
                 </div>
               </div>

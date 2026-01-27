@@ -1,4 +1,7 @@
-import type { Session as NextAuthSession, User as NextAuthUser } from 'next-auth';
+import type {
+  Session as NextAuthSession,
+  User as NextAuthUser,
+} from 'next-auth';
 
 // Extend NextAuth types with our custom fields
 export type Session = NextAuthSession & {

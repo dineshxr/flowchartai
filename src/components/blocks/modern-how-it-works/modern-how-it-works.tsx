@@ -1,58 +1,66 @@
 'use client';
 
-import { motion, useScroll, useTransform, useInView } from 'framer-motion';
-import { useRef } from 'react';
-import { 
-  MessageSquare, 
-  Zap, 
-  Download, 
+import { motion, useInView, useScroll, useTransform } from 'framer-motion';
+import {
   ArrowRight,
+  Download,
+  MessageSquare,
   Sparkles,
-  Wand2
+  Wand2,
+  Zap,
 } from 'lucide-react';
+import { useRef } from 'react';
 
 const steps = [
   {
-    number: "01",
+    number: '01',
     icon: MessageSquare,
-    title: "Describe Your Idea",
-    description: "Simply type what you want to create in natural language. Our AI understands complex processes and workflows.",
-    color: "from-blue-500 to-cyan-500",
-    bgColor: "from-blue-50 to-cyan-50 dark:from-blue-900/20 dark:to-cyan-900/20"
+    title: 'Describe Your Idea',
+    description:
+      'Simply type what you want to create in natural language. Our AI understands complex processes and workflows.',
+    color: 'from-blue-500 to-cyan-500',
+    bgColor:
+      'from-blue-50 to-cyan-50 dark:from-blue-900/20 dark:to-cyan-900/20',
   },
   {
-    number: "02",
+    number: '02',
     icon: Wand2,
-    title: "AI Magic Happens",
-    description: "Our advanced AI processes your description and intelligently creates a professional flowchart structure.",
-    color: "from-purple-500 to-pink-500",
-    bgColor: "from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20"
+    title: 'AI Magic Happens',
+    description:
+      'Our advanced AI processes your description and intelligently creates a professional flowchart structure.',
+    color: 'from-purple-500 to-pink-500',
+    bgColor:
+      'from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20',
   },
   {
-    number: "03",
+    number: '03',
     icon: Sparkles,
-    title: "Customize & Refine",
-    description: "Edit, style, and perfect your flowchart with our intuitive editor. Add colors, change layouts, and more.",
-    color: "from-orange-500 to-red-500",
-    bgColor: "from-orange-50 to-red-50 dark:from-orange-900/20 dark:to-red-900/20"
+    title: 'Customize & Refine',
+    description:
+      'Edit, style, and perfect your flowchart with our intuitive editor. Add colors, change layouts, and more.',
+    color: 'from-orange-500 to-red-500',
+    bgColor:
+      'from-orange-50 to-red-50 dark:from-orange-900/20 dark:to-red-900/20',
   },
   {
-    number: "04",
+    number: '04',
     icon: Download,
-    title: "Export & Share",
-    description: "Download in multiple formats or share with your team. Perfect for presentations, documentation, and more.",
-    color: "from-green-500 to-emerald-500",
-    bgColor: "from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20"
-  }
+    title: 'Export & Share',
+    description:
+      'Download in multiple formats or share with your team. Perfect for presentations, documentation, and more.',
+    color: 'from-green-500 to-emerald-500',
+    bgColor:
+      'from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20',
+  },
 ];
 
 export default function ModernHowItWorksSection() {
   const containerRef = useRef<HTMLDivElement>(null);
-  const isInView = useInView(containerRef, { once: true, margin: "-100px" });
+  const isInView = useInView(containerRef, { once: true, margin: '-100px' });
 
   const { scrollYProgress } = useScroll({
     target: containerRef,
-    offset: ["start end", "end start"]
+    offset: ['start end', 'end start'],
   });
 
   const y = useTransform(scrollYProgress, [0, 1], [50, -50]);
@@ -92,10 +100,10 @@ export default function ModernHowItWorksSection() {
             <br />
             in 4 simple steps
           </h2>
-          
+
           <p className="text-xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto leading-relaxed">
-            Our streamlined process makes creating professional flowcharts effortless. 
-            No design skills required.
+            Our streamlined process makes creating professional flowcharts
+            effortless. No design skills required.
           </p>
         </motion.div>
 
@@ -117,10 +125,14 @@ export default function ModernHowItWorksSection() {
                   transition={{ duration: 0.8, delay: index * 0.2 + 0.3 }}
                 >
                   <div className="flex items-center gap-4 mb-6 justify-center lg:justify-start">
-                    <span className={`text-6xl font-bold bg-gradient-to-r ${step.color} bg-clip-text text-transparent`}>
+                    <span
+                      className={`text-6xl font-bold bg-gradient-to-r ${step.color} bg-clip-text text-transparent`}
+                    >
                       {step.number}
                     </span>
-                    <div className={`w-16 h-16 rounded-2xl bg-gradient-to-br ${step.color} p-4 shadow-lg`}>
+                    <div
+                      className={`w-16 h-16 rounded-2xl bg-gradient-to-br ${step.color} p-4 shadow-lg`}
+                    >
                       <step.icon className="w-full h-full text-white" />
                     </div>
                   </div>
@@ -128,7 +140,7 @@ export default function ModernHowItWorksSection() {
                   <h3 className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white mb-4">
                     {step.title}
                   </h3>
-                  
+
                   <p className="text-lg text-gray-600 dark:text-gray-300 leading-relaxed max-w-lg">
                     {step.description}
                   </p>
@@ -144,7 +156,9 @@ export default function ModernHowItWorksSection() {
                   whileHover={{ scale: 1.05 }}
                   className="relative"
                 >
-                  <div className={`w-80 h-80 rounded-3xl bg-gradient-to-br ${step.bgColor} border border-gray-200 dark:border-gray-700 shadow-2xl relative overflow-hidden`}>
+                  <div
+                    className={`w-80 h-80 rounded-3xl bg-gradient-to-br ${step.bgColor} border border-gray-200 dark:border-gray-700 shadow-2xl relative overflow-hidden`}
+                  >
                     {/* Animated elements inside each step */}
                     <div className="absolute inset-0 flex items-center justify-center">
                       <motion.div
@@ -154,13 +168,13 @@ export default function ModernHowItWorksSection() {
                         }}
                         transition={{
                           duration: 4,
-                          repeat: Infinity,
-                          ease: "easeInOut"
+                          repeat: Number.POSITIVE_INFINITY,
+                          ease: 'easeInOut',
                         }}
                         className={`w-32 h-32 rounded-2xl bg-gradient-to-br ${step.color} opacity-20`}
                       />
                     </div>
-                    
+
                     <div className="absolute inset-0 flex items-center justify-center">
                       <motion.div
                         animate={{
@@ -168,9 +182,9 @@ export default function ModernHowItWorksSection() {
                         }}
                         transition={{
                           duration: 3,
-                          repeat: Infinity,
-                          ease: "easeInOut",
-                          delay: index * 0.5
+                          repeat: Number.POSITIVE_INFINITY,
+                          ease: 'easeInOut',
+                          delay: index * 0.5,
                         }}
                         className={`w-20 h-20 rounded-xl bg-gradient-to-br ${step.color} p-5 shadow-lg`}
                       >
@@ -190,9 +204,9 @@ export default function ModernHowItWorksSection() {
                         }}
                         transition={{
                           duration: 3,
-                          repeat: Infinity,
+                          repeat: Number.POSITIVE_INFINITY,
                           delay: i * 0.8,
-                          ease: "easeInOut"
+                          ease: 'easeInOut',
                         }}
                         style={{
                           left: `${20 + i * 20}%`,

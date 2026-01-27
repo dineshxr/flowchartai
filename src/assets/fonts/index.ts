@@ -1,8 +1,4 @@
-import {
-  Noto_Sans,
-  Noto_Sans_Mono,
-  Noto_Serif,
-} from 'next/font/google';
+import { Noto_Sans, Noto_Sans_Mono, Noto_Serif } from 'next/font/google';
 import localFont from 'next/font/local';
 
 /**

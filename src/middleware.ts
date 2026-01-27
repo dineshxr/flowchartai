@@ -1,5 +1,5 @@
-import createMiddleware from 'next-intl/middleware';
 import { getToken } from 'next-auth/jwt';
+import createMiddleware from 'next-intl/middleware';
 import { type NextRequest, NextResponse } from 'next/server';
 import { LOCALES, routing } from './i18n/routing';
 import {

@@ -42,7 +42,10 @@ export async function GET(request: NextRequest) {
         flowcharts: userFlowcharts,
       });
     } catch (dbError) {
-      console.warn('Database connection failed, returning empty flowcharts:', dbError);
+      console.warn(
+        'Database connection failed, returning empty flowcharts:',
+        dbError
+      );
       // Return empty array to allow app to function without database
       return NextResponse.json({
         flowcharts: [],
@@ -118,7 +121,10 @@ export async function POST(request: NextRequest) {
         { status: 201 }
       );
     } catch (dbError) {
-      console.warn('Database connection failed, returning mock flowchart ID:', dbError);
+      console.warn(
+        'Database connection failed, returning mock flowchart ID:',
+        dbError
+      );
       // Return a mock ID to allow app to function without database
       return NextResponse.json(
         {

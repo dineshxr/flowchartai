@@ -29,10 +29,7 @@ export default function DemoSection() {
                   preload="metadata"
                   poster="/images/demo-thumbnail.png"
                 >
-                  <source
-                    src="/videos/demo.mp4"
-                    type="video/mp4"
-                  />
+                  <source src="/videos/demo.mp4" type="video/mp4" />
                   {/* <track
                     kind="captions"
                     src=""

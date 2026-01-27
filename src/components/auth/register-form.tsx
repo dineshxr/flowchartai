@@ -1,13 +1,13 @@
 'use client';
 
 import { AuthCard } from '@/components/auth/auth-card';
+import { getUrlWithLocaleInCallbackUrl } from '@/lib/urls/urls';
 import { cn } from '@/lib/utils';
 import { Routes } from '@/routes';
+import { DEFAULT_LOGIN_REDIRECT } from '@/routes';
 import { useLocale, useTranslations } from 'next-intl';
 import { useSearchParams } from 'next/navigation';
 import { SocialLoginButton } from './social-login-button';
-import { DEFAULT_LOGIN_REDIRECT } from '@/routes';
-import { getUrlWithLocaleInCallbackUrl } from '@/lib/urls/urls';
 
 interface RegisterFormProps {
   callbackUrl?: string;
