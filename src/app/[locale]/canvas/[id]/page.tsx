@@ -23,7 +23,7 @@ export async function generateMetadata({ params }: EditFlowchartPageProps) {
   const { id } = await params;
 
   return {
-    title: 'Edit Flowchart - FlowChart AI',
+    title: 'Edit Flowchart - InfoGiph',
     description: 'Edit your flowchart with AI assistance',
     robots: {
       index: false,

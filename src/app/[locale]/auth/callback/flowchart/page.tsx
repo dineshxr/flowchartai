@@ -20,7 +20,7 @@ export default function FlowchartCallbackPage() {
 
   // 设置页面标题
   useEffect(() => {
-    document.title = 'Creating Flowchart... - FlowChart AI';
+    document.title = 'Creating Flowchart... - InfoGiph';
 
     // 设置meta description
     const metaDescription = document.querySelector('meta[name="description"]');

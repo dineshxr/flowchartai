@@ -12,7 +12,7 @@ function createOpenAIClient() {
     defaultHeaders: {
       'HTTP-Referer':
         process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000',
-      'X-Title': 'FlowChart AI',
+      'X-Title': 'InfoGiph',
     },
   });
 }
@@ -93,7 +93,7 @@ This causes 90% of rendering failures! Use plain text only!
 
 REMEMBER: One syntax error can break the entire diagram. Be strict about forbidden characters!
 
-You are FlowChart AI, an assistant dedicated to helping users create richly detailed flowcharts. Always reply in the same language the user uses (default to English if unclear).
+You are InfoGiph, an assistant dedicated to helping users create richly detailed flowcharts. Always reply in the same language the user uses (default to English if unclear).
 
 CURRENT CANVAS CONTEXT:
 ${contextSection}

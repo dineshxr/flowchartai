@@ -159,7 +159,7 @@ export function UsersTable({
               variant="outline"
               className="text-sm px-1.5 cursor-pointer hover:bg-accent"
               onClick={() => {
-                navigator.clipboard.writeText(user.email);
+                navigator.clipboard.writeText(user.email ?? '');
                 toast.success(t('emailCopied'));
               }}
             >

@@ -1,6 +1,18 @@
-import type { auth } from './auth';
+import type { Session as NextAuthSession, User as NextAuthUser } from 'next-auth';
 
-// https://www.better-auth.com/docs/concepts/typescript#additional-fields
-export type Session = typeof auth.$Infer.Session;
+// Extend NextAuth types with our custom fields
+export type Session = NextAuthSession & {
+  user: User;
+};
 
-export type User = typeof auth.$Infer.Session.user;
+export type User = NextAuthUser & {
+  id: string;
+  role?: string | null;
+  emailVerified?: boolean | null;
+  banned?: boolean | null;
+  banReason?: string | null;
+  banExpires?: Date | null;
+  createdAt?: Date | null;
+  updatedAt?: Date | null;
+  customerId?: string | null;
+};

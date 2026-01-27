@@ -111,8 +111,8 @@ export function SidebarUser({ user, className }: SidebarUserProps) {
               data-[state=open]:text-sidebar-accent-foreground"
             >
               <UserAvatar
-                name={user.name}
-                image={user.image}
+                name={user.name ?? ''}
+                image={user.image ?? ''}
                 className="size-8 border"
               />
 

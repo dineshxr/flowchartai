@@ -123,12 +123,12 @@ export function UserDetailViewer({ user }: UserDetailViewerProps) {
         >
           <div className="flex items-center gap-2 pl-3">
             <UserAvatar
-              name={user.name}
-              image={user.image}
+              name={user.name ?? ''}
+              image={user.image ?? ''}
               className="size-8 border"
             />
             <span className="hover:underline hover:underline-offset-4">
-              {user.name}
+              {user.name ?? user.email ?? 'Unknown User'}
             </span>
           </div>
         </Button>
@@ -137,12 +137,12 @@ export function UserDetailViewer({ user }: UserDetailViewerProps) {
         <DrawerHeader className="gap-1">
           <div className="flex items-center gap-4">
             <UserAvatar
-              name={user.name}
-              image={user.image}
+              name={user.name ?? ''}
+              image={user.image ?? ''}
               className="size-12 border"
             />
             <div>
-              <DrawerTitle>{user.name}</DrawerTitle>
+              <DrawerTitle>{user.name ?? user.email ?? 'Unknown User'}</DrawerTitle>
               <DrawerDescription>{user.email}</DrawerDescription>
             </div>
           </div>
@@ -159,35 +159,26 @@ export function UserDetailViewer({ user }: UserDetailViewerProps) {
               </Badge>
               {/* email verified */}
               <Badge variant="outline" className="px-1.5 hover:bg-accent">
-                {user.emailVerified ? (
-                  <MailCheckIcon className="stroke-green-500 dark:stroke-green-400" />
-                ) : (
-                  <MailQuestionIcon className="stroke-red-500 dark:stroke-red-400" />
-                )}
-                {user.emailVerified
-                  ? t('email.verified')
-                  : t('email.unverified')}
+                {user.email ?? 'No email'}
+                {/* Email verification status not available with NextAuth */}
+                <MailQuestionIcon className="ml-1.5 inline size-4 stroke-yellow-500 dark:stroke-yellow-400" />
               </Badge>
 
               {/* user banned */}
               <div className="flex items-center gap-2">
                 <Badge variant="outline" className="px-1.5 hover:bg-accent">
-                  {user.banned ? (
-                    <UserRoundXIcon className="stroke-red-500 dark:stroke-red-400" />
-                  ) : (
-                    <UserRoundCheckIcon className="stroke-green-500 dark:stroke-green-400" />
-                  )}
-                  {user.banned ? t('banned') : t('active')}
+                  <UserRoundCheckIcon className="stroke-green-500 dark:stroke-green-400" />
+                  {t('active')}
                 </Badge>
               </div>
             </div>
 
             {/* information */}
             <div className="text-muted-foreground">
-              {t('joined')}: {formatDate(user.createdAt)}
+              {t('joined')}: Unknown
             </div>
             <div className="text-muted-foreground">
-              {t('updated')}: {formatDate(user.updatedAt)}
+              {t('updated')}: Unknown
             </div>
           </div>
           <Separator />
@@ -195,89 +186,12 @@ export function UserDetailViewer({ user }: UserDetailViewerProps) {
           {/* error */}
           {error && <div className="text-sm text-destructive">{error}</div>}
 
-          {/* ban or unban user */}
-          {user.banned ? (
-            <div className="grid gap-4">
-              <div className="">
-                {t('ban.reason')}: {user.banReason}
-              </div>
-              <div className="">
-                {t('ban.expires')}:{' '}
-                {(user.banExpires && formatDate(user.banExpires)) ||
-                  t('ban.never')}
-              </div>
-              <Button
-                variant="destructive"
-                onClick={handleUnban}
-                disabled={isLoading || isDemo}
-                className="mt-4 cursor-pointer"
-              >
-                {isLoading && (
-                  <Loader2Icon className="mr-2 size-4 animate-spin" />
-                )}
-                {t('unban.button')}
-              </Button>
+          {/* ban or unban user - functionality disabled with NextAuth */}
+          <div className="grid gap-4">
+            <div className="text-muted-foreground">
+              User management functionality is not available with NextAuth.
             </div>
-          ) : (
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                handleBan();
-              }}
-              className="grid gap-4"
-            >
-              <div className="grid gap-2">
-                <Label htmlFor="ban-reason">{t('ban.reason')}</Label>
-                <Textarea
-                  id="ban-reason"
-                  value={banReason}
-                  onChange={(e) => setBanReason(e.target.value)}
-                  placeholder={t('ban.reasonPlaceholder')}
-                  required
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label>{t('ban.expires')}</Label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className={cn(
-                        'justify-start text-left font-normal cursor-pointer',
-                        !banExpiresAt && 'text-muted-foreground'
-                      )}
-                    >
-                      <CalendarIcon />
-                      {banExpiresAt ? (
-                        formatDate(banExpiresAt)
-                      ) : (
-                        <span>{t('ban.selectDate')}</span>
-                      )}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar
-                      mode="single"
-                      selected={banExpiresAt}
-                      onSelect={setBanExpiresAt}
-                      initialFocus
-                    />
-                  </PopoverContent>
-                </Popover>
-              </div>
-              <Button
-                type="submit"
-                variant="destructive"
-                disabled={isLoading || !banReason || isDemo}
-                className="mt-4 cursor-pointer"
-              >
-                {isLoading && (
-                  <Loader2Icon className="mr-2 size-4 animate-spin" />
-                )}
-                {t('ban.button')}
-              </Button>
-            </form>
-          )}
+          </div>
         </div>
         <DrawerFooter>
           <DrawerClose asChild>
