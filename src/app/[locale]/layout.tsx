@@ -1,6 +1,5 @@
 import { Analytics } from '@/analytics/analytics';
 import {
-  fontGambarino,
   fontNotoSans,
   fontNotoSansMono,
   fontNotoSerif,
@@ -52,10 +51,10 @@ export default async function LocaleLayout({
         suppressHydrationWarning
         className={cn(
           'size-full antialiased',
-          fontGambarino.className,
+          fontNotoSans.className,
           fontNotoSerif.variable,
           fontNotoSansMono.variable,
-          fontGambarino.variable
+          fontNotoSans.variable
         )}
       >
         <NextIntlClientProvider>

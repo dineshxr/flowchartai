@@ -56,10 +56,10 @@ export const fontNotoSansMono = Noto_Sans_Mono({
   weight: ['400'],
 });
 
-// Gambarino local font
-export const fontGambarino = localFont({
-  src: './Gambarino-Regular.woff2',
-  variable: '--font-gambarino',
-  weight: '400',
-  display: 'swap',
-});
+// Gambarino local font - disabled due to corrupted font file
+// export const fontGambarino = localFont({
+//   src: './Gambarino-Regular.woff2',
+//   variable: '--font-gambarino',
+//   weight: '400',
+//   display: 'swap',
+// });
