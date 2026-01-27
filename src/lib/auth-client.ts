@@ -1,43 +1,24 @@
-import { signIn, signOut, useSession } from 'next-auth/react';
+import { adminClient, inferAdditionalFields } from 'better-auth/client/plugins';
+import { createAuthClient } from 'better-auth/react';
+import type { auth } from './auth';
+import { getBaseUrl } from './urls/urls';
 
 /**
- * NextAuth client utilities
+ * https://www.better-auth.com/docs/installation#create-client-instance
  */
-export const authClient = {
-  signIn: {
-    social: async ({ provider }: { provider: string }) => {
-      return await signIn(provider);
-    },
-    // Stub method - not applicable with Google OAuth only
-    email: async () => {
-      throw new Error('Email/password login not available with Google OAuth only');
-    },
-  },
-  signUp: {
-    // Stub method - not applicable with Google OAuth only
-    email: async () => {
-      throw new Error('Email/password registration not available with Google OAuth only');
-    },
-  },
-  signOut: async () => {
-    return await signOut();
-  },
-  useSession,
-  // Stub methods to fix build errors - not applicable with Google OAuth only
-  forgetPassword: async () => {
-    throw new Error('Password reset not available with Google OAuth only');
-  },
-  resetPassword: async () => {
-    throw new Error('Password reset not available with Google OAuth only');
-  },
-  // Additional stub methods
-  changePassword: async () => {
-    throw new Error('Password change not available with Google OAuth only');
-  },
-  updateUser: async () => {
-    throw new Error('User update not available with Google OAuth only');
-  },
-  deleteUser: async () => {
-    throw new Error('User deletion not available with Google OAuth only');
-  },
-};
+export const authClient = createAuthClient({
+  baseURL: getBaseUrl(),
+  plugins: [
+    // https://www.better-auth.com/docs/plugins/admin#add-the-client-plugin
+    adminClient(),
+    // https://www.better-auth.com/docs/concepts/typescript#inferring-additional-fields-on-client
+    inferAdditionalFields<typeof auth>(),
+    // Google OneTap 暂时禁用以解决 FedCM 兼容性问题
+    // oneTapClient({
+    //   clientId: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID!,
+    //   autoSelect: false,
+    //   cancelOnTapOutside: true,
+    //   context: 'signin',
+    // }),
+  ],
+});

@@ -35,10 +35,9 @@ export async function generateMetadata({ params }: BlogListPageProps) {
   const pt = await getTranslations({ locale, namespace: 'BlogPage' });
   const canonicalPath = `/blog/page/${page}`;
   return constructMetadata({
-    title: `${pt('title')} | ${t('title')}`,
+    title: pt('title'),
     description: pt('description'),
     canonicalUrl: getUrlWithLocale(canonicalPath, locale),
-    noIndex: true,
   });
 }
 

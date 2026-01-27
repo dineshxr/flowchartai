@@ -24,7 +24,10 @@
     "migrate-assets": "node scripts/migrate-assets.js",
     "update-asset-paths": "node scripts/update-asset-paths.js",
     "test-cdn-resources": "node scripts/test-cdn-resources.js",
-    "test-new-images": "node scripts/test-new-images.js"
+    "test-new-images": "node scripts/test-new-images.js",
+    "purge-cdn": "node scripts/purge-cdn-cache.js",
+    "upload-blog-images": "node scripts/upload-blog-images-to-r2.js",
+    "test-blog-cdn": "node scripts/test-blog-cdn-images.js"
   },
   "dependencies": {
     "@ai-sdk/openai": "^1.1.13",
@@ -45,6 +48,7 @@
     "@next/third-parties": "^15.3.0",
     "@opennextjs/cloudflare": "^1.4.0",
     "@openpanel/nextjs": "^1.0.7",
+    "vanilla-cookieconsent": "^3.1.0",
     "@orama/orama": "^3.1.4",
     "@orama/tokenizers": "^3.1.4",
     "@radix-ui/react-accordion": "^1.2.3",
@@ -107,7 +111,7 @@
     "lucide-react": "^0.483.0",
     "mdast-util-toc": "^7.1.0",
     "motion": "^12.4.3",
-    "next": "15.2.1",
+    "next": "15.2.6",
     "next-intl": "^4.0.0",
     "next-plausible": "^3.12.4",
     "next-safe-action": "^7.10.4",

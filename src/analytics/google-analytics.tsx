@@ -1,5 +1,6 @@
 'use client';
 
+import { useConsent } from '@/hooks/use-consent';
 import { GoogleAnalytics as NextGoogleAnalytics } from '@next/third-parties/google';
 
 /**
@@ -10,7 +11,9 @@ import { GoogleAnalytics as NextGoogleAnalytics } from '@next/third-parties/goog
  * https://nextjs.org/docs/app/building-your-application/optimizing/third-party-libraries#google-analytics
  */
 export default function GoogleAnalytics() {
-  if (process.env.NODE_ENV !== 'production') {
+  const { consentGranted, ready } = useConsent();
+
+  if (!ready || !consentGranted || process.env.NODE_ENV !== 'production') {
     return null;
   }
 

@@ -1,8 +1,8 @@
 {
   "Metadata": {
     "name": "FlowChart AI",
-    "title": "FlowChart AI – Smart AI Tool to Create Beautiful Flowcharts",
-    "description": "Design professional flowcharts faster with FlowChart AI. Draw, edit, and collaborate in real time using powerful AI tools—no design experience required."
+    "title": "Flowchart AI: Convert Text & Images to editable Flowcharts",
+    "description": "Transform text and images into stunning flowcharts instantly with our advanced Flowchart AI. Convert documents, descriptions, and visuals into professional diagrams in seconds. Free to try!"
   },
   "Common": {
     "login": "Log in",
@@ -57,10 +57,10 @@
   "PricePlans": {
     "free": {
       "name": "Free",
-      "description": "Start exploring AI-powered flowchart generation — for free, forever.",
+      "description": "Start exploring FlowChart AI-powered flowchart generation — for free, forever.",
       "features": {
         "feature-1": "1 AI request per day",
-        "feature-2": "AI-assisted generation and editing",
+        "feature-2": "FlowChart AI-assisted generation and editing",
         "feature-3": "Unlimited diagram storage",
         "feature-4": "Text and image input supported",
         "feature-5": "Community support"
@@ -73,10 +73,10 @@
     },
     "hobby": {
       "name": "Hobby",
-      "description": "Great for individuals who need more AI requests and light technical assistance.",
+      "description": "Great for individuals who need FlowChart AI-powered flowchart generation on a budget.",
       "features": {
-        "feature-1": "500 AI requests per month",
-        "feature-2": "Full access to AI agent for generation and editing",
+        "feature-1": "100 AI requests per month",
+        "feature-2": "Full access to FlowChart AI agent for generation and editing",
         "feature-3": "Unlimited diagram storage",
         "feature-4": "Text and image input supported",
         "feature-5": "Email support (24–48h response, max 7 days)",
@@ -89,10 +89,10 @@
     },
     "professional": {
       "name": "Professional",
-      "description": "Perfect for power users and professionals who want faster response and priority support.",
+      "description": "Perfect for power users and professionals who want unlimited FlowChart AI access and priority support.",
       "features": {
-        "feature-1": "1000 AI requests per month",
-        "feature-2": "Priority AI processing",
+        "feature-1": "Unlimited AI requests",
+        "feature-2": "Priority FlowChart AI processing",
         "feature-3": "Unlimited diagram storage",
         "feature-4": "Real-time AI-assisted editing",
         "feature-5": "Email & technical support (under 24h, max 48h)",
@@ -296,10 +296,6 @@
             "title": "Contact",
             "description": "Get in touch with our team for support or inquiries"
           },
-          "tools": {
-            "title": "Tools",
-            "description": "Explore our collection of AI-powered diagram tools"
-          },
           "changelog": {
             "title": "Changelog",
             "description": "See the latest updates to our products"
@@ -334,8 +330,7 @@
         "items": {
           "blog": "Blog",
           "docs": "Documentation",
-          "changelog": "Changelog",
-          "tools": "Tools"
+          "changelog": "Changelog"
         }
       },
       "company": {
@@ -576,8 +571,8 @@
     "title": "MkSaaS",
     "description": "Make AI SaaS in days, simply and effortlessly",
     "hero": {
-      "title": "Create Beautiful Flowcharts with FlowChart AI",
-      "description": "FlowChart AI helps you transform ideas into detailed, professional flowcharts instantly. Use natural language to design, edit, and collaborate on diagrams—no design skills required.",
+      "title": "Create <flow>Flowcharts</flow> with <ai>AI</ai> in Seconds",
+      "description": "Convert text, prompts, or images into flowcharts instantly with our free AI Flowchart Generator. Visualize ideas, processes, and workflows in seconds — no design skills needed.",
       "introduction": "Introducing FlowChart AI",
       "primary": "Start Creating",
       "secondary": "See Demo"
@@ -585,55 +580,80 @@
     "logocloud": {
       "title": "Your favorite companies are our partners"
     },
+    "tutorials": {
+      "title": "FLOWCHART TUTORIALS",
+      "subtitle": "Learn faster with guided walkthroughs",
+      "description": "Watch how we diagram real processes, follow along with screenshots, and pick up tips for building better flowcharts in FlowChart AI.",
+      "moreTitle": "More tutorials",
+      "allLink": "View all tutorials"
+    },
     "useCases": {
-      "title": "Use Cases",
-      "subtitle": "Let AI Handle the Heavy Lifting",
-      "description": "FlowChart AI helps you map out complex processes, brainstorm ideas, and build professional diagrams—faster and easier than ever before.",
-      "tryNow": "Start with FlowChart AI",
+      "title": "FLOWCHART TEMPLATES",
+      "subtitle": "Kickstart your next diagram in one click",
+      "description": "Grab a ready-made template, drop it into the FlowChart AI canvas, and tailor it to your process in minutes.",
+      "tryNow": "Browse templates",
       "items": {
         "item-1": {
-          "title": "Product Management",
-          "description": "Transform product ideas into actionable roadmaps. Create detailed user journey maps, feature prioritization matrices, and sprint planning workflows. AI helps you visualize complex product ecosystems and stakeholder relationships with precision."
+          "title": "Customer Onboarding",
+          "description": "Outline every touchpoint from sign-up to success, including welcome emails, product tours, and activation milestones.",
+          "ctaLabel": "Use Onboarding template",
+          "prompt": "Customer onboarding flow: welcome email, product tour, activation tasks, success check-in, handoff to customer success manager."
         },
         "item-2": {
-          "title": "Software Development",
-          "description": "Architect robust systems with confidence. Design microservices architectures, API integration flows, database relationships, and deployment pipelines. Perfect for technical documentation and system design reviews."
+          "title": "Support Escalation",
+          "description": "Track issue intake, triage, escalation tiers, and resolution handoffs so nothing falls through the cracks.",
+          "ctaLabel": "Use Escalation template",
+          "prompt": "Support escalation workflow starting at ticket intake, triage, assign to tier 1, escalate to tier 2 or engineering, resolve, follow up with customer."
         },
         "item-3": {
-          "title": "Business Analysis",
-          "description": "Unlock insights through visual process mapping. Create comprehensive business process flows, decision trees, risk assessment matrices, and operational optimization diagrams that drive strategic decisions."
+          "title": "Product Launch Plan",
+          "description": "Coordinate research, build, QA, and release activities with built-in checkpoints and go/no-go criteria.",
+          "ctaLabel": "Use Launch template",
+          "prompt": "Product launch plan: research, roadmap freeze, development sprints, QA, go/no-go review, launch day, post-launch follow-up."
         },
         "item-4": {
-          "title": "Education & Training",
-          "description": "Enhance learning through visual storytelling. Build interactive curriculum maps, concept relationship diagrams, assessment workflows, and training progression paths that engage students and improve comprehension."
+          "title": "Software Deployment Pipeline",
+          "description": "Map code commits to staging, testing, approvals, and rollbacks to keep releases predictable.",
+          "ctaLabel": "Use Deployment template",
+          "prompt": "Software deployment pipeline from code commit, CI build, automated tests, staging deploy, approvals, production release, rollback if needed."
         },
         "item-5": {
-          "title": "Startup Planning",
-          "description": "Turn startup vision into executable strategy. Visualize business model canvases, funding pipelines, go-to-market strategies, and operational workflows. Essential for pitch decks and investor presentations."
+          "title": "Hiring Funnel",
+          "description": "Visualize candidate sourcing, interviews, feedback loops, and offer steps for a consistent hiring experience.",
+          "ctaLabel": "Use Hiring template",
+          "prompt": "Hiring funnel: sourcing, recruiter screen, hiring manager interview, panel interview, feedback review, offer, acceptance, onboarding."
         },
         "item-6": {
-          "title": "Project Management",
-          "description": "Orchestrate complex projects with clarity. Design project timelines, resource allocation flows, risk mitigation processes, and team collaboration workflows. Keep stakeholders aligned and projects on track."
+          "title": "Content Production Workflow",
+          "description": "Move ideas from brief to publish with review gates, asset approvals, and promotion tasks already defined.",
+          "ctaLabel": "Use Content template",
+          "prompt": "Content production workflow: topic brief, draft, internal review, stakeholder approval, publish, promotion, performance follow-up."
         }
       }
     },
     "demo": {
-      "title": "See FlowChart AI in Action",
-      "subtitle": "From Idea to Flowchart in Seconds",
-      "description": "Watch how FlowChart AI turns natural language prompts into precise, presentation-ready flowcharts — no design skills or manual effort needed.",
-      "tryItNow": "Use FlowChart AI Now",
+      "title": "SEE FLOWCHART AI IN ACTION",
+      "subtitle": "Choose the path that fits how you work",
+      "description": "FlowChart AI meets you where you are—whether you're jotting down steps, capturing a whiteboard snapshot, or reopening a trusted layout—before the canvas even loads.",
+      "tryItNow": "Explore How It Works",
       "features": {
         "feature-1": {
-          "title": "Natural Language Input",
-          "description": "Simply describe your process in Language you like — no shapes, templates, or special tools required"
+          "title": "Text to flowchart, ready to edit",
+          "description": "Outline your steps in plain text and let the builder map the nodes for you, ready for color, notes, and export.",
+          "ctaLabel": "Convert text to flowchart",
+          "ctaHref": "/canvas"
         },
         "feature-2": {
-          "title": "AI-Powered Generation",
-          "description": "FlowChart AI Automatically generates clean, logical diagrams based on your input"
+          "title": "Image to flowchart without rebuilding",
+          "description": "Drop in a whiteboard photo or old diagram and our AI rebuilds it with clean spacing and editable labels.",
+          "ctaLabel": "Try image to flowchart",
+          "ctaHref": "/canvas"
         },
         "feature-3": {
-          "title": "Instant Editing",
-          "description": "Customize and refine your diagram, Easily adjust elements, add details, and make it your own"
+          "title": "Flowchart templates you can shape in minutes",
+          "description": "Open saved flowcharts—onboarding, rollout, support—and adapt the structure in a few clicks.",
+          "ctaLabel": "Start from flowchart templates",
+          "ctaHref": "/canvas"
         }
       }
     },
@@ -653,7 +673,7 @@
         },
         "step-2": {
           "title": "FlowChart AI Builds Your Diagram",
-          "description": "FlowChart AI transforms your input into a clean, structured flowchart using intelligent shape detection and layout optimization.",
+          "description": "FlowChart AI transforms your input into clean, structured flowcharts using intelligent shape detection and layout optimization.",
           "details": [
             "Automatically generates accurate diagrams with FlowChart AI’s layout engine",
             "Optimized visual structure for readability and presentation",
@@ -673,14 +693,40 @@
       "getStarted": "Using FlowChart AI Now"
     },
     "aiCapabilities": {
-      "title": "FlowChart AI Capabilities",
-      "subtitle": "Smarter Diagrams Powered by Advanced AI",
-      "description": "FlowChart AI uses state-of-the-art language models and layout engines to turn your ideas into perfect, presentation-ready flowcharts—fast, accurate, and effortless.",
-      "capability-1": "Natural Language Processing – FlowChart AI understands messy or vague input and translates it into structured diagrams",
-      "capability-2": "Smart Layout Engine – Automatically arranges elements logically and visually for maximum clarity",
-      "capability-3": "AI-Powered Edits – Update and expand existing flowcharts without starting over",
-      "capability-4": "Multi-language Input – Describe your flowcharts in any language you’re comfortable with",
-      "capability-5": "Context-Aware Suggestions – FlowChart AI intelligently recommends diagram elements and connections based on your intent"
+      "title": "IMAGE TO FLOWCHART",
+      "subtitle": "Turn screenshots, scans, and scribbles into editable diagrams",
+      "description": "Upload any image, diagram, or hand-drawn sketch — FlowChart AI instantly detects shapes, arrows, and text to rebuild it as an editable flowchart. Convert screenshots, scanned documents, or whiteboard photos into structured, digital diagrams you can refine, export, and share.",
+      "sideTitle": "Why it feels effortless",
+      "sideDescription": "Skip the tedious redrawing phase—FlowChart AI recognizes your rough inputs and returns a polished, editable diagram ready for the next review.",
+      "workflowTitle": "HOW IT WORKS",
+      "workflow": {
+        "step-1": "Upload any snapshot or export (PNG, JPG, WEBP, GIF)",
+        "step-2": "Add an optional note so AI keeps your domain language",
+        "step-3": "Open the regenerated flowchart in canvas to tweak and export"
+      },
+      "examplesSection": {
+        "title": "Image to Flowchart Examples",
+        "items": [
+          {
+            "title": "Whiteboard Sketch",
+            "description": "Snap a photo of your brainstorm wall and let FlowChart AI clean it up into a tidy, editable flowchart.",
+            "ctaLabel": "Convert This Image",
+            "ctaPrompt": "Whiteboard photo of a sprint planning workflow with columns for todo, in progress, qa, done. Rebuild a clean editable flowchart from it."
+          },
+          {
+            "title": "Legacy Diagram",
+            "description": "Import an outdated flowchart export and modernize it without rebuilding everything manually.",
+            "ctaLabel": "Upgrade My Diagram",
+            "ctaPrompt": "Old flowchart image showing onboarding steps: welcome email, account setup, product training, go live. Recreate a modern editable version."
+          },
+          {
+            "title": "Scanned Handout",
+            "description": "Turn printed procedures and PDF scan-outs into structured diagrams you can edit and share.",
+            "ctaLabel": "Digitize This Process",
+            "ctaPrompt": "Scanned operations checklist describing order intake, review, approval, fulfillment, delivery. Convert it into a clean flowchart."
+          }
+        ]
+      }
     },
     "comparison": {
       "title": "Why Choose FlowChart AI?",
@@ -750,26 +796,54 @@
       "secondaryButton": "See Demo"
     },
     "features": {
-      "title": "Features",
-      "subtitle": "AI-Powered Flowchart Creation",
-      "description": "FlowChart AI offers a comprehensive set of features designed to make diagramming effortless, intelligent, and collaborative.",
+      "title": "TEXT TO FLOWCHART",
+      "subtitle": "Turn plain text into professional flowcharts in seconds",
+      "description": "Paste your notes, instructions, or ideas — FlowChart AI automatically detects steps, decisions, and connections to create a clear structured flow you can edit instantly.",
       "items": {
         "item-1": {
-          "title": "Natural Language to Diagram",
-          "description": "Describe your process or idea in plain language, and let AI instantly turn it into a professional flowchart. No design skills or technical jargon required—just explain your workflow and see it visualized."
+          "title": "Describe the steps once",
+          "description": "Type the starting point, key actions, and decisions. The workflow engine keeps them in order and adds the branches for you."
         },
         "item-2": {
-          "title": "Personal Workspace & Diagram Library",
-          "description": "Keep all your diagrams organized in one place. Our platform provides a personal workspace where you can access, manage, and continue editing your saved diagrams with ease."
+          "title": "Fix details without redrawing",
+          "description": "Add or remove a step in plain language and the diagram updates itself without ruining the layout."
         },
         "item-3": {
-          "title": "Intuitive Drag-and-Drop Editor",
-          "description": "Easily refine and customize your diagram with a user-friendly canvas. Move elements, adjust connections, and apply styles with simple drag-and-drop—no learning curve."
+          "title": "Polish it on the canvas",
+          "description": "Rename shapes, drag nodes, or merge paths—the canvas reacts in real time, so FlowChart AI understands your tweaks without another request."
         },
         "item-4": {
-          "title": "Export & Integrate Anywhere",
-          "description": "Export your diagrams in multiple formats: PNG for presentations, SVG for web use, and Excalidraw format for future editing. Copy directly to clipboard for quick sharing. All export options are easily accessible from the main menu."
+          "title": "Reuse it everywhere",
+          "description": "Export to PNG, SVG, or Excalidraw, or save it as your go-to template for the next project."
         }
+      },
+      "overviewTitle": "Why using text to make flowcharts?",
+      "overviewDescription": "Flowchart AI turns a quick description into a clear first draft, so you skip blank canvases and go straight to tweaks that matter.",
+      "examplesSection": {
+        "title": "Text to Flowchart Examples",
+        "items": [
+          {
+            "title": "Process Documentation",
+            "snippet": "When a new signup happens, we validate their info, store it, send a confirmation email, and drop them on the success page.",
+            "description": "Convert everyday onboarding steps into a clear process map.",
+            "ctaLabel": "Convert This Text",
+            "ctaPrompt": "A new user submits a signup form. Validate their information, save it, email them a confirmation, then show the success screen."
+          },
+          {
+            "title": "Decision Trees",
+            "snippet": "When a customer checks out, offer 20% off if they’re premium. If they aren’t premium but spend over $100, give 10% off. Otherwise no discount.",
+            "description": "Turn conditional logic into a readable branching flow.",
+            "ctaLabel": "Convert This Text",
+            "ctaPrompt": "Customer checkout flow: if the buyer is a premium member give a twenty percent discount; if not, but their order is over one hundred dollars give ten percent; otherwise keep the full price."
+          },
+          {
+            "title": "Workflow Instructions",
+            "snippet": "Start by checking inventory. If the item is in stock, process the order, update the counts, generate the invoice, and email it to the customer.",
+            "description": "Capture operational checklists without rewriting them as bullet points.",
+            "ctaLabel": "Convert This Text",
+            "ctaPrompt": "Inventory fulfillment instructions: check stock, when it’s available push the order through, adjust inventory levels, make the invoice, then send the invoice to the customer."
+          }
+        ]
       }
     },
     "features2": {
@@ -815,7 +889,7 @@
     "pricing": {
       "title": "Pricing",
       "subtitle": "Pricing",
-      "description": "Choose the plan that works best for you"
+      "description": "Choose the plan that works best for you and unlock FlowChart AI features that match your team’s pace"
     },
     "faqs": {
       "title": "FAQ",
@@ -985,20 +1059,9 @@
     "description": "Create beautiful flowcharts with AI assistance - draw, edit, and collaborate on your diagrams",
     "subtitle": "AI-Powered Flowchart Editor"
   },
-  "ToolsPage": {
-    "meta": {
-      "title": "AI Diagram Tools - FlowChart AI",
-      "description": "Explore our collection of AI-powered diagram and flowchart tools. Create professional diagrams instantly with artificial intelligence."
-    },
-    "header": {
-      "title": "AI Tools",
-      "subtitle": "Powerful AI-Driven Diagram Tools",
-      "description": "Discover our comprehensive suite of AI-powered tools designed to help you create professional diagrams, flowcharts, and visual content effortlessly."
-    },
-    "cta": {
-      "title": "Ready to Create Your First Diagram?",
-      "description": "Start creating professional diagrams with our AI-powered canvas. No design experience required.",
-      "button": "Start Creating"
-    }
+  "cta": {
+    "title": "Ready to Create Your First Diagram?",
+    "description": "Start creating professional diagrams with our AI-powered canvas. No design experience required.",
+    "button": "Start Creating"
   }
 }

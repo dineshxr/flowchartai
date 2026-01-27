@@ -24,6 +24,11 @@ import { useCurrentUser } from '@/hooks/use-current-user';
 import { useGuestAIUsage } from '@/hooks/use-guest-ai-usage';
 import { toast } from '@/hooks/use-toast';
 import { useLocalePathname } from '@/i18n/navigation';
+import {
+  AI_ASSISTANT_MODES,
+  type AiAssistantMode,
+  DEFAULT_AI_ASSISTANT_MODE,
+} from '@/lib/ai-modes';
 import { generateAICanvasDescription } from '@/lib/canvas-analyzer';
 import {
   createImageThumbnail,
@@ -87,6 +92,12 @@ interface AiChatSidebarProps {
   autoInput?: string;
   shouldAutoGenerate?: boolean;
   onAutoGenerateComplete?: () => void;
+  initialMode?: AiAssistantMode;
+  initialImage?: {
+    base64: string;
+    thumbnail?: string;
+    filename?: string;
+  } | null;
 }
 
 const AiChatSidebar: React.FC<AiChatSidebarProps> = ({
@@ -99,22 +110,29 @@ const AiChatSidebar: React.FC<AiChatSidebarProps> = ({
   autoInput,
   shouldAutoGenerate,
   onAutoGenerateComplete,
+  initialMode,
+  initialImage,
 }) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [currentAssistantMessage, setCurrentAssistantMessage] = useState('');
+  const [isStreamingResponse, setIsStreamingResponse] = useState(false);
   const [selectedImages, setSelectedImages] = useState<File[]>([]);
   const [imagePreviewUrls, setImagePreviewUrls] = useState<string[]>([]);
   const [showUsageLimitCard, setShowUsageLimitCard] = useState(false);
   const [dailyLimitUsageInfo, setDailyLimitUsageInfo] = useState<any>(null);
   const [showPricingModal, setShowPricingModal] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
+  const [loginCallbackUrl, setLoginCallbackUrl] = useState<string | null>(null);
+  const [aiMode, setAiMode] = useState<AiAssistantMode>(
+    initialMode ?? DEFAULT_AI_ASSISTANT_MODE
+  );
   const hasAutoSentRef = useRef(false);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const streamingMessageIdRef = useRef<string | null>(null);
 
   const currentUser = useCurrentUser();
   const currentPath = useLocalePathname();
@@ -148,8 +166,8 @@ const AiChatSidebar: React.FC<AiChatSidebarProps> = ({
       // Reset height to auto to get the correct scrollHeight
       textarea.style.height = 'auto';
       // Calculate new height based on content
-      const minHeight = 32;
-      const maxHeight = 120;
+      const minHeight = 80;
+      const maxHeight = 200;
       const scrollHeight = textarea.scrollHeight;
       const newHeight = Math.min(Math.max(scrollHeight, minHeight), maxHeight);
       textarea.style.height = `${newHeight}px`;
@@ -158,12 +176,26 @@ const AiChatSidebar: React.FC<AiChatSidebarProps> = ({
 
   useEffect(() => {
     scrollToBottom();
-  }, [messages, currentAssistantMessage]);
+  }, [messages]);
 
   // Initialize textarea height on mount and when input changes
   useEffect(() => {
     adjustTextareaHeight();
   }, [input]);
+
+  useEffect(() => {
+    if (initialMode) {
+      setAiMode(initialMode);
+    }
+  }, [initialMode]);
+
+  useEffect(() => {
+    if (initialImage) {
+      canvasContextRef.current.homepageImage = initialImage;
+    } else {
+      canvasContextRef.current.homepageImage = undefined;
+    }
+  }, [initialImage]);
 
   // Auto-adjust textarea height when input changes
   useEffect(() => {
@@ -172,49 +204,94 @@ const AiChatSidebar: React.FC<AiChatSidebarProps> = ({
 
   // Auto-send function that bypasses input state
   const handleAutoSendMessage = async (messageText: string) => {
-    if (!messageText.trim() || isLoading) return;
+    const homepageImage = canvasContextRef.current.homepageImage;
+    const trimmed = messageText.trim();
 
-    // Check AI usage limit based on user type
-    if (currentUser) {
-      // Logged in user - check subscription limits
-      const canUseAI = await checkUsageLimit();
-      if (!canUseAI) {
-        // Check if it's a daily limit for free users
-        if (usageData?.timeFrame === 'daily') {
-          console.log(
-            '🎯 Daily limit detected - showing PricingModal directly'
-          );
-          // Set daily limit context and show pricing modal directly
-          setDailyLimitUsageInfo({
-            timeFrame: 'daily',
-            nextResetTime: usageData.nextResetTime,
-          });
-          setShowPricingModal(true);
-        } else {
-          setShowUsageLimitCard(true);
-        }
-        return;
+    if ((!trimmed && !homepageImage) || isLoading) {
+      return;
+    }
+
+    // Check if user is guest and show login modal instead of processing request
+    if (!currentUser) {
+      // Generate callback URL to preserve current state
+      const callbackUrl = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+      setLoginCallbackUrl(callbackUrl);
+      setShowLoginModal(true);
+      return;
+    }
+
+    // Logged in user - check subscription limits
+    const canUseAI = await checkUsageLimit();
+    if (!canUseAI) {
+      // Check if it's a daily limit for free users
+      if (usageData?.timeFrame === 'daily') {
+        console.log(
+          '🎯 Daily limit detected - showing PricingModal directly'
+        );
+        // Set daily limit context and show pricing modal directly
+        setDailyLimitUsageInfo({
+          timeFrame: 'daily',
+          nextResetTime: usageData.nextResetTime,
+        });
+        setShowPricingModal(true);
+      } else {
+        setShowUsageLimitCard(true);
       }
-    } else {
-      // Guest user - let the request go to backend for real validation
-      console.log(
-        '🎯 Guest user sending request - backend will validate usage',
-        { hasUsedBefore: hasUsedFreeRequest }
-      );
+      return;
     }
 
     // Create user message with the provided text
+    const mimeMatch = homepageImage?.base64?.match(/^data:(.*?);/);
+    const mimeType = mimeMatch?.[1] || 'image/png';
+    const filename =
+      homepageImage?.filename ||
+      `uploaded-image.${mimeType.split('/')[1] || 'png'}`;
+
+    let messageContent: string | MessageContent[] = trimmed;
+    let messageImages: { file: File; thumbnail: string; base64: string }[] = [];
+
+    if (homepageImage && aiMode === 'image_to_flowchart') {
+      messageImages = [
+        {
+          file: new File([], filename, { type: mimeType }),
+          thumbnail: homepageImage.thumbnail || homepageImage.base64,
+          base64: homepageImage.base64,
+        },
+      ];
+      messageContent = [
+        ...(trimmed
+          ? [
+              {
+                type: 'text' as const,
+                text: trimmed,
+              },
+            ]
+          : []),
+        {
+          type: 'image_url' as const,
+          image_url: {
+            url: homepageImage.base64,
+          },
+        },
+      ];
+    }
+
     const userMessage: Message = {
       id: Date.now().toString(),
-      content: messageText,
+      content: messageContent,
       role: 'user',
       timestamp: new Date(),
+      images: messageImages.length > 0 ? messageImages : undefined,
     };
 
     setMessages((prev) => [...prev, userMessage]);
-    setInput(''); // Clear input after sending
+    setInput('');
+    if (homepageImage && aiMode === 'image_to_flowchart') {
+      canvasContextRef.current.homepageImage = undefined;
+      localStorage.removeItem('flowchart_auto_image');
+    }
     setIsLoading(true);
-    setCurrentAssistantMessage('');
+    setIsStreamingResponse(true);
 
     // Create new abort controller for this request
     abortControllerRef.current = new AbortController();
@@ -226,17 +303,16 @@ const AiChatSidebar: React.FC<AiChatSidebarProps> = ({
           role: msg.role,
           content: typeof msg.content === 'string' ? msg.content : msg.content,
         })),
-        // Add current user message
         {
           role: 'user',
           content: userMessage.content,
         },
       ]);
 
-      // Mark guest usage after successful AI response
-      if (!currentUser) {
-        markGuestAsUsed();
-      }
+      // 移除访客使用标记，改为在流程图成功生成后计费
+      // if (!currentUser) {
+      //   markGuestAsUsed();
+      // }
     } catch (error) {
       console.error('Error sending auto message:', error);
       // Handle errors similar to handleSendMessage
@@ -273,7 +349,6 @@ const AiChatSidebar: React.FC<AiChatSidebarProps> = ({
       };
 
       setMessages((prev) => [...prev, errorMessage]);
-      setCurrentAssistantMessage('');
 
       toast({
         title: 'Error',
@@ -283,27 +358,33 @@ const AiChatSidebar: React.FC<AiChatSidebarProps> = ({
     } finally {
       setIsLoading(false);
       abortControllerRef.current = null;
+      setIsStreamingResponse(false);
+      streamingMessageIdRef.current = null;
     }
   };
 
   // Handle auto-generation from homepage - ONLY ONCE
   useEffect(() => {
+    const hasHomepageImage = !!canvasContextRef.current.homepageImage;
+    const normalizedAutoInput = autoInput ?? '';
+
     if (
       shouldAutoGenerate &&
-      autoInput &&
+      (normalizedAutoInput || hasHomepageImage) &&
       isOpen &&
       isAPIReady &&
       !hasAutoSentRef.current
     ) {
       hasAutoSentRef.current = true; // Immediately mark as sent to prevent any duplicates
-      setInput(autoInput);
+      setInput(normalizedAutoInput);
 
       console.log(
         '🚀 Auto-sending message now that API is ready:',
-        autoInput.substring(0, 50) + '...',
+        normalizedAutoInput.substring(0, 50) + '...',
         {
           shouldAutoGenerate,
-          hasAutoInput: !!autoInput,
+          hasAutoInput: Boolean(normalizedAutoInput),
+          hasHomepageImage,
           isOpen,
           isAPIReady,
           hasAutoSent: hasAutoSentRef.current,
@@ -313,11 +394,12 @@ const AiChatSidebar: React.FC<AiChatSidebarProps> = ({
       // Small delay to ensure component is fully loaded
       setTimeout(async () => {
         try {
-          await handleAutoSendMessage(autoInput);
+          await handleAutoSendMessage(normalizedAutoInput);
 
           // 🔧 只有在自动发送成功后才清除localStorage
           localStorage.removeItem('flowchart_auto_generate');
           localStorage.removeItem('flowchart_auto_input');
+          localStorage.removeItem('flowchart_auto_mode');
           console.log('✅ Auto-generation completed, localStorage cleared');
 
           onAutoGenerateComplete?.();
@@ -331,7 +413,15 @@ const AiChatSidebar: React.FC<AiChatSidebarProps> = ({
 
   // 🔧 备用机制：如果API初始化很慢，提供一个超时重试
   useEffect(() => {
-    if (shouldAutoGenerate && autoInput && isOpen && !hasAutoSentRef.current) {
+    const hasHomepageImage = !!canvasContextRef.current.homepageImage;
+    const normalizedAutoInput = autoInput ?? '';
+
+    if (
+      shouldAutoGenerate &&
+      (normalizedAutoInput || hasHomepageImage) &&
+      isOpen &&
+      !hasAutoSentRef.current
+    ) {
       // 如果5秒后API还没准备好，尝试强制发送
       const timeoutId = setTimeout(() => {
         if (!hasAutoSentRef.current) {
@@ -341,12 +431,14 @@ const AiChatSidebar: React.FC<AiChatSidebarProps> = ({
           if (isAPIReady) {
             // API现在准备好了，正常发送
             hasAutoSentRef.current = true;
-            setInput(autoInput);
+            setInput(normalizedAutoInput);
             setTimeout(async () => {
               try {
-                await handleAutoSendMessage(autoInput);
+                await handleAutoSendMessage(normalizedAutoInput);
                 localStorage.removeItem('flowchart_auto_generate');
                 localStorage.removeItem('flowchart_auto_input');
+                localStorage.removeItem('flowchart_auto_mode');
+                localStorage.removeItem('flowchart_auto_image');
                 console.log('✅ Force auto-generation completed');
                 onAutoGenerateComplete?.();
               } catch (error) {
@@ -422,6 +514,24 @@ const AiChatSidebar: React.FC<AiChatSidebarProps> = ({
     }
   };
 
+  interface CanvasNodeSnapshot {
+    id: string;
+    type: string;
+    text?: string;
+    position: { x: number; y: number };
+    size: { width: number; height: number };
+    aiGenerated?: boolean;
+  }
+
+  interface CanvasEdgeSnapshot {
+    id: string;
+    type: string;
+    fromElement?: string | null;
+    toElement?: string | null;
+    label?: string;
+    aiGenerated?: boolean;
+  }
+
   const getCanvasState = () => {
     if (!excalidrawAPI) return null;
 
@@ -430,48 +540,45 @@ const AiChatSidebar: React.FC<AiChatSidebarProps> = ({
       const appState = excalidrawAPI.getAppState();
       const files = excalidrawAPI.getFiles();
 
-      // 构建精简的画布状态，只包含AI需要的关键信息
-      const canvasState = {
-        // 元素信息 - 只包含非删除的元素的关键属性
-        elements: elements.map((element) => {
-          const baseElement = {
+      const nodes: CanvasNodeSnapshot[] = [];
+      const edges: CanvasEdgeSnapshot[] = [];
+
+      elements.forEach((element) => {
+        const baseNode = {
+          id: element.id,
+          type: element.type,
+          position: { x: element.x, y: element.y },
+          size: { width: element.width ?? 0, height: element.height ?? 0 },
+          aiGenerated: Boolean(element.customData?.aiGenerated),
+        };
+
+        if (element.type === 'arrow') {
+          edges.push({
             id: element.id,
             type: element.type,
-            x: element.x,
-            y: element.y,
-            width: element.width,
-            height: element.height,
-          };
+            fromElement:
+              'startBinding' in element
+                ? element.startBinding?.elementId
+                : undefined,
+            toElement:
+              'endBinding' in element
+                ? element.endBinding?.elementId
+                : undefined,
+            label: 'text' in element ? (element as any).text : undefined,
+            aiGenerated: Boolean(element.customData?.aiGenerated),
+          });
+        } else {
+          nodes.push({
+            ...baseNode,
+            text: 'text' in element ? (element as any).text : undefined,
+          });
+        }
+      });
 
-          // 类型安全地添加特定元素的属性
-          if (element.type === 'text' && 'text' in element) {
-            return { ...baseElement, text: element.text };
-          }
-
-          if (
-            element.type === 'arrow' &&
-            'startBinding' in element &&
-            'endBinding' in element
-          ) {
-            return {
-              ...baseElement,
-              startBinding: element.startBinding,
-              endBinding: element.endBinding,
-            };
-          }
-
-          if (element.type === 'frame' && 'children' in element) {
-            return {
-              ...baseElement,
-              children: element.children,
-              name: 'name' in element ? element.name : undefined,
-            };
-          }
-
-          return baseElement;
-        }),
-
-        // 应用状态 - 只包含重要的视图信息
+      // 构建精简的画布状态，只包含AI需要的关键信息
+      const canvasState = {
+        nodes,
+        edges,
         appState: {
           viewBackgroundColor: appState.viewBackgroundColor,
           scrollX: appState.scrollX,
@@ -486,7 +593,6 @@ const AiChatSidebar: React.FC<AiChatSidebarProps> = ({
         // 文件数量统计（不传递实际文件数据以节省带宽）
         filesCount: Object.keys(files).length,
 
-        // 场景元数据
         metadata: {
           elementsCount: elements.length,
           hasImages: Object.keys(files).length > 0,
@@ -499,6 +605,7 @@ const AiChatSidebar: React.FC<AiChatSidebarProps> = ({
         // AI流程图上下文信息
         existingMermaid: extractExistingMermaidCode([...elements]),
         hasAiFlowchart: hasExistingAiFlowchart([...elements]),
+        description: generateAICanvasDescription([...elements]),
       };
 
       return canvasState;
@@ -507,6 +614,18 @@ const AiChatSidebar: React.FC<AiChatSidebarProps> = ({
       return null;
     }
   };
+
+  const canvasContextRef = useRef<{
+    lastMermaid?: {
+      code: string;
+      generatedAt: number;
+    };
+    homepageImage?: {
+      base64: string;
+      thumbnail?: string;
+      filename?: string;
+    };
+  }>({});
 
   const addFlowchartToCanvas = async (
     mermaidCode: string,
@@ -530,7 +649,12 @@ const AiChatSidebar: React.FC<AiChatSidebarProps> = ({
       const result = await convertMermaidToExcalidraw(mermaidCode);
 
       if (!result.success) {
-        throw new Error(result.error || 'Failed to convert flowchart');
+        const conversionError = new Error(
+          result.error || 'Failed to convert flowchart'
+        );
+        (conversionError as any).details = result.details;
+        (conversionError as any).mermaid = mermaidCode;
+        throw conversionError;
       }
 
       if (!result.elements) {
@@ -541,16 +665,9 @@ const AiChatSidebar: React.FC<AiChatSidebarProps> = ({
       const currentElements = [...excalidrawAPI.getSceneElements()];
       const aiElementsCount = countAiGeneratedElements(currentElements);
 
-      let newElements: any[];
-
-      if (mode === 'replace') {
-        // Replace mode: remove existing AI elements and add new ones
-        const elementsWithoutAi = removeAiGeneratedElements(currentElements);
-        newElements = [...elementsWithoutAi, ...result.elements];
-      } else {
-        // Extend mode: keep all existing elements and add new ones
-        newElements = [...currentElements, ...result.elements];
-      }
+      // 覆盖式落地：移除旧的 AI 元素，再添加最新生成的元素
+      const elementsWithoutAi = removeAiGeneratedElements(currentElements);
+      const newElements = [...elementsWithoutAi, ...result.elements];
 
       // Update the scene with new elements (capture for undo/redo)
       excalidrawAPI.updateScene({
@@ -565,20 +682,40 @@ const AiChatSidebar: React.FC<AiChatSidebarProps> = ({
       });
 
       // Show appropriate toast message based on mode and context
-      let toastTitle: string;
-      let toastDescription: string;
+      const toastTitle =
+        aiElementsCount > 0 ? 'Flowchart updated!' : 'Flowchart added!';
+      const toastDescription =
+        aiElementsCount > 0
+          ? 'Previous AI flowchart replaced with updated version.'
+          : 'Your AI-generated flowchart has been added to the canvas.';
 
-      if (mode === 'extend') {
-        toastTitle = 'Flowchart extended!';
-        toastDescription =
-          'New elements have been added to your existing flowchart.';
-      } else {
-        toastTitle =
-          aiElementsCount > 0 ? 'Flowchart updated!' : 'Flowchart added!';
-        toastDescription =
-          aiElementsCount > 0
-            ? 'Previous AI flowchart replaced with updated version.'
-            : 'Your AI-generated flowchart has been added to the canvas.';
+      canvasContextRef.current.lastMermaid = {
+        code: mermaidCode,
+        generatedAt: Date.now(),
+      };
+
+      // ✅ 只有流程图成功渲染后才计费
+      try {
+        await fetch('/api/ai/usage/record', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            type: 'flowchart_generation',
+            success: true,
+            metadata: {
+              mode: mode,
+              mermaidLength: mermaidCode.length,
+              elementCount: result.elements?.length || 0,
+              // 添加图片模式标识，这样计费记录能区分来源
+              isImageMode: aiMode === 'image_to_flowchart',
+              sourceMode: aiMode,
+            },
+          }),
+        });
+      } catch (recordError) {
+        console.error('Failed to record AI usage:', recordError);
       }
 
       toast({
@@ -587,53 +724,189 @@ const AiChatSidebar: React.FC<AiChatSidebarProps> = ({
       });
     } catch (error) {
       console.error('Error adding flowchart to canvas:', error);
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : 'An unexpected error occurred.';
+      const errorDetails =
+        error instanceof Error && (error as any).details
+          ? (error as any).details
+          : null;
+      const mermaidSnippet =
+        error instanceof Error && (error as any).mermaid
+          ? (error as any).mermaid
+          : undefined;
+
+      const combinedDescription = errorDetails
+        ? `${errorMessage}${errorDetails.startsWith('(') ? ' ' : ': '}${errorDetails}`
+        : errorMessage;
+
       toast({
         title: 'Failed to add flowchart',
-        description:
-          error instanceof Error
-            ? error.message
-            : 'An unexpected error occurred.',
+        description: combinedDescription,
         variant: 'destructive',
       });
+
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `flowchart-error-${Date.now()}`,
+          role: 'assistant',
+          content:
+            'The flowchart could not be rendered. Please try again or ask me to simplify the diagram.',
+          timestamp: new Date(),
+        },
+      ]);
+    }
+  };
+
+  const handleRegenerate = async () => {
+    if (messages.length === 0 || isLoading) return;
+
+    // Get the last user message
+    const lastUserMessage = messages.filter((msg) => msg.role === 'user').pop();
+
+    if (!lastUserMessage) return;
+
+    // Check if user is guest and show login modal instead of processing request
+    if (!currentUser) {
+      // Generate callback URL to preserve current state
+      const callbackUrl = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+      setLoginCallbackUrl(callbackUrl);
+      setShowLoginModal(true);
+      return;
+    }
+
+    const canUseAI = await checkUsageLimit();
+    if (!canUseAI) {
+      if (usageData?.timeFrame === 'daily') {
+        setDailyLimitUsageInfo({
+          timeFrame: 'daily',
+          nextResetTime: usageData.nextResetTime,
+        });
+        setShowPricingModal(true);
+      } else {
+        setShowUsageLimitCard(true);
+      }
+      return;
+    }
+
+    setIsLoading(true);
+    setIsStreamingResponse(true);
+
+    // Create new abort controller for this request
+    abortControllerRef.current = new AbortController();
+
+    try {
+      // Use the last user message content for regeneration
+      const conversationPayload: any[] = [
+        ...messages.slice(0, -1).map((msg) => ({
+          role: msg.role,
+          content: typeof msg.content === 'string' ? msg.content : msg.content,
+        })),
+        {
+          role: 'user',
+          content: lastUserMessage.content,
+        },
+      ];
+
+      await processAIConversation(conversationPayload);
+
+      // 移除即时计费逻辑，改为在流程图成功生成后计费
+      // if (!currentUser) {
+      //   markGuestAsUsed();
+      // }
+    } catch (error) {
+      console.error('Error regenerating message:', error);
+
+      if (error instanceof Error && error.name === 'AbortError') {
+        return;
+      }
+
+      if (error instanceof Error && (error as any).isGuestLimit) {
+        if (!currentUser) {
+          handleGuestLimitReached();
+          setShowLoginModal(true);
+          return;
+        }
+      }
+
+      if (error instanceof Error && (error as any).isDailyLimit) {
+        if (currentUser) {
+          setDailyLimitUsageInfo((error as any).usageInfo);
+          setShowPricingModal(true);
+          return;
+        }
+      }
+
+      const errorMessage: Message = {
+        id: (Date.now() + 2).toString(),
+        content:
+          'Sorry, I encountered an error while regenerating your request. Please try again.',
+        role: 'assistant',
+        timestamp: new Date(),
+        error: error instanceof Error ? error.message : 'Unknown error',
+      };
+
+      setMessages((prev) => [...prev, errorMessage]);
+
+      toast({
+        title: 'Error',
+        description: 'Failed to regenerate your message. Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsLoading(false);
+      abortControllerRef.current = null;
+      setIsStreamingResponse(false);
+      streamingMessageIdRef.current = null;
     }
   };
 
   const handleSendMessage = async () => {
-    if ((!input.trim() && selectedImages.length === 0) || isLoading) return;
+    if (
+      (selectedImages.length === 0 &&
+        !input.trim() &&
+        !canvasContextRef.current.homepageImage) ||
+      isLoading
+    ) {
+      return;
+    }
 
-    // Check AI usage limit based on user type
-    if (currentUser) {
-      // Logged in user - check subscription limits
-      const canUseAI = await checkUsageLimit();
-      if (!canUseAI) {
-        // Check if it's a daily limit for free users
-        if (usageData?.timeFrame === 'daily') {
-          console.log(
-            '🎯 Daily limit detected - showing PricingModal directly'
-          );
-          // Set daily limit context and show pricing modal directly
-          setDailyLimitUsageInfo({
-            timeFrame: 'daily',
-            nextResetTime: usageData.nextResetTime,
-          });
-          setShowPricingModal(true);
-        } else {
-          setShowUsageLimitCard(true);
-        }
-        return;
+    // Check if user is guest and show login modal instead of processing request
+    if (!currentUser) {
+      // Generate callback URL to preserve current state
+      const callbackUrl = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+      setLoginCallbackUrl(callbackUrl);
+      setShowLoginModal(true);
+      return;
+    }
+
+    // Logged in user - check subscription limits
+    const canUseAI = await checkUsageLimit();
+    if (!canUseAI) {
+      // Check if it's a daily limit for free users
+      if (usageData?.timeFrame === 'daily') {
+        console.log(
+          '🎯 Daily limit detected - showing PricingModal directly'
+        );
+        // Set daily limit context and show pricing modal directly
+        setDailyLimitUsageInfo({
+          timeFrame: 'daily',
+          nextResetTime: usageData.nextResetTime,
+        });
+        setShowPricingModal(true);
+      } else {
+        setShowUsageLimitCard(true);
       }
-    } else {
-      // Guest user - let the request go to backend for real validation
-      // Backend will check actual database usage and return appropriate error if needed
-      console.log(
-        '🎯 Guest user sending request - backend will validate usage',
-        { hasUsedBefore: hasUsedFreeRequest }
-      );
+      return;
     }
 
     // Prepare message content
-    let messageContent: string | MessageContent[];
+    let messageContent: string | MessageContent[] = input.trim();
     let messageImages: { file: File; thumbnail: string; base64: string }[] = [];
+
+    const homepageImage = canvasContextRef.current.homepageImage;
 
     if (selectedImages.length > 0) {
       // Convert images to base64 and create message content array
@@ -667,12 +940,41 @@ const AiChatSidebar: React.FC<AiChatSidebarProps> = ({
       }
 
       messageContent = contentArray;
-    } else {
-      messageContent = input.trim();
+    } else if (homepageImage && aiMode === 'image_to_flowchart') {
+      const mimeMatch = homepageImage.base64.match(/^data:(.*?);/);
+      const mimeType = mimeMatch?.[1] || 'image/png';
+      const filename =
+        homepageImage.filename ||
+        `uploaded-image.${mimeType.split('/')[1] || 'png'}`;
+      messageImages = [
+        {
+          file: new File([], filename, { type: mimeType }),
+          thumbnail: homepageImage.thumbnail || homepageImage.base64,
+          base64: homepageImage.base64,
+        },
+      ];
+
+      messageContent = [
+        ...(input.trim()
+          ? [
+              {
+                type: 'text' as const,
+                text: input.trim(),
+              },
+            ]
+          : []),
+        {
+          type: 'image_url' as const,
+          image_url: {
+            url: homepageImage.base64,
+          },
+        },
+      ];
     }
 
+    const userMessageId = Date.now().toString();
     const userMessage: Message = {
-      id: Date.now().toString(),
+      id: userMessageId,
       content: messageContent,
       role: 'user',
       timestamp: new Date(),
@@ -686,30 +988,34 @@ const AiChatSidebar: React.FC<AiChatSidebarProps> = ({
       prev.forEach((url) => URL.revokeObjectURL(url));
       return [];
     });
+    if (homepageImage && aiMode === 'image_to_flowchart') {
+      canvasContextRef.current.homepageImage = undefined;
+      localStorage.removeItem('flowchart_auto_image');
+    }
     setIsLoading(true);
-    setCurrentAssistantMessage('');
+    setIsStreamingResponse(true);
 
     // Create new abort controller for this request
     abortControllerRef.current = new AbortController();
 
     try {
-      await processAIConversation([
-        // 发送完整的对话历史以提供上下文
+      const conversationPayload: any[] = [
         ...messages.map((msg) => ({
           role: msg.role,
           content: typeof msg.content === 'string' ? msg.content : msg.content,
         })),
-        // 添加当前用户消息
         {
           role: 'user',
           content: userMessage.content,
         },
-      ]);
+      ];
 
-      // Mark guest usage after successful AI response
-      if (!currentUser) {
-        markGuestAsUsed();
-      }
+      await processAIConversation(conversationPayload);
+
+      // 移除访客使用标记，改为在流程图成功生成后计费
+      // if (!currentUser) {
+      //   markGuestAsUsed();
+      // }
     } catch (error) {
       console.error('Error sending message:', error);
 
@@ -751,7 +1057,6 @@ const AiChatSidebar: React.FC<AiChatSidebarProps> = ({
       };
 
       setMessages((prev) => [...prev, errorMessage]);
-      setCurrentAssistantMessage('');
 
       toast({
         title: 'Error',
@@ -761,11 +1066,16 @@ const AiChatSidebar: React.FC<AiChatSidebarProps> = ({
     } finally {
       setIsLoading(false);
       abortControllerRef.current = null;
+      setIsStreamingResponse(false);
+      streamingMessageIdRef.current = null;
     }
   };
 
   // 处理AI对话的核心函数，支持工具调用的递归处理
   const processAIConversation = async (conversationMessages: any[]) => {
+    const canvasSnapshot = getCanvasState();
+    const inferredMode = canvasSnapshot?.hasAiFlowchart ? 'extend' : 'replace';
+
     const response = await fetch('/api/ai/chat/flowchart', {
       method: 'POST',
       headers: {
@@ -773,6 +1083,12 @@ const AiChatSidebar: React.FC<AiChatSidebarProps> = ({
       },
       body: JSON.stringify({
         messages: conversationMessages,
+        aiContext: {
+          canvasSnapshot,
+          lastMermaid: canvasContextRef.current.lastMermaid,
+          requestedMode: inferredMode,
+          mode: aiMode,
+        },
       }),
       signal: abortControllerRef.current?.signal,
     });
@@ -782,7 +1098,6 @@ const AiChatSidebar: React.FC<AiChatSidebarProps> = ({
         // Handle rate limit errors specifically
         const errorData = await response.json().catch(() => ({}));
         if (errorData.isGuest) {
-          // Create a custom error with guest flag
           const guestError = new Error(
             errorData.message ||
               'Guest users can only use AI once per month. Please sign up for more requests.'
@@ -791,7 +1106,6 @@ const AiChatSidebar: React.FC<AiChatSidebarProps> = ({
           throw guestError;
         }
 
-        // Check if this is a daily limit error for registered users
         if (errorData.usageInfo?.timeFrame === 'daily') {
           console.log('🔄 Detected daily limit error:', errorData.usageInfo);
           const dailyLimitError = new Error(
@@ -814,138 +1128,160 @@ const AiChatSidebar: React.FC<AiChatSidebarProps> = ({
       throw new Error('No response body');
     }
 
+    const textDecoder = new TextDecoder();
+    const streamingMessageId = `assistant_${Date.now()}_${Math.random()
+      .toString(36)
+      .slice(2)}`;
+    let messageCreated = false;
     let accumulatedContent = '';
     let isFlowchartGenerated = false;
     let mermaidCode = '';
     let flowchartMode: 'replace' | 'extend' = 'replace';
-    let pendingToolCalls: any[] = [];
+    const pendingToolCalls: any[] = [];
+
+    const ensureStreamingMessage = () => {
+      if (messageCreated) return;
+      messageCreated = true;
+      streamingMessageIdRef.current = streamingMessageId;
+      const timestamp = new Date();
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: streamingMessageId,
+          content: '',
+          role: 'assistant',
+          timestamp,
+          isFlowchart: false,
+        },
+      ]);
+    };
+
+    const updateStreamingMessage = (updater: (prev: Message) => Message) => {
+      setMessages((prev) =>
+        prev.map((msg) => (msg.id === streamingMessageId ? updater(msg) : msg))
+      );
+    };
+
+    const setStreamingContent = (content: string) => {
+      ensureStreamingMessage();
+      accumulatedContent = content;
+      updateStreamingMessage((msg) => ({
+        ...msg,
+        content,
+      }));
+    };
+
+    const appendStreamingContent = (delta: string) => {
+      if (!delta) return;
+      const nextContent = accumulatedContent + delta;
+      setStreamingContent(nextContent);
+    };
 
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
 
-      const chunk = new TextDecoder().decode(value);
+      const chunk = textDecoder.decode(value);
       const lines = chunk.split('\n');
 
       for (const line of lines) {
-        if (line.startsWith('data: ')) {
-          try {
-            const data = JSON.parse(line.slice(6));
+        if (!line.startsWith('data: ')) continue;
 
-            if (data.type === 'text' || data.type === 'content') {
-              accumulatedContent += data.content;
-              setCurrentAssistantMessage(accumulatedContent);
-            } else if (data.type === 'tool-call') {
-              // Handle different tool calls
-              if (data.toolName === 'generate_flowchart') {
-                mermaidCode = data.args.mermaid_code;
-                flowchartMode = data.args.mode || 'replace';
-                isFlowchartGenerated = true;
+        try {
+          const data = JSON.parse(line.slice(6));
 
-                // Add a simple message indicating flowchart generation (without showing code)
-                const modeText =
-                  flowchartMode === 'extend'
-                    ? 'Extending flowchart...'
-                    : 'Generating flowchart...';
-                accumulatedContent += `\n\n🎨 ${modeText}`;
-                setCurrentAssistantMessage(accumulatedContent);
-              } else if (data.toolName === 'get_canvas_state') {
-                // Handle canvas state request - get state from frontend
-                accumulatedContent += '\n\n🔍 Analyzing current canvas...';
-                setCurrentAssistantMessage(accumulatedContent);
+          if (data.type === 'text' || data.type === 'content') {
+            appendStreamingContent(data.content ?? '');
+          } else if (data.type === 'tool-call') {
+            if (data.toolName === 'generate_flowchart') {
+              mermaidCode = data.args.mermaid_code;
+              flowchartMode = data.args.mode || 'replace';
+              isFlowchartGenerated = true;
 
-                // 收集工具调用，稍后处理
-                pendingToolCalls.push({
-                  toolCallId: data.toolCallId,
-                  toolName: data.toolName,
-                  args: data.args,
-                });
-              }
-            } else if (data.type === 'tool-result') {
-              // Tool execution result
-              console.log('Tool result:', data.result);
-            } else if (data.type === 'finish') {
-              // Final complete message
-              if (!accumulatedContent.trim()) {
-                accumulatedContent = data.content;
-                setCurrentAssistantMessage(accumulatedContent);
-              }
-            } else if (data.type === 'done' || data === '[DONE]') {
-              break;
-            } else if (data.type === 'tool-calls-needed') {
-              // AI需要工具调用，我们需要处理这些调用然后继续对话
-              pendingToolCalls = data.toolCalls || [];
+              const modeText =
+                flowchartMode === 'extend'
+                  ? 'Extending flowchart...'
+                  : 'Generating flowchart...';
+              appendStreamingContent(`\n\n🎨 ${modeText}`);
+            } else if (data.toolName === 'get_canvas_state') {
+              appendStreamingContent('\n\n🔍 Analyzing current canvas...');
+              pendingToolCalls.push({
+                toolCallId: data.toolCallId,
+                toolName: data.toolName,
+                args: data.args,
+              });
             }
-          } catch (e) {
-            // Skip invalid JSON lines
-            console.warn('Failed to parse SSE data:', line);
+          } else if (data.type === 'tool-result') {
+            console.log('Tool result:', data.result);
+          } else if (data.type === 'finish') {
+            if (!accumulatedContent.trim() && data.content) {
+              setStreamingContent(data.content);
+            }
+          } else if (data.type === 'done' || data === '[DONE]') {
+            break;
           }
+        } catch (error) {
+          console.warn('Failed to parse SSE data:', line);
         }
       }
     }
 
-    // 处理待处理的工具调用
     if (pendingToolCalls.length > 0) {
-      const toolResults = await Promise.all(
-        pendingToolCalls.map(async (toolCall) => {
-          if (toolCall.toolName === 'get_canvas_state') {
-            // 获取画布状态
-            const canvasState = excalidrawAPI ? getCanvasState() : null;
-            const canvasDescription = canvasState?.elements
-              ? generateAICanvasDescription(canvasState.elements)
-              : 'The canvas is currently empty with no elements.';
-
-            return {
-              tool_call_id: toolCall.toolCallId,
-              role: 'tool',
-              content: canvasDescription,
-            };
-          }
-          return null;
-        })
-      );
-
-      // 过滤掉null结果
-      const validToolResults = toolResults.filter((result) => result !== null);
-
-      if (validToolResults.length > 0) {
-        // 构建包含工具调用结果的新消息历史，然后递归调用
-        const updatedMessages = [
-          ...conversationMessages,
-          {
-            role: 'assistant',
-            content: accumulatedContent,
-            tool_calls: pendingToolCalls.map((tc) => ({
-              id: tc.toolCallId,
-              type: 'function',
-              function: {
-                name: tc.toolName,
-                arguments: JSON.stringify(tc.args),
-              },
-            })),
-          },
-          ...validToolResults,
-        ];
-
-        // 递归处理，继续对话
-        return await processAIConversation(updatedMessages);
+      if (messageCreated) {
+        setMessages((prev) =>
+          prev.filter((message) => message.id !== streamingMessageId)
+        );
       }
+      streamingMessageIdRef.current = null;
+
+      const updatedMessages = [
+        ...conversationMessages,
+        {
+          role: 'assistant',
+          content: accumulatedContent,
+          tool_calls: pendingToolCalls.map((tc) => ({
+            id: tc.toolCallId,
+            type: 'function',
+            function: {
+              name: tc.toolName,
+              arguments: JSON.stringify(tc.args),
+            },
+          })),
+        },
+      ];
+
+      return await processAIConversation(updatedMessages);
     }
 
-    // Create final assistant message
-    const aiMessage: Message = {
-      id: (Date.now() + 1).toString(),
-      content: accumulatedContent,
-      role: 'assistant',
-      timestamp: new Date(),
-      isFlowchart: isFlowchartGenerated,
-      mermaidCode: isFlowchartGenerated ? mermaidCode : undefined,
-    };
+    if (messageCreated) {
+      updateStreamingMessage((msg) => ({
+        ...msg,
+        content: accumulatedContent,
+        isFlowchart: isFlowchartGenerated,
+        mermaidCode: isFlowchartGenerated ? mermaidCode : undefined,
+        timestamp: new Date(),
+      }));
+    } else if (accumulatedContent.trim().length > 0) {
+      streamingMessageIdRef.current = null;
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `assistant_${Date.now()}_${Math.random().toString(36).slice(2)}`,
+          content: accumulatedContent,
+          role: 'assistant',
+          timestamp: new Date(),
+          isFlowchart: isFlowchartGenerated,
+          mermaidCode: isFlowchartGenerated ? mermaidCode : undefined,
+        },
+      ]);
+    }
 
-    setMessages((prev) => [...prev, aiMessage]);
-    setCurrentAssistantMessage('');
+    if (!accumulatedContent.trim() && !isFlowchartGenerated && messageCreated) {
+      setMessages((prev) =>
+        prev.filter((message) => message.id !== streamingMessageId)
+      );
+    }
 
-    // If a flowchart was generated, add it to the canvas
     if (isFlowchartGenerated && mermaidCode) {
       console.log('🎨 Attempting to add flowchart to canvas:', {
         mermaidCode: mermaidCode.substring(0, 100) + '...',
@@ -967,7 +1303,8 @@ const AiChatSidebar: React.FC<AiChatSidebarProps> = ({
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
       setIsLoading(false);
-      setCurrentAssistantMessage('');
+      setIsStreamingResponse(false);
+      streamingMessageIdRef.current = null;
     }
   };
 
@@ -979,8 +1316,9 @@ const AiChatSidebar: React.FC<AiChatSidebarProps> = ({
 
     // 清空对话历史
     setMessages([]);
-    setCurrentAssistantMessage('');
     setInput('');
+    setIsStreamingResponse(false);
+    streamingMessageIdRef.current = null;
 
     // 显示提示信息
     toast({
@@ -1044,48 +1382,29 @@ const AiChatSidebar: React.FC<AiChatSidebarProps> = ({
     >
       <div className="flex h-full flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between p-4">
+        <div className="flex items-center justify-between p-4 border-b border-gray-200">
           <div className="flex items-center gap-3">
-            <Button
-              onClick={handleNewConversation}
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
-              disabled={isLoading}
-              title="New Conversation"
-            >
-              <Edit className="h-4 w-4" />
-            </Button>
             <h2 className="text-base font-medium text-gray-900">
               FlowChart AI
             </h2>
-            {isLoading && (
-              <div className="flex items-center gap-1">
-                <div className="h-1.5 w-1.5 bg-blue-500 rounded-full animate-pulse" />
-                <span className="text-xs text-gray-500">Thinking...</span>
-              </div>
-            )}
-          </div>
-          <div className="flex items-center gap-1">
-            {isLoading && (
-              <Button
-                onClick={handleStopGeneration}
-                variant="ghost"
-                size="sm"
-                className="h-8 px-3 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg font-medium transition-colors"
-              >
-                <span className="text-xs">Stop</span>
-              </Button>
-            )}
             <Button
-              onClick={onToggle}
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg shadow-sm hover:shadow-md transition-all duration-200"
+              onClick={handleNewConversation}
+              variant="outline"
+              size="sm"
+              className="h-8 px-3 text-gray-600 border-gray-300 hover:border-gray-400 hover:bg-gray-50 rounded-lg text-xs font-medium transition-colors"
+              disabled={isLoading}
             >
-              <X className="h-4 w-4" />
+              New Conversation
             </Button>
           </div>
+          <Button
+            onClick={onToggle}
+            variant="ghost"
+            size="sm"
+            className="h-8 px-3 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg"
+          >
+            X
+          </Button>
         </div>
 
         {/* Guest Usage Indicator */}
@@ -1105,11 +1424,6 @@ const AiChatSidebar: React.FC<AiChatSidebarProps> = ({
                   <p className="text-xs mt-1 opacity-75">
                     I can help you visualize processes, workflows, and ideas.
                   </p>
-                  {excalidrawAPI && (
-                    <div className="mt-3 text-xs bg-blue-50 text-blue-600 px-2 py-1 rounded-md mx-auto w-fit">
-                      🎨 Canvas context enabled - I can see your current drawing
-                    </div>
-                  )}
                 </div>
               )}
 
@@ -1155,20 +1469,8 @@ const AiChatSidebar: React.FC<AiChatSidebarProps> = ({
                 </div>
               ))}
 
-              {/* Current streaming message */}
-              {isLoading && currentAssistantMessage && (
-                <div className="max-w-full">
-                  <div className="leading-relaxed">
-                    {renderFormattedText(currentAssistantMessage)}
-                  </div>
-                  <div className="flex items-center gap-1 mt-1">
-                    <div className="h-1 w-1 bg-blue-500 rounded-full animate-pulse" />
-                  </div>
-                </div>
-              )}
-
-              {/* Loading indicator when no current message */}
-              {isLoading && !currentAssistantMessage && (
+              {/* Typing indicator before streaming starts */}
+              {isStreamingResponse && !streamingMessageIdRef.current && (
                 <div className="max-w-full">
                   <div className="flex items-center gap-1 py-2">
                     <div className="h-2 w-2 bg-gray-400 rounded-full animate-bounce" />
@@ -1188,10 +1490,10 @@ const AiChatSidebar: React.FC<AiChatSidebarProps> = ({
         </div>
 
         {/* Input */}
-        <div className="p-6">
+        <div className="border-t border-gray-200">
           {/* Image previews */}
           {selectedImages.length > 0 && (
-            <div className="mb-3 mx-2">
+            <div className="mb-3 mx-4 mt-4">
               <div className="flex flex-wrap gap-2">
                 {selectedImages.map((file, index) => (
                   <div key={index} className="relative">
@@ -1227,57 +1529,89 @@ const AiChatSidebar: React.FC<AiChatSidebarProps> = ({
             className="hidden"
           />
 
-          <div className="bg-white rounded-xl shadow-lg border border-gray-200/50 p-3 mx-2">
-            <div className="flex items-end space-x-3">
-              <Button
-                size="icon"
-                variant="ghost"
-                className="h-8 w-8 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg flex-shrink-0 mb-1"
-              >
-                <Plus className="h-4 w-4" />
-              </Button>
-              <div className="flex-1">
-                <Textarea
-                  ref={textareaRef}
-                  placeholder="Describe the flowchart you want to create..."
-                  value={input}
-                  onChange={(e) => {
-                    setInput(e.target.value);
-                    // Adjust height after state update
-                    setTimeout(() => adjustTextareaHeight(), 0);
-                  }}
-                  onKeyDown={handleKeyPress}
-                  disabled={isLoading}
-                  className="min-h-[32px] max-h-[120px] resize-none border-0 focus-visible:ring-0 shadow-none bg-transparent placeholder:text-gray-400 text-sm px-0 py-1 leading-5 overflow-y-auto"
-                  style={{
-                    height: '32px',
-                    wordWrap: 'break-word',
-                    whiteSpace: 'pre-wrap',
-                  }}
-                />
-              </div>
+          {/* Mode Switch */}
+          <div className="px-4 pb-3 pt-4">
+            <div className="flex items-center gap-2 rounded-lg bg-gray-50 p-2 border border-gray-200">
+              <span className="text-xs text-gray-600 mr-2">Mode:</span>
+              {(Object.keys(AI_ASSISTANT_MODES) as AiAssistantMode[]).map(
+                (mode) => {
+                  const isActive = aiMode === mode;
+                  const { label } = AI_ASSISTANT_MODES[mode];
+                  return (
+                    <Button
+                      key={mode}
+                      type="button"
+                      size="sm"
+                      variant={isActive ? 'default' : 'ghost'}
+                      className={
+                        isActive
+                          ? 'h-8 px-4'
+                          : 'h-8 px-4 text-gray-600 hover:text-gray-900'
+                      }
+                      onClick={() => setAiMode(mode)}
+                    >
+                      <span className="text-xs font-medium">{label}</span>
+                    </Button>
+                  );
+                }
+              )}
+            </div>
+          </div>
+
+          <div className="px-4 pb-4">
+            <Textarea
+              ref={textareaRef}
+              placeholder="Describe your flowchart..."
+              value={input}
+              onChange={(e) => {
+                setInput(e.target.value);
+                // Adjust height after state update
+                setTimeout(() => adjustTextareaHeight(), 0);
+              }}
+              onKeyDown={handleKeyPress}
+              disabled={isLoading}
+              className="min-h-[80px] max-h-[200px] resize-none border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm bg-white placeholder:text-gray-500 text-gray-900 text-base px-4 py-3 leading-6 overflow-y-auto transition-all duration-200"
+              style={{
+                height: '80px',
+                wordWrap: 'break-word',
+                whiteSpace: 'pre-wrap',
+              }}
+            />
+            <p className="text-xs text-gray-400 mt-2 ml-1">
+              Press Enter to send
+            </p>
+          </div>
+
+          <div className="px-4 pb-6">
+            <div className="flex gap-3">
               <Button
                 onClick={() => {
                   handleCameraClick();
                 }}
-                size="icon"
-                variant="ghost"
-                className="h-8 w-8 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg flex-shrink-0 mb-1"
+                variant="outline"
+                size="default"
+                className="flex-1 h-11 text-sm font-medium border-gray-200 hover:border-gray-300 transition-colors"
                 disabled={isLoading}
-                title="Upload image"
               >
-                <Camera className="h-4 w-4" />
+                Upload Image
               </Button>
               <Button
                 onClick={handleSendMessage}
-                size="icon"
-                variant="ghost"
+                size="default"
+                className="flex-1 h-11 text-sm font-medium bg-blue-600 hover:bg-blue-700 transition-colors"
                 disabled={
                   (!input.trim() && selectedImages.length === 0) || isLoading
                 }
-                className="h-8 w-8 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg disabled:opacity-30 flex-shrink-0 mb-1"
               >
-                <ArrowUp className="h-4 w-4" />
+                Send
+              </Button>
+              <Button
+                onClick={handleRegenerate}
+                size="default"
+                className="flex-1 h-11 text-sm font-medium bg-green-500 border-green-500 text-white hover:bg-green-600 hover:border-green-600 transition-colors"
+                disabled={messages.length === 0 || isLoading}
+              >
+                Regenerate
               </Button>
             </div>
           </div>
@@ -1290,7 +1624,7 @@ const AiChatSidebar: React.FC<AiChatSidebarProps> = ({
           <DialogHeader className="hidden">
             <DialogTitle>Sign In</DialogTitle>
           </DialogHeader>
-          <LoginForm callbackUrl={currentPath} className="border-none" />
+          <LoginForm callbackUrl={loginCallbackUrl || currentPath} className="border-none" />
         </DialogContent>
       </Dialog>
 
