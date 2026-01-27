@@ -1,15 +1,16 @@
 import 'server-only';
 
-import { getServerSession } from 'next-auth';
+import { auth } from './auth';
 import { headers } from 'next/headers';
 import { cache } from 'react';
-import { authOptions } from './auth';
 
 /**
- * Get the current session
+ * Get the current session using better-auth
  *
  * NOTICE: do not call it from middleware
  */
 export const getSession = cache(async () => {
-  return await getServerSession(authOptions);
+  return await auth.api.getSession({
+    headers: await headers(),
+  });
 });

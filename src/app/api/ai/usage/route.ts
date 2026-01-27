@@ -1,12 +1,10 @@
 import { canUserUseAI, getUserAIUsageStats } from '@/lib/ai-usage-supabase';
-import { authOptions } from '@/lib/auth';
-import { getServerSession } from 'next-auth';
-import { headers } from 'next/headers';
+import { getSession } from '@/lib/server';
 
 export async function GET() {
   try {
     // Authentication check
-    const session = await getServerSession(authOptions);
+    const session = await getSession();
 
     if (!session?.user?.id) {
       return new Response(

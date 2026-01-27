@@ -71,6 +71,36 @@ const nextConfig: NextConfig = {
         destination: 'https://www.infogiph.com/:path*',
         permanent: true,
       },
+      {
+        source: '/blog/flowchart-symbols',
+        destination: '/blog/flowchart-symbols-guide',
+        permanent: true,
+      },
+      {
+        source: '/:locale/blog/flowchart-symbols',
+        destination: '/:locale/blog/flowchart-symbols-guide',
+        permanent: true,
+      },
+      {
+        source: '/tools/ai-flowchart-generator',
+        destination: '/',
+        permanent: true,
+      },
+      {
+        source: '/:locale/tools/ai-flowchart-generator',
+        destination: '/:locale',
+        permanent: true,
+      },
+      {
+        source: '/tools/flowchart-maker-ai',
+        destination: '/',
+        permanent: true,
+      },
+      {
+        source: '/:locale/tools/flowchart-maker-ai',
+        destination: '/:locale',
+        permanent: true,
+      },
     ];
   },
 
@@ -112,41 +142,6 @@ const nextConfig: NextConfig = {
   // Production optimizations
   experimental: {
     optimizePackageImports: ['@radix-ui/react-icons', 'lucide-react'],
-  },
-
-  async redirects() {
-    return [
-      {
-        source: '/blog/flowchart-symbols',
-        destination: '/blog/flowchart-symbols-guide',
-        permanent: true,
-      },
-      {
-        source: '/:locale/blog/flowchart-symbols',
-        destination: '/:locale/blog/flowchart-symbols-guide',
-        permanent: true,
-      },
-      {
-        source: '/tools/ai-flowchart-generator',
-        destination: '/',
-        permanent: true,
-      },
-      {
-        source: '/:locale/tools/ai-flowchart-generator',
-        destination: '/:locale',
-        permanent: true,
-      },
-      {
-        source: '/tools/flowchart-maker-ai',
-        destination: '/',
-        permanent: true,
-      },
-      {
-        source: '/:locale/tools/flowchart-maker-ai',
-        destination: '/:locale',
-        permanent: true,
-      },
-    ];
   },
 };
 

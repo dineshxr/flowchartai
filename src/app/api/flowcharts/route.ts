@@ -1,9 +1,7 @@
 import { getDb } from '@/db';
 import { flowcharts } from '@/db/schema';
-import { authOptions } from '@/lib/auth';
+import { getSession } from '@/lib/server';
 import { desc, eq } from 'drizzle-orm';
-import { getServerSession } from 'next-auth';
-import { headers } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 
@@ -17,7 +15,7 @@ const createFlowchartSchema = z.object({
 // GET /api/flowcharts - Get user's flowcharts
 export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
+    const session = await getSession();
 
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -62,7 +60,7 @@ export async function GET(request: NextRequest) {
 // POST /api/flowcharts - Create new flowchart
 export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
+    const session = await getSession();
 
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -76,7 +74,7 @@ export async function POST(request: NextRequest) {
 
     try {
       const db = await getDb();
-      
+
       if (isPreCreation) {
         // Pre-create flowchart with minimal data
         const [newFlowchart] = await db
