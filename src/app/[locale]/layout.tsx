@@ -1,6 +1,6 @@
 import { Analytics } from '@/analytics/analytics';
 import {
-  fontBricolageGrotesque,
+  fontGambarino,
   fontNotoSans,
   fontNotoSansMono,
   fontNotoSerif,
@@ -8,7 +8,6 @@ import {
 import AffonsoScript from '@/components/affiliate/affonso';
 import PromotekitScript from '@/components/affiliate/promotekit';
 import { AdSense } from '@/components/analytics/adsense';
-import { TailwindIndicator } from '@/components/layout/tailwind-indicator';
 import { routing } from '@/i18n/routing';
 import { cn } from '@/lib/utils';
 import { type Locale, NextIntlClientProvider, hasLocale } from 'next-intl';
@@ -45,7 +44,7 @@ export default async function LocaleLayout({
   return (
     <html suppressHydrationWarning lang={locale}>
       <head>
-        <AdSense />
+        {/* <AdSense /> */}
         <AffonsoScript />
         <PromotekitScript />
       </head>
@@ -53,10 +52,10 @@ export default async function LocaleLayout({
         suppressHydrationWarning
         className={cn(
           'size-full antialiased',
-          fontNotoSans.className,
+          fontGambarino.className,
           fontNotoSerif.variable,
           fontNotoSansMono.variable,
-          fontBricolageGrotesque.variable
+          fontGambarino.variable
         )}
       >
         <NextIntlClientProvider>
@@ -64,7 +63,6 @@ export default async function LocaleLayout({
             {children}
 
             <Toaster richColors position="top-right" offset={64} />
-            <TailwindIndicator />
             <Analytics />
           </Providers>
         </NextIntlClientProvider>

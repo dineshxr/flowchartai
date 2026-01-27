@@ -53,7 +53,7 @@ export function constructMetadata({
       apple: '/apple-touch-icon.png',
     },
     metadataBase: new URL(getBaseUrl()),
-    manifest: `${getBaseUrl()}/manifest.webmanifest`,
+    manifest: '/manifest.webmanifest',
     ...(noIndex && {
       robots: {
         index: false,

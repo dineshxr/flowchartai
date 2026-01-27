@@ -46,7 +46,7 @@ export const SocialLoginButton = ({
   const onClick = async (provider: 'google' | 'github') => {
     setIsLoading(provider);
     try {
-      const result = await authClient.signIn.social({ provider });
+      const result = await authClient.signIn(provider);
       if (result?.error) {
         console.log('social login error', result.error);
       }
@@ -90,7 +90,7 @@ export const SocialLoginButton = ({
           ) : (
             <GitHubIcon className="size-4 mr-2" />
           )}
-          <span>{t('signInWithGitHub')}</span>
+          <span>Sign in with GitHub</span>
         </Button>
       )}
     </div>

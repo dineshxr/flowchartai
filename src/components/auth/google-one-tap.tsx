@@ -55,7 +55,7 @@ export const GoogleOneTap = ({
 
       // Trigger NextAuth.js Google OAuth flow
       try {
-        const result = await authClient.signIn.social({ provider: 'google' });
+        const result = await authClient.signIn('google');
         if (result?.error) {
           console.error('Google login error:', result.error);
           onError?.(result.error);

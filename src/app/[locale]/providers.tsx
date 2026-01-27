@@ -1,13 +1,12 @@
 'use client';
 
 import { GoogleOneTapProvider } from '@/components/auth/google-one-tap-provider';
-import { ConsentBanner } from '@/components/consent/consent-banner';
 import { ActiveThemeProvider } from '@/components/layout/active-theme-provider';
-import { FlowchartDataProvider } from '@/components/layout/flowchart-data-provider';
 import { PaymentProvider } from '@/components/layout/payment-provider';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { websiteConfig } from '@/config/website';
 import { RootProvider } from 'fumadocs-ui/provider';
+import { SessionProvider } from 'next-auth/react';
 import { ThemeProvider, useTheme } from 'next-themes';
 import type { PropsWithChildren } from 'react';
 
@@ -27,25 +26,23 @@ export function Providers({ children }: PropsWithChildren) {
   const defaultMode = websiteConfig.metadata.mode?.defaultMode ?? 'system';
 
   return (
-    <ThemeProvider
-      attribute="class"
-      defaultTheme={defaultMode}
-      enableSystem={true}
-      disableTransitionOnChange
-    >
-      <ActiveThemeProvider>
-        <RootProvider theme={theme}>
-          <TooltipProvider>
-            <PaymentProvider>
-              <FlowchartDataProvider>
-                {/* GoogleOneTapProvider 暂时禁用以解决 FedCM 兼容性问题 */}
-                {children}
-                <ConsentBanner />
-              </FlowchartDataProvider>
-            </PaymentProvider>
-          </TooltipProvider>
-        </RootProvider>
-      </ActiveThemeProvider>
-    </ThemeProvider>
+    <SessionProvider>
+      <ThemeProvider
+        attribute="class"
+        defaultTheme={defaultMode}
+        enableSystem={true}
+        disableTransitionOnChange
+      >
+        <ActiveThemeProvider>
+          <RootProvider theme={theme}>
+            <TooltipProvider>
+              <PaymentProvider>
+                <GoogleOneTapProvider>{children}</GoogleOneTapProvider>
+              </PaymentProvider>
+            </TooltipProvider>
+          </RootProvider>
+        </ActiveThemeProvider>
+      </ThemeProvider>
+    </SessionProvider>
   );
 }
