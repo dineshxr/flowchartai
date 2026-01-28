@@ -50,8 +50,7 @@ export function Navbar({ scroll }: NavBarProps) {
   const menuLinks = getNavbarLinks();
   const localePathname = useLocalePathname();
   const [mounted, setMounted] = useState(false);
-  const { data: session, status } = authClient.useSession();
-  const isPending = status === 'loading';
+  const { data: session, isPending } = authClient.useSession();
   const currentUser = session?.user;
   // console.log(`Navbar, user:`, user);
 

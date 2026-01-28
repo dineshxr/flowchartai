@@ -46,11 +46,14 @@ export const SocialLoginButton = ({
   const onClick = async (provider: 'google' | 'github') => {
     setIsLoading(provider);
     try {
-      const result = await authClient.signIn(provider);
+      const result = await authClient.signIn.social({
+        provider,
+        callbackURL: callbackUrl,
+      });
       if (result?.error) {
         console.log('social login error', result.error);
       }
-      // NextAuth.js handles the redirect automatically
+      // Better Auth handles the redirect automatically
     } catch (error) {
       console.log('social login error', error);
     } finally {

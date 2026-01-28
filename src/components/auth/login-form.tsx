@@ -32,7 +32,7 @@ export const LoginForm = ({
     <AuthCard
       headerLabel={t('welcomeBack')}
       bottomButtonLabel={t('signUpHint')}
-      bottomButtonHref={`${Routes.Register}`}
+      bottomButtonHref={`${Routes.Login}`}
       className={cn('', className)}
     >
       <div className="space-y-4">
