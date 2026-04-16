@@ -36,7 +36,7 @@ export function Footer() {
           <span>
             © {new Date().getFullYear()} Infogiph. All rights reserved.
           </span>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <Link
               href="/canvas"
               className="hover:text-foreground transition-colors"
@@ -56,6 +56,27 @@ export function Footer() {
               className="hover:text-foreground transition-colors"
             >
               Flowchart Templates
+            </Link>
+            <span>•</span>
+            <Link
+              href="/blog"
+              className="hover:text-foreground transition-colors"
+            >
+              Blog
+            </Link>
+            <span>•</span>
+            <Link
+              href="/blog/infographics-generator-ai"
+              className="hover:text-foreground transition-colors"
+            >
+              AI Infographic Generator
+            </Link>
+            <span>•</span>
+            <Link
+              href="/blog/text-to-infographic-generator"
+              className="hover:text-foreground transition-colors"
+            >
+              Text to Infographic
             </Link>
           </div>
         </div>
