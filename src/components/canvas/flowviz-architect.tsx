@@ -1,9 +1,21 @@
 'use client';
 
+import { LoginForm } from '@/components/auth/login-form';
 import { LoginWrapper } from '@/components/auth/login-wrapper';
+import {
+  AnimatedPreview,
+  type PreviewMode,
+  type PreviewSpec,
+} from '@/components/blocks/infogiph-home/animated-preview';
 import { UserButton } from '@/components/layout/user-button';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -14,25 +26,32 @@ import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import { useCurrentUserWithStatus } from '@/hooks/use-current-user';
 import {
   EXPORT_PRESETS,
   type ExportPreset,
   useFlowchartExport,
 } from '@/hooks/use-export';
-import { useCurrentUserWithStatus } from '@/hooks/use-current-user';
 import { useFlowchart } from '@/hooks/use-flowchart';
 import { useLocalePathname } from '@/i18n/navigation';
+import {
+  accentForCategory,
+  getTemplateBySlug,
+  templateTopicSeed,
+} from '@/lib/templates/catalog';
+import { derivePreviewSpec } from '@/lib/templates/preview';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
   Activity,
   ArrowRight,
   Bot,
+  CheckCircle2,
+  ChevronLeft,
   CircleDot,
   Cloud,
   Database,
   Download,
   Edit,
-  ChevronLeft,
   Globe,
   HardDrive,
   Layers,
@@ -84,35 +103,49 @@ import {
   WhatsAppIcon,
   YouTubeIcon,
 } from './brand-icons';
-import {
-  AnimatedPreview,
-  type PreviewMode,
-  type PreviewSpec,
-} from '@/components/blocks/infogiph-home/animated-preview';
 
 // Best-effort mapping of a free-text satellite label to a recognisable icon
 // tile. Tries the brand SVGs first, then falls back to a tinted letter tile.
 const iconForLabel = (label: string): React.ReactNode => {
   const n = (label || '').toLowerCase();
   if (/whatsapp|whats\s?app/.test(n))
-    return <WhatsAppIcon className="w-full h-full" style={{ color: '#25D366' }} />;
+    return (
+      <WhatsAppIcon className="w-full h-full" style={{ color: '#25D366' }} />
+    );
   if (/slack/.test(n)) return <SlackIcon className="w-full h-full" />;
   if (/github|git\b/.test(n)) return <GitHubIcon className="w-full h-full" />;
   if (/notion/.test(n)) return <NotionIcon className="w-full h-full" />;
   if (/openai|gpt|llm|claude|anthropic/.test(n))
     return <OpenAIIcon className="w-full h-full" />;
   if (/stripe|billing|payment|pay\b/.test(n))
-    return <StripeIcon className="w-full h-full" style={{ color: '#635BFF' }} />;
+    return (
+      <StripeIcon className="w-full h-full" style={{ color: '#635BFF' }} />
+    );
   if (/instagram|insta/.test(n))
-    return <InstagramIcon className="w-full h-full" style={{ color: '#E4405F' }} />;
-  if (/tiktok|tik\s?tok/.test(n)) return <TikTokIcon className="w-full h-full" />;
+    return (
+      <InstagramIcon className="w-full h-full" style={{ color: '#E4405F' }} />
+    );
+  if (/tiktok|tik\s?tok/.test(n))
+    return <TikTokIcon className="w-full h-full" />;
   if (/youtube|you\s?tube/.test(n))
-    return <YouTubeIcon className="w-full h-full" style={{ color: '#FF0000' }} />;
+    return (
+      <YouTubeIcon className="w-full h-full" style={{ color: '#FF0000' }} />
+    );
   if (/drive|gdrive|google\s?drive/.test(n))
     return <GoogleDriveIcon className="w-full h-full" />;
   if (/shopify|shop\b/.test(n))
-    return <ShopifyIcon className="w-full h-full" style={{ color: '#95BF47' }} />;
-  const palette = ['#e63946', '#1AC6FF', '#8b5cf6', '#f59e0b', '#10b981', '#ef4444', '#0ea5e9'];
+    return (
+      <ShopifyIcon className="w-full h-full" style={{ color: '#95BF47' }} />
+    );
+  const palette = [
+    '#e63946',
+    '#1AC6FF',
+    '#8b5cf6',
+    '#f59e0b',
+    '#10b981',
+    '#ef4444',
+    '#0ea5e9',
+  ];
   const color = palette[Math.abs(hashCode(label)) % palette.length];
   const letter = (label || '?').trim().charAt(0).toUpperCase() || '?';
   return <LetterIcon className="w-full h-full" letter={letter} color={color} />;
@@ -128,14 +161,15 @@ const hashCode = (s: string) => {
 // so the output stays in the same animated-beam visual style the user picked.
 const buildPreviewFromAI = (
   result: any,
-  base: (typeof TEMPLATES)[number] | null,
+  base: (typeof TEMPLATES)[number] | null
 ): PreviewSpec | null => {
   if (!result || !base) return null;
   const spec = base.preview;
-  const centerLabel = result.center?.label || (spec as any).center?.label || base.label;
-  const centerIcon =
-    (spec as any).center?.icon ||
-    <Sparkles className="w-full h-full text-white" />;
+  const centerLabel =
+    result.center?.label || (spec as any).center?.label || base.label;
+  const centerIcon = (spec as any).center?.icon || (
+    <Sparkles className="w-full h-full text-white" />
+  );
   const center = { key: 'center', label: centerLabel, icon: centerIcon };
   const sats: any[] = result.satellites || [];
   const satNodes = sats.map((s, i) => ({
@@ -193,7 +227,12 @@ const getIcon = (name: string, size = 24) => {
   if (n.includes('cloud')) return <Cloud size={size} />;
   if (n.includes('web') || n.includes('globe') || n.includes('internet'))
     return <Globe size={size} />;
-  if (n.includes('msg') || n.includes('chat') || n.includes('whatsapp') || n.includes('messenger'))
+  if (
+    n.includes('msg') ||
+    n.includes('chat') ||
+    n.includes('whatsapp') ||
+    n.includes('messenger')
+  )
     return <MessageSquare size={size} />;
   if (n.includes('ai') || n.includes('bot') || n.includes('gpt'))
     return <Bot size={size} />;
@@ -207,7 +246,8 @@ const getIcon = (name: string, size = 24) => {
     return <Workflow size={size} />;
   if (n.includes('zapier') || n.includes('automation'))
     return <Zap size={size} />;
-  if (n.includes('social') || n.includes('share')) return <Share2 size={size} />;
+  if (n.includes('social') || n.includes('share'))
+    return <Share2 size={size} />;
   return <Layers size={size} />;
 };
 
@@ -240,16 +280,54 @@ const TEMPLATES: Array<{
       mode: 'beams',
       accent: '#8b5cf6',
       left: [
-        { key: 'wa', label: 'WhatsApp', icon: <WhatsAppIcon className="w-full h-full" style={{ color: '#25D366' }} /> },
-        { key: 'sl', label: 'Slack', icon: <SlackIcon className="w-full h-full" /> },
-        { key: 'ig', label: 'Instagram', icon: <InstagramIcon className="w-full h-full" style={{ color: '#E4405F' }} /> },
+        {
+          key: 'wa',
+          label: 'WhatsApp',
+          icon: (
+            <WhatsAppIcon
+              className="w-full h-full"
+              style={{ color: '#25D366' }}
+            />
+          ),
+        },
+        {
+          key: 'sl',
+          label: 'Slack',
+          icon: <SlackIcon className="w-full h-full" />,
+        },
+        {
+          key: 'ig',
+          label: 'Instagram',
+          icon: (
+            <InstagramIcon
+              className="w-full h-full"
+              style={{ color: '#E4405F' }}
+            />
+          ),
+        },
       ],
       right: [
-        { key: 'ai', label: 'OpenAI', icon: <OpenAIIcon className="w-full h-full" /> },
-        { key: 'nt', label: 'Notion', icon: <NotionIcon className="w-full h-full" /> },
-        { key: 'crm', label: 'Salesforce', icon: <SalesforceIcon className="w-full h-full" /> },
+        {
+          key: 'ai',
+          label: 'OpenAI',
+          icon: <OpenAIIcon className="w-full h-full" />,
+        },
+        {
+          key: 'nt',
+          label: 'Notion',
+          icon: <NotionIcon className="w-full h-full" />,
+        },
+        {
+          key: 'crm',
+          label: 'Salesforce',
+          icon: <SalesforceIcon className="w-full h-full" />,
+        },
       ],
-      center: { key: 'bot', label: 'Chatbot', icon: <Bot className="w-full h-full text-white" /> },
+      center: {
+        key: 'bot',
+        label: 'Chatbot',
+        icon: <Bot className="w-full h-full text-white" />,
+      },
     },
   },
   {
@@ -273,16 +351,49 @@ const TEMPLATES: Array<{
       mode: 'dots',
       accent: '#0ea5e9',
       left: [
-        { key: 'st', label: 'Stripe', icon: <StripeIcon className="w-full h-full" style={{ color: '#635BFF' }} /> },
-        { key: 'a0', label: 'Auth0', icon: <Auth0Icon className="w-full h-full" /> },
-        { key: 'pg', label: 'Postgres', icon: <PostgresIcon className="w-full h-full" /> },
+        {
+          key: 'st',
+          label: 'Stripe',
+          icon: (
+            <StripeIcon
+              className="w-full h-full"
+              style={{ color: '#635BFF' }}
+            />
+          ),
+        },
+        {
+          key: 'a0',
+          label: 'Auth0',
+          icon: <Auth0Icon className="w-full h-full" />,
+        },
+        {
+          key: 'pg',
+          label: 'Postgres',
+          icon: <PostgresIcon className="w-full h-full" />,
+        },
       ],
       right: [
-        { key: 'gd', label: 'Drive', icon: <GoogleDriveIcon className="w-full h-full" /> },
-        { key: 'mail', label: 'Email', icon: <Mail className="w-full h-full text-[#EA4335]" /> },
-        { key: 'gh', label: 'GitHub', icon: <GitHubIcon className="w-full h-full" /> },
+        {
+          key: 'gd',
+          label: 'Drive',
+          icon: <GoogleDriveIcon className="w-full h-full" />,
+        },
+        {
+          key: 'mail',
+          label: 'Email',
+          icon: <Mail className="w-full h-full text-[#EA4335]" />,
+        },
+        {
+          key: 'gh',
+          label: 'GitHub',
+          icon: <GitHubIcon className="w-full h-full" />,
+        },
       ],
-      center: { key: 'cloud', label: 'API Gateway', icon: <Cloud className="w-full h-full text-white" /> },
+      center: {
+        key: 'cloud',
+        label: 'API Gateway',
+        icon: <Cloud className="w-full h-full text-white" />,
+      },
     },
   },
   {
@@ -305,14 +416,52 @@ const TEMPLATES: Array<{
       layout: 'radial',
       mode: 'pulses',
       accent: '#f97316',
-      center: { key: 'shop', label: 'Store', icon: <LayoutGrid className="w-full h-full text-white" /> },
+      center: {
+        key: 'shop',
+        label: 'Store',
+        icon: <LayoutGrid className="w-full h-full text-white" />,
+      },
       satellites: [
-        { key: 'sh', label: 'Shopify', icon: <ShopifyIcon className="w-full h-full" style={{ color: '#95BF47' }} /> },
-        { key: 'st', label: 'Stripe', icon: <StripeIcon className="w-full h-full" style={{ color: '#635BFF' }} /> },
-        { key: 'mc', label: 'Mailchimp', icon: <MailchimpIcon className="w-full h-full" /> },
-        { key: 'up', label: 'UPS', icon: <UPSIcon className="w-full h-full" /> },
-        { key: 'ga', label: 'Analytics', icon: <GoogleAnalyticsIcon className="w-full h-full" /> },
-        { key: 'pg', label: 'Products', icon: <PostgresIcon className="w-full h-full" /> },
+        {
+          key: 'sh',
+          label: 'Shopify',
+          icon: (
+            <ShopifyIcon
+              className="w-full h-full"
+              style={{ color: '#95BF47' }}
+            />
+          ),
+        },
+        {
+          key: 'st',
+          label: 'Stripe',
+          icon: (
+            <StripeIcon
+              className="w-full h-full"
+              style={{ color: '#635BFF' }}
+            />
+          ),
+        },
+        {
+          key: 'mc',
+          label: 'Mailchimp',
+          icon: <MailchimpIcon className="w-full h-full" />,
+        },
+        {
+          key: 'up',
+          label: 'UPS',
+          icon: <UPSIcon className="w-full h-full" />,
+        },
+        {
+          key: 'ga',
+          label: 'Analytics',
+          icon: <GoogleAnalyticsIcon className="w-full h-full" />,
+        },
+        {
+          key: 'pg',
+          label: 'Products',
+          icon: <PostgresIcon className="w-full h-full" />,
+        },
       ],
     },
   },
@@ -337,11 +486,31 @@ const TEMPLATES: Array<{
       mode: 'arrows',
       accent: '#14b8a6',
       nodes: [
-        { key: 'sn', label: 'Snowflake', icon: <SnowflakeIcon className="w-full h-full" /> },
-        { key: 'dbt', label: 'dbt', icon: <DbtIcon className="w-full h-full" /> },
-        { key: 'db', label: 'Data Lake', icon: <Database className="w-full h-full text-white" /> },
-        { key: 'ai', label: 'ML', icon: <OpenAIIcon className="w-full h-full" /> },
-        { key: 'tab', label: 'Tableau', icon: <TableauIcon className="w-full h-full" /> },
+        {
+          key: 'sn',
+          label: 'Snowflake',
+          icon: <SnowflakeIcon className="w-full h-full" />,
+        },
+        {
+          key: 'dbt',
+          label: 'dbt',
+          icon: <DbtIcon className="w-full h-full" />,
+        },
+        {
+          key: 'db',
+          label: 'Data Lake',
+          icon: <Database className="w-full h-full text-white" />,
+        },
+        {
+          key: 'ai',
+          label: 'ML',
+          icon: <OpenAIIcon className="w-full h-full" />,
+        },
+        {
+          key: 'tab',
+          label: 'Tableau',
+          icon: <TableauIcon className="w-full h-full" />,
+        },
       ],
     },
   },
@@ -366,16 +535,59 @@ const TEMPLATES: Array<{
       mode: 'dots',
       accent: '#ec4899',
       left: [
-        { key: 'ig', label: 'Instagram', icon: <InstagramIcon className="w-full h-full" style={{ color: '#E4405F' }} /> },
-        { key: 'tt', label: 'TikTok', icon: <TikTokIcon className="w-full h-full" /> },
-        { key: 'yt', label: 'YouTube', icon: <YouTubeIcon className="w-full h-full" style={{ color: '#FF0000' }} /> },
+        {
+          key: 'ig',
+          label: 'Instagram',
+          icon: (
+            <InstagramIcon
+              className="w-full h-full"
+              style={{ color: '#E4405F' }}
+            />
+          ),
+        },
+        {
+          key: 'tt',
+          label: 'TikTok',
+          icon: <TikTokIcon className="w-full h-full" />,
+        },
+        {
+          key: 'yt',
+          label: 'YouTube',
+          icon: (
+            <YouTubeIcon
+              className="w-full h-full"
+              style={{ color: '#FF0000' }}
+            />
+          ),
+        },
       ],
       right: [
-        { key: 'wa', label: 'Messaging', icon: <WhatsAppIcon className="w-full h-full" style={{ color: '#25D366' }} /> },
-        { key: 'cdn', label: 'CDN', icon: <CloudflareIcon className="w-full h-full" /> },
-        { key: 'alg', label: 'Search', icon: <AlgoliaIcon className="w-full h-full" /> },
+        {
+          key: 'wa',
+          label: 'Messaging',
+          icon: (
+            <WhatsAppIcon
+              className="w-full h-full"
+              style={{ color: '#25D366' }}
+            />
+          ),
+        },
+        {
+          key: 'cdn',
+          label: 'CDN',
+          icon: <CloudflareIcon className="w-full h-full" />,
+        },
+        {
+          key: 'alg',
+          label: 'Search',
+          icon: <AlgoliaIcon className="w-full h-full" />,
+        },
       ],
-      center: { key: 'feed', label: 'Feed Engine', icon: <Share2 className="w-full h-full text-white" /> },
+      center: {
+        key: 'feed',
+        label: 'Feed Engine',
+        icon: <Share2 className="w-full h-full text-white" />,
+      },
     },
   },
   {
@@ -398,14 +610,42 @@ const TEMPLATES: Array<{
       layout: 'radial',
       mode: 'beams',
       accent: '#6366f1',
-      center: { key: 'agent', label: 'AI Agent', icon: <Sparkles className="w-full h-full text-white" /> },
+      center: {
+        key: 'agent',
+        label: 'AI Agent',
+        icon: <Sparkles className="w-full h-full text-white" />,
+      },
       satellites: [
-        { key: 'ai', label: 'OpenAI', icon: <OpenAIIcon className="w-full h-full" /> },
-        { key: 'pc', label: 'Pinecone', icon: <PineconeIcon className="w-full h-full" /> },
-        { key: 'gh', label: 'GitHub', icon: <GitHubIcon className="w-full h-full" /> },
-        { key: 'gd', label: 'Drive', icon: <GoogleDriveIcon className="w-full h-full" /> },
-        { key: 'nt', label: 'Notion', icon: <NotionIcon className="w-full h-full" /> },
-        { key: 'rd', label: 'Memory', icon: <RedisIcon className="w-full h-full" /> },
+        {
+          key: 'ai',
+          label: 'OpenAI',
+          icon: <OpenAIIcon className="w-full h-full" />,
+        },
+        {
+          key: 'pc',
+          label: 'Pinecone',
+          icon: <PineconeIcon className="w-full h-full" />,
+        },
+        {
+          key: 'gh',
+          label: 'GitHub',
+          icon: <GitHubIcon className="w-full h-full" />,
+        },
+        {
+          key: 'gd',
+          label: 'Drive',
+          icon: <GoogleDriveIcon className="w-full h-full" />,
+        },
+        {
+          key: 'nt',
+          label: 'Notion',
+          icon: <NotionIcon className="w-full h-full" />,
+        },
+        {
+          key: 'rd',
+          label: 'Memory',
+          icon: <RedisIcon className="w-full h-full" />,
+        },
       ],
     },
   },
@@ -417,14 +657,28 @@ const TEMPLATES: Array<{
     data: {
       layout: 'tree',
       root: {
-        label: 'CEO', icon: 'process', tool: 'Claude',
+        label: 'CEO',
+        icon: 'process',
+        tool: 'Claude',
         children: [
           { label: 'CMO', icon: 'social', tool: 'OpenClaw' },
           {
-            label: 'CTO', icon: 'process', tool: 'Cursor',
+            label: 'CTO',
+            icon: 'process',
+            tool: 'Cursor',
             children: [
-              { label: 'CodexCoder', icon: 'automation', role: 'Engineer', tool: 'Codex' },
-              { label: 'ClaudeCoder', icon: 'automation', role: 'Engineer', tool: 'Claude' },
+              {
+                label: 'CodexCoder',
+                icon: 'automation',
+                role: 'Engineer',
+                tool: 'Codex',
+              },
+              {
+                label: 'ClaudeCoder',
+                icon: 'automation',
+                role: 'Engineer',
+                tool: 'Claude',
+              },
             ],
           },
           { label: 'COO', icon: 'process', tool: 'Claude' },
@@ -443,29 +697,59 @@ const TEMPLATES: Array<{
           {
             key: 'cmo',
             label: 'CMO',
-            icon: <LetterIcon className="w-full h-full" letter="M" color="#ff6b9d" />,
+            icon: (
+              <LetterIcon
+                className="w-full h-full"
+                letter="M"
+                color="#ff6b9d"
+              />
+            ),
           },
           {
             key: 'cto',
             label: 'CTO',
-            icon: <LetterIcon className="w-full h-full" letter="T" color="#c74bb5" />,
+            icon: (
+              <LetterIcon
+                className="w-full h-full"
+                letter="T"
+                color="#c74bb5"
+              />
+            ),
             children: [
               {
                 key: 'eng1',
                 label: 'Engineer',
-                icon: <LetterIcon className="w-full h-full" letter="E" color="#f5c84b" />,
+                icon: (
+                  <LetterIcon
+                    className="w-full h-full"
+                    letter="E"
+                    color="#f5c84b"
+                  />
+                ),
               },
               {
                 key: 'eng2',
                 label: 'Engineer',
-                icon: <LetterIcon className="w-full h-full" letter="E" color="#f5c84b" />,
+                icon: (
+                  <LetterIcon
+                    className="w-full h-full"
+                    letter="E"
+                    color="#f5c84b"
+                  />
+                ),
               },
             ],
           },
           {
             key: 'coo',
             label: 'COO',
-            icon: <LetterIcon className="w-full h-full" letter="O" color="#ff8a5c" />,
+            icon: (
+              <LetterIcon
+                className="w-full h-full"
+                letter="O"
+                color="#ff8a5c"
+              />
+            ),
           },
         ],
       },
@@ -506,7 +790,7 @@ export default function FlowVizArchitect({
     ],
   });
   const [activePreview, setActivePreview] = useState<PreviewSpec | null>(
-    TEMPLATES[0].preview,
+    TEMPLATES[0].preview
   );
   const [activeTemplate, setActiveTemplate] = useState<
     (typeof TEMPLATES)[number] | null
@@ -515,7 +799,7 @@ export default function FlowVizArchitect({
     Record<string, { x: number; y: number }>
   >({});
   const [labelOverrides, setLabelOverrides] = useState<Record<string, string>>(
-    {},
+    {}
   );
   const [animationSpeed, setAnimationSpeed] = useState(1);
   const [exportPreset, setExportPreset] = useState<ExportPreset>('original');
@@ -526,12 +810,28 @@ export default function FlowVizArchitect({
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [tempTitle, setTempTitle] = useState<string>('Untitled');
   const [isSaving, setIsSaving] = useState(false);
-  const [localFlowchartId, setLocalFlowchartId] = useState<string | undefined>(flowchartId);
+  const [localFlowchartId, setLocalFlowchartId] = useState<string | undefined>(
+    flowchartId
+  );
   const autoGenerateTriggered = useRef(false);
 
   const exportContainerRef = useRef<HTMLDivElement>(null);
-  const { exportPNG, exportSVG, exportGIF, exportMP4, isExporting, exportProgress } =
-    useFlowchartExport(exportContainerRef);
+  const {
+    exportPNG,
+    exportSVG,
+    exportGIF,
+    exportMP4,
+    isExporting,
+    exportProgress,
+  } = useFlowchartExport(exportContainerRef);
+
+  // Export is gated behind sign-in. These drive the "progress saved" dialog and
+  // the resume-after-login flow.
+  const [showExportAuth, setShowExportAuth] = useState(false);
+  const [pendingExportFormat, setPendingExportFormat] = useState<
+    'png' | 'svg' | 'gif' | 'mp4' | null
+  >(null);
+  const exportResumeTriggered = useRef(false);
 
   useEffect(() => {
     if (flowchart) {
@@ -540,7 +840,12 @@ export default function FlowVizArchitect({
       if (flowchart.content) {
         try {
           const parsed = JSON.parse(flowchart.content);
-          if (parsed && typeof parsed === 'object' && parsed.center && parsed.satellites) {
+          if (
+            parsed &&
+            typeof parsed === 'object' &&
+            parsed.center &&
+            parsed.satellites
+          ) {
             setDiagramData(parsed);
             setActivePreview(null);
           }
@@ -567,6 +872,95 @@ export default function FlowVizArchitect({
     localStorage.removeItem('flowchart_aspect');
   }, [authLoading, isAuthenticated]);
 
+  // Deep link: /canvas?template=<slug> opens the editor with that catalog
+  // template's diagram pre-loaded (used by the /templates collection pages).
+  const templateDeepLinkTriggered = useRef(false);
+  useEffect(() => {
+    if (typeof window === 'undefined' || templateDeepLinkTriggered.current)
+      return;
+    if (flowchartId) return; // editing an existing flowchart takes priority
+    const slug = new URLSearchParams(window.location.search).get('template');
+    if (!slug) return;
+    const tpl = getTemplateBySlug(slug);
+    if (!tpl) return;
+    templateDeepLinkTriggered.current = true;
+    const spec = derivePreviewSpec(tpl, accentForCategory(tpl.category));
+    setDiagramData(tpl.data);
+    setActivePreview(spec);
+    setActiveTemplate({
+      id: tpl.slug,
+      label: tpl.title,
+      icon: <Layers size={18} />,
+      topic: templateTopicSeed(tpl),
+      data: tpl.data,
+      preview: spec,
+    });
+    setTopic('');
+    setCurrentTitle(tpl.title);
+    setTempTitle(tpl.title);
+  }, [flowchartId]);
+
+  // After an unauthenticated user signs in (export gate), restore their saved
+  // diagram and resume the export they were attempting.
+  useEffect(() => {
+    if (typeof window === 'undefined' || exportResumeTriggered.current) return;
+    if (authLoading || !isAuthenticated) return;
+    const raw = localStorage.getItem('flowchart_pending_export');
+    if (!raw) return;
+    exportResumeTriggered.current = true;
+    localStorage.removeItem('flowchart_pending_export');
+    try {
+      const saved = JSON.parse(raw);
+      if (saved.data) {
+        setDiagramData(saved.data);
+        // Rebuild an animated preview spec from the plain diagram data so the
+        // restored canvas (and any resumed GIF/MP4 export) animates correctly.
+        const spec = derivePreviewSpec(
+          {
+            slug: saved.title || 'diagram',
+            title: saved.title || 'Diagram',
+            shortDescription: '',
+            longDescription: '',
+            category: '',
+            categoryName: '',
+            tags: [],
+            keywords: [],
+            layout: saved.data?.layout === 'tree' ? 'tree' : 'hub',
+            data: saved.data,
+            faqs: [],
+            useCases: [],
+          } as any,
+          '#8b5cf6'
+        );
+        setActivePreview(spec);
+      }
+      if (saved.title) {
+        setCurrentTitle(saved.title);
+        setTempTitle(saved.title);
+      }
+      if (saved.preset) setExportPreset(saved.preset);
+      if (saved.mode) setAnimationType(saved.mode);
+      if (saved.format) {
+        setPendingExportFormat(saved.format);
+        toast.success('Welcome back — picking up your export…');
+      }
+    } catch {
+      // ignore malformed resume payload
+    }
+  }, [authLoading, isAuthenticated]);
+
+  // Once the restored diagram has rendered, trigger the saved export.
+  useEffect(() => {
+    if (!pendingExportFormat || !isAuthenticated || !activePreview) return;
+    if (isExporting) return;
+    const fmt = pendingExportFormat;
+    const id = setTimeout(() => {
+      runExport(fmt);
+      setPendingExportFormat(null);
+    }, 900);
+    return () => clearTimeout(id);
+  }, [pendingExportFormat, isAuthenticated, activePreview, isExporting]);
+
   const handleTitleChange = async (newTitle: string) => {
     setCurrentTitle(newTitle);
     const idToUse = localFlowchartId || flowchartId;
@@ -588,7 +982,10 @@ export default function FlowVizArchitect({
     setIsSaving(true);
     try {
       const content = JSON.stringify(dataToSave);
-      const titleToSave = currentTitle !== 'Untitled' ? currentTitle : customTitle || topic || 'Untitled';
+      const titleToSave =
+        currentTitle !== 'Untitled'
+          ? currentTitle
+          : customTitle || topic || 'Untitled';
       const idToUse = localFlowchartId || flowchartId;
       if (idToUse) {
         await fetch(`/api/flowcharts/${idToUse}`, {
@@ -622,7 +1019,7 @@ export default function FlowVizArchitect({
   const generateDiagram = async (
     e?: React.FormEvent,
     customTopic?: string,
-    imageBase64?: string,
+    imageBase64?: string
   ) => {
     if (e) e.preventDefault();
     const userPrompt = (customTopic || topic).trim();
@@ -690,6 +1087,38 @@ export default function FlowVizArchitect({
     }
   };
 
+  const runExport = (format: 'png' | 'svg' | 'gif' | 'mp4') => {
+    if (format === 'png') exportPNG(currentTitle, exportPreset);
+    else if (format === 'svg') exportSVG(currentTitle, exportPreset);
+    else if (format === 'gif') exportGIF(currentTitle, exportPreset);
+    else exportMP4(currentTitle, exportPreset);
+  };
+
+  // Exporting requires an account. If the user is signed out, stash their work
+  // and prompt sign-in; the resume effect picks the export back up afterwards.
+  const handleExport = (format: 'png' | 'svg' | 'gif' | 'mp4') => {
+    if (!isAuthenticated) {
+      try {
+        localStorage.setItem(
+          'flowchart_pending_export',
+          JSON.stringify({
+            format,
+            data: diagramData,
+            title: currentTitle,
+            preset: exportPreset,
+            mode: animationType,
+          })
+        );
+      } catch {
+        // storage may be unavailable; still prompt for sign-in
+      }
+      // Defer so the export dropdown can close before the dialog takes focus.
+      setTimeout(() => setShowExportAuth(true), 30);
+      return;
+    }
+    runExport(format);
+  };
+
   const handleManualSave = () => {
     saveFlowchart(diagramData);
   };
@@ -726,7 +1155,11 @@ export default function FlowVizArchitect({
             className="h-9 w-9 rounded-lg hover:bg-[#fafafa]"
             onClick={() => setSidebarOpen(!sidebarOpen)}
           >
-            {sidebarOpen ? <PanelLeftClose size={18} /> : <PanelLeftOpen size={18} />}
+            {sidebarOpen ? (
+              <PanelLeftClose size={18} />
+            ) : (
+              <PanelLeftOpen size={18} />
+            )}
           </Button>
           {currentUser ? (
             <div className="flex items-center gap-1.5">
@@ -735,17 +1168,28 @@ export default function FlowVizArchitect({
                   value={tempTitle}
                   onChange={(e) => setTempTitle(e.target.value)}
                   onKeyDown={(e) => {
-                    if (e.key === 'Enter') { handleTitleChange(tempTitle); setIsEditingTitle(false); }
-                    else if (e.key === 'Escape') { setTempTitle(currentTitle); setIsEditingTitle(false); }
+                    if (e.key === 'Enter') {
+                      handleTitleChange(tempTitle);
+                      setIsEditingTitle(false);
+                    } else if (e.key === 'Escape') {
+                      setTempTitle(currentTitle);
+                      setIsEditingTitle(false);
+                    }
                   }}
-                  onBlur={() => { handleTitleChange(tempTitle); setIsEditingTitle(false); }}
+                  onBlur={() => {
+                    handleTitleChange(tempTitle);
+                    setIsEditingTitle(false);
+                  }}
                   className="h-9 px-3 text-sm font-semibold w-56 rounded-lg"
                   autoFocus
                 />
               ) : (
                 <button
                   type="button"
-                  onClick={() => { setTempTitle(currentTitle); setIsEditingTitle(true); }}
+                  onClick={() => {
+                    setTempTitle(currentTitle);
+                    setIsEditingTitle(true);
+                  }}
                   className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-sm font-semibold max-w-56 hover:bg-[#fafafa] transition-colors"
                 >
                   <span className="truncate">{currentTitle}</span>
@@ -754,7 +1198,11 @@ export default function FlowVizArchitect({
               )}
             </div>
           ) : (
-            <span className="font-semibold text-sm px-2">Infogiph</span>
+            <img
+              src="/infogiph-logo.png"
+              alt="Infogiph"
+              className="h-6 w-auto px-1"
+            />
           )}
         </div>
 
@@ -767,16 +1215,28 @@ export default function FlowVizArchitect({
             size="sm"
             className="rounded-lg bg-white border border-border p-0.5"
           >
-            <ToggleGroupItem value="dots" className="gap-1.5 text-xs px-2.5 rounded-md data-[state=on]:bg-foreground data-[state=on]:text-background">
+            <ToggleGroupItem
+              value="dots"
+              className="gap-1.5 text-xs px-2.5 rounded-md data-[state=on]:bg-foreground data-[state=on]:text-background"
+            >
               <CircleDot size={14} /> Dots
             </ToggleGroupItem>
-            <ToggleGroupItem value="beams" className="gap-1.5 text-xs px-2.5 rounded-md data-[state=on]:bg-foreground data-[state=on]:text-background">
+            <ToggleGroupItem
+              value="beams"
+              className="gap-1.5 text-xs px-2.5 rounded-md data-[state=on]:bg-foreground data-[state=on]:text-background"
+            >
               <LineChart size={14} /> Beams
             </ToggleGroupItem>
-            <ToggleGroupItem value="pulses" className="gap-1.5 text-xs px-2.5 rounded-md data-[state=on]:bg-foreground data-[state=on]:text-background">
+            <ToggleGroupItem
+              value="pulses"
+              className="gap-1.5 text-xs px-2.5 rounded-md data-[state=on]:bg-foreground data-[state=on]:text-background"
+            >
               <Activity size={14} /> Pulses
             </ToggleGroupItem>
-            <ToggleGroupItem value="arrows" className="gap-1.5 text-xs px-2.5 rounded-md data-[state=on]:bg-foreground data-[state=on]:text-background">
+            <ToggleGroupItem
+              value="arrows"
+              className="gap-1.5 text-xs px-2.5 rounded-md data-[state=on]:bg-foreground data-[state=on]:text-background"
+            >
               <ArrowRight size={14} /> Arrows
             </ToggleGroupItem>
           </ToggleGroup>
@@ -793,7 +1253,9 @@ export default function FlowVizArchitect({
               max={3}
               step={0.1}
               value={animationSpeed}
-              onChange={(e) => setAnimationSpeed(parseFloat(e.target.value))}
+              onChange={(e) =>
+                setAnimationSpeed(Number.parseFloat(e.target.value))
+              }
               className="w-20 accent-foreground"
             />
             <span className="text-[11px] font-semibold tabular-nums text-foreground/80 w-8 text-right">
@@ -805,7 +1267,11 @@ export default function FlowVizArchitect({
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className="gap-1.5 text-xs rounded-lg border-border hover:bg-[#fafafa]">
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1.5 text-xs rounded-lg border-border hover:bg-[#fafafa]"
+              >
                 <LayoutGrid className="h-3.5 w-3.5" />
                 {EXPORT_PRESETS[exportPreset].label.split(' (')[0]}
               </Button>
@@ -816,9 +1282,7 @@ export default function FlowVizArchitect({
                   key={k}
                   onClick={() => setExportPreset(k)}
                   className={
-                    exportPreset === k
-                      ? 'bg-accent text-accent-foreground'
-                      : ''
+                    exportPreset === k ? 'bg-accent text-accent-foreground' : ''
                   }
                 >
                   <span className="flex items-center gap-2 w-full">
@@ -837,36 +1301,43 @@ export default function FlowVizArchitect({
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" disabled={isExporting} className="gap-1.5 text-xs rounded-lg border-border hover:bg-[#fafafa]">
-                {isExporting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
-                Export{isExporting && exportProgress > 0 ? ` ${exportProgress}%` : ''}
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={isExporting}
+                className="gap-1.5 text-xs rounded-lg border-border hover:bg-[#fafafa]"
+              >
+                {isExporting ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Download className="h-3.5 w-3.5" />
+                )}
+                Export
+                {isExporting && exportProgress > 0 ? ` ${exportProgress}%` : ''}
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48">
-              <DropdownMenuItem
-                onClick={() => exportPNG(currentTitle, exportPreset)}
-              >
+              <DropdownMenuItem onClick={() => handleExport('png')}>
                 Download as PNG
               </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() => exportSVG(currentTitle, exportPreset)}
-              >
+              <DropdownMenuItem onClick={() => handleExport('svg')}>
                 Download as SVG
               </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() => exportGIF(currentTitle, exportPreset)}
-              >
+              <DropdownMenuItem onClick={() => handleExport('gif')}>
                 Download as GIF
               </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() => exportMP4(currentTitle, exportPreset)}
-              >
+              <DropdownMenuItem onClick={() => handleExport('mp4')}>
                 Download as MP4
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
 
-          <Button variant="outline" size="sm" className="text-xs rounded-lg border-border hover:bg-[#fafafa]" onClick={() => router.push('/dashboard')}>
+          <Button
+            variant="outline"
+            size="sm"
+            className="text-xs rounded-lg border-border hover:bg-[#fafafa]"
+            onClick={() => router.push('/dashboard')}
+          >
             Dashboard
           </Button>
 
@@ -894,13 +1365,36 @@ export default function FlowVizArchitect({
             <UserButton user={currentUser} />
           ) : (
             <LoginWrapper mode="modal" asChild callbackUrl={currentPath}>
-              <Button variant="ghost" size="sm" className="text-xs gap-1.5 rounded-lg hover:bg-[#fafafa]">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-xs gap-1.5 rounded-lg hover:bg-[#fafafa]"
+              >
                 <User className="h-3.5 w-3.5" /> Sign In
               </Button>
             </LoginWrapper>
           )}
         </div>
       </div>
+
+      {/* Sign-in gate for exports */}
+      <Dialog open={showExportAuth} onOpenChange={setShowExportAuth}>
+        <DialogContent className="sm:max-w-[420px] p-0 overflow-hidden">
+          <DialogHeader className="px-6 pt-6">
+            <DialogTitle>Sign in to export</DialogTitle>
+          </DialogHeader>
+          <div className="px-6 pt-2">
+            <div className="flex items-start gap-2 rounded-lg border border-border bg-muted/50 p-3 text-sm text-muted-foreground">
+              <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" />
+              <span>
+                Your progress is saved. We&apos;ll pick up right where you left
+                off after you sign in.
+              </span>
+            </div>
+          </div>
+          <LoginForm callbackUrl={currentPath} className="border-none" />
+        </DialogContent>
+      </Dialog>
 
       {/* Main Content Area */}
       <div className="flex flex-1 overflow-hidden">
@@ -946,7 +1440,11 @@ export default function FlowVizArchitect({
               <form
                 onSubmit={(e) => {
                   e.preventDefault();
-                  generateDiagram(undefined, undefined, sidebarImage || undefined);
+                  generateDiagram(
+                    undefined,
+                    undefined,
+                    sidebarImage || undefined
+                  );
                 }}
                 className="space-y-2"
               >
@@ -970,7 +1468,8 @@ export default function FlowVizArchitect({
                         return;
                       }
                       const reader = new FileReader();
-                      reader.onload = () => setSidebarImage(reader.result as string);
+                      reader.onload = () =>
+                        setSidebarImage(reader.result as string);
                       reader.readAsDataURL(file);
                     }}
                   />
@@ -1004,6 +1503,12 @@ export default function FlowVizArchitect({
 
         {/* Canvas Area */}
         <div className="flex-1 relative overflow-hidden bg-white">
+          {/* On-canvas brand watermark. Exports get their own watermark baked
+              in by finaliseCanvas(), so this stays outside exportContainerRef
+              to avoid doubling up in downloads. */}
+          <div className="pointer-events-none absolute bottom-4 right-4 z-10 select-none rounded-md bg-[rgba(15,23,42,0.72)] px-2.5 py-1 text-xs font-semibold tracking-tight text-white shadow-sm">
+            infogiph.com
+          </div>
           <div className="h-full flex items-center justify-center p-6">
             <div
               className="relative rounded-xl border border-border bg-white shadow-[0_8px_30px_rgba(0,0,0,0.04)] overflow-hidden transition-all duration-300"
@@ -1012,7 +1517,8 @@ export default function FlowVizArchitect({
                   'linear-gradient(rgba(15,42,62,0.06) 1px, transparent 1px), linear-gradient(90deg, rgba(15,42,62,0.06) 1px, transparent 1px)',
                 backgroundSize: '24px 24px',
                 backgroundPosition: '0 0, 0 0',
-                ...(EXPORT_PRESETS[exportPreset].w && EXPORT_PRESETS[exportPreset].h
+                ...(EXPORT_PRESETS[exportPreset].w &&
+                EXPORT_PRESETS[exportPreset].h
                   ? {
                       aspectRatio: `${EXPORT_PRESETS[exportPreset].w} / ${EXPORT_PRESETS[exportPreset].h}`,
                       maxWidth: '100%',
@@ -1073,7 +1579,10 @@ function TreeDiagramRenderer({ data }: { data: any }) {
   useEffect(() => {
     const update = () => {
       if (containerRef.current) {
-        setDims({ width: containerRef.current.clientWidth, height: containerRef.current.clientHeight });
+        setDims({
+          width: containerRef.current.clientWidth,
+          height: containerRef.current.clientHeight,
+        });
       }
     };
     update();
@@ -1132,8 +1641,13 @@ function TreeDiagramRenderer({ data }: { data: any }) {
           <filter id="tree-shadow" x="-20%" y="-20%" width="140%" height="140%">
             <feGaussianBlur in="SourceAlpha" stdDeviation="4" />
             <feOffset dx="0" dy="2" result="offsetblur" />
-            <feComponentTransfer><feFuncA type="linear" slope="0.08" /></feComponentTransfer>
-            <feMerge><feMergeNode /><feMergeNode in="SourceGraphic" /></feMerge>
+            <feComponentTransfer>
+              <feFuncA type="linear" slope="0.08" />
+            </feComponentTransfer>
+            <feMerge>
+              <feMergeNode />
+              <feMergeNode in="SourceGraphic" />
+            </feMerge>
           </filter>
         </defs>
 
@@ -1157,8 +1671,18 @@ function TreeDiagramRenderer({ data }: { data: any }) {
                 fill={accent}
                 initial={{ '--offset-distance': '0%' } as any}
                 animate={{ '--offset-distance': '100%' } as any}
-                transition={{ duration: 2.5, repeat: Number.POSITIVE_INFINITY, ease: 'linear', delay: i * 0.3 }}
-                style={{ offsetPath: `path("${pathD}")`, offsetDistance: 'var(--offset-distance)' } as React.CSSProperties}
+                transition={{
+                  duration: 2.5,
+                  repeat: Number.POSITIVE_INFINITY,
+                  ease: 'linear',
+                  delay: i * 0.3,
+                }}
+                style={
+                  {
+                    offsetPath: `path("${pathD}")`,
+                    offsetDistance: 'var(--offset-distance)',
+                  } as React.CSSProperties
+                }
               />
             </React.Fragment>
           );
@@ -1183,18 +1707,34 @@ function TreeDiagramRenderer({ data }: { data: any }) {
               stroke="#e5e5e5"
               strokeWidth="1"
             />
-            <foreignObject x={np.x - nw / 2} y={np.y - nh / 2} width={nw} height={nh}>
+            <foreignObject
+              x={np.x - nw / 2}
+              y={np.y - nh / 2}
+              width={nw}
+              height={nh}
+            >
               <div className="w-full h-full flex items-center gap-2.5 px-3 pointer-events-none">
                 <div className="flex-shrink-0 p-1.5 rounded-lg bg-gray-100 text-gray-500">
                   {getIcon(np.node.icon || np.node.label, 18)}
                 </div>
                 <div className="min-w-0 flex-1">
-                  <div className="text-sm font-bold text-gray-800 leading-tight truncate">{np.node.label}</div>
-                  {np.node.role && <div className="text-[10px] text-gray-500 leading-tight">{np.node.role}</div>}
+                  <div className="text-sm font-bold text-gray-800 leading-tight truncate">
+                    {np.node.label}
+                  </div>
+                  {np.node.role && (
+                    <div className="text-[10px] text-gray-500 leading-tight">
+                      {np.node.role}
+                    </div>
+                  )}
                   {np.node.tool && (
                     <div className="flex items-center gap-1 mt-0.5">
-                      <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: accent }} />
-                      <span className="text-[10px] text-gray-500">{np.node.tool}</span>
+                      <div
+                        className="w-2 h-2 rounded-full flex-shrink-0"
+                        style={{ backgroundColor: accent }}
+                      />
+                      <span className="text-[10px] text-gray-500">
+                        {np.node.tool}
+                      </span>
                     </div>
                   )}
                 </div>
@@ -1275,45 +1815,146 @@ function RadialDiagramRenderer({ data, mode }: { data: any; mode: string }) {
 
                 return (
                   <React.Fragment key={i}>
-                    <motion.path d={pathD} fill="none" stroke="#e2e8f0" strokeWidth="2"
-                      initial={{ pathLength: 0, opacity: 0 }} animate={{ pathLength: 1, opacity: 1 }}
-                      transition={{ duration: 1, delay: i * 0.1 }} />
+                    <motion.path
+                      d={pathD}
+                      fill="none"
+                      stroke="#e2e8f0"
+                      strokeWidth="2"
+                      initial={{ pathLength: 0, opacity: 0 }}
+                      animate={{ pathLength: 1, opacity: 1 }}
+                      transition={{ duration: 1, delay: i * 0.1 }}
+                    />
 
-                    {mode === 'dots' && [0, 0.3, 0.6].map((offset) => (
-                      <motion.circle key={offset} r="3" fill="#3b82f6"
-                        initial={{ '--offset-distance': '0%' } as any} animate={{ '--offset-distance': '100%' } as any}
-                        transition={{ duration: 2.5, repeat: Number.POSITIVE_INFINITY, ease: 'linear', delay: offset + i * 0.2 }}
-                        style={{ offsetPath: `path("${pathD}")`, offsetDistance: 'var(--offset-distance)' } as React.CSSProperties} />
-                    ))}
+                    {mode === 'dots' &&
+                      [0, 0.3, 0.6].map((offset) => (
+                        <motion.circle
+                          key={offset}
+                          r="3"
+                          fill="#3b82f6"
+                          initial={{ '--offset-distance': '0%' } as any}
+                          animate={{ '--offset-distance': '100%' } as any}
+                          transition={{
+                            duration: 2.5,
+                            repeat: Number.POSITIVE_INFINITY,
+                            ease: 'linear',
+                            delay: offset + i * 0.2,
+                          }}
+                          style={
+                            {
+                              offsetPath: `path("${pathD}")`,
+                              offsetDistance: 'var(--offset-distance)',
+                            } as React.CSSProperties
+                          }
+                        />
+                      ))}
 
                     {mode === 'beams' && (
-                      <motion.path d={pathD} fill="none" stroke="url(#beamGradient)" strokeWidth="4" strokeDasharray="50, 150"
-                        initial={{ strokeDashoffset: 200 }} animate={{ strokeDashoffset: 0 }}
-                        transition={{ duration: 2, repeat: Number.POSITIVE_INFINITY, ease: 'linear', delay: i * 0.15 }} />
+                      <motion.path
+                        d={pathD}
+                        fill="none"
+                        stroke="url(#beamGradient)"
+                        strokeWidth="4"
+                        strokeDasharray="50, 150"
+                        initial={{ strokeDashoffset: 200 }}
+                        animate={{ strokeDashoffset: 0 }}
+                        transition={{
+                          duration: 2,
+                          repeat: Number.POSITIVE_INFINITY,
+                          ease: 'linear',
+                          delay: i * 0.15,
+                        }}
+                      />
                     )}
 
                     {mode === 'pulses' && (
-                      <motion.circle cx={centerX} cy={centerY} r="10" stroke="#3b82f6" strokeWidth="2" fill="none"
-                        initial={{ opacity: 0.8, scale: 0, '--offset-distance': '0%' } as any}
-                        animate={{ opacity: 0, scale: 10, '--offset-distance': '100%' } as any}
-                        transition={{ duration: 3, repeat: Number.POSITIVE_INFINITY, ease: 'easeOut', delay: i * 0.4 }}
-                        style={{ offsetPath: `path("${pathD}")`, offsetDistance: 'var(--offset-distance)' } as React.CSSProperties} />
+                      <motion.circle
+                        cx={centerX}
+                        cy={centerY}
+                        r="10"
+                        stroke="#3b82f6"
+                        strokeWidth="2"
+                        fill="none"
+                        initial={
+                          {
+                            opacity: 0.8,
+                            scale: 0,
+                            '--offset-distance': '0%',
+                          } as any
+                        }
+                        animate={
+                          {
+                            opacity: 0,
+                            scale: 10,
+                            '--offset-distance': '100%',
+                          } as any
+                        }
+                        transition={{
+                          duration: 3,
+                          repeat: Number.POSITIVE_INFINITY,
+                          ease: 'easeOut',
+                          delay: i * 0.4,
+                        }}
+                        style={
+                          {
+                            offsetPath: `path("${pathD}")`,
+                            offsetDistance: 'var(--offset-distance)',
+                          } as React.CSSProperties
+                        }
+                      />
                     )}
 
                     {mode === 'arrows' && (
-                      <motion.path d="M -5,-3 L 5,0 L -5,3 Z" fill="#3b82f6"
-                        initial={{ '--offset-distance': '0%' } as any} animate={{ '--offset-distance': '100%' } as any}
-                        transition={{ duration: 2, repeat: Number.POSITIVE_INFINITY, ease: 'linear', delay: i * 0.1 }}
-                        style={{ offsetPath: `path("${pathD}")`, offsetDistance: 'var(--offset-distance)', offsetRotate: 'auto' } as React.CSSProperties} />
+                      <motion.path
+                        d="M -5,-3 L 5,0 L -5,3 Z"
+                        fill="#3b82f6"
+                        initial={{ '--offset-distance': '0%' } as any}
+                        animate={{ '--offset-distance': '100%' } as any}
+                        transition={{
+                          duration: 2,
+                          repeat: Number.POSITIVE_INFINITY,
+                          ease: 'linear',
+                          delay: i * 0.1,
+                        }}
+                        style={
+                          {
+                            offsetPath: `path("${pathD}")`,
+                            offsetDistance: 'var(--offset-distance)',
+                            offsetRotate: 'auto',
+                          } as React.CSSProperties
+                        }
+                      />
                     )}
 
-                    <motion.g initial={{ scale: 0, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
-                      transition={{ type: 'spring', damping: 12, delay: 0.5 + i * 0.1 }}>
-                      <circle cx={x} cy={y} r="40" fill="url(#nodeGradient)" filter="url(#shadow)" className="stroke-slate-200 stroke-1" />
-                      <foreignObject x={x - 40} y={y - 40} width="80" height="80">
+                    <motion.g
+                      initial={{ scale: 0, opacity: 0 }}
+                      animate={{ scale: 1, opacity: 1 }}
+                      transition={{
+                        type: 'spring',
+                        damping: 12,
+                        delay: 0.5 + i * 0.1,
+                      }}
+                    >
+                      <circle
+                        cx={x}
+                        cy={y}
+                        r="40"
+                        fill="url(#nodeGradient)"
+                        filter="url(#shadow)"
+                        className="stroke-slate-200 stroke-1"
+                      />
+                      <foreignObject
+                        x={x - 40}
+                        y={y - 40}
+                        width="80"
+                        height="80"
+                      >
                         <div className="w-full h-full flex flex-col items-center justify-center p-2 text-center pointer-events-none">
-                          <div className="text-blue-500 mb-1">{getIcon(sat.icon || sat.label)}</div>
-                          <span className="text-[10px] font-bold text-slate-600 leading-tight uppercase tracking-tighter line-clamp-2">{sat.label}</span>
+                          <div className="text-blue-500 mb-1">
+                            {getIcon(sat.icon || sat.label)}
+                          </div>
+                          <span className="text-[10px] font-bold text-slate-600 leading-tight uppercase tracking-tighter line-clamp-2">
+                            {sat.label}
+                          </span>
                         </div>
                       </foreignObject>
                     </motion.g>
@@ -1322,12 +1963,32 @@ function RadialDiagramRenderer({ data, mode }: { data: any; mode: string }) {
               })}
 
             {data.center && (
-              <motion.g initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: 'spring', stiffness: 260, damping: 20 }}>
-                <circle cx={centerX} cy={centerY} r="50" fill="white" filter="url(#shadow)" className="stroke-blue-200 stroke-2" />
-                <foreignObject x={centerX - 50} y={centerY - 50} width="100" height="100">
+              <motion.g
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                transition={{ type: 'spring', stiffness: 260, damping: 20 }}
+              >
+                <circle
+                  cx={centerX}
+                  cy={centerY}
+                  r="50"
+                  fill="white"
+                  filter="url(#shadow)"
+                  className="stroke-blue-200 stroke-2"
+                />
+                <foreignObject
+                  x={centerX - 50}
+                  y={centerY - 50}
+                  width="100"
+                  height="100"
+                >
                   <div className="w-full h-full flex flex-col items-center justify-center p-2 text-center pointer-events-none">
-                    <div className="bg-blue-600 text-white p-2 rounded-xl shadow-lg mb-1">{getIcon(data.center.icon || data.center.label)}</div>
-                    <span className="text-xs font-black text-slate-800 uppercase tracking-tight line-clamp-2">{data.center.label}</span>
+                    <div className="bg-blue-600 text-white p-2 rounded-xl shadow-lg mb-1">
+                      {getIcon(data.center.icon || data.center.label)}
+                    </div>
+                    <span className="text-xs font-black text-slate-800 uppercase tracking-tight line-clamp-2">
+                      {data.center.label}
+                    </span>
                   </div>
                 </foreignObject>
               </motion.g>

@@ -24,10 +24,8 @@ import { LOCALES, routing } from '@/i18n/routing';
 import { authClient } from '@/lib/auth-client';
 import { useLocaleStore } from '@/stores/locale-store';
 import { usePaymentStore } from '@/stores/payment-store';
-// import type { User } from 'better-auth';
-import type { Session } from 'next-auth';
 
-// Define a simplified User type for NextAuth.js
+// Minimal user shape returned by the auth client.
 interface User {
   id: string;
   name?: string | null;

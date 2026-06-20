@@ -1,27 +1,35 @@
 'use client';
 
+import { BRAND_SLUG_BY_NAME, BrandLogo } from '@/components/brand-logos';
 import { ChevronLeft, ChevronRight, Star, Sun } from 'lucide-react';
 import { useState } from 'react';
-import { GalleryDiagram, GALLERY_DIAGRAMS, OrgChartDiagram } from './gallery-diagram';
+import {
+  GALLERY_DIAGRAMS,
+  GalleryDiagram,
+  OrgChartDiagram,
+} from './gallery-diagram';
 
 const TESTIMONIALS = [
   {
     quote:
-      "Infogiph allows me to visualize ideas in seconds. It's transformed how I present my marketing plans.",
+      'I describe a system in one sentence and Infogiph hands me a clean, animated diagram. It cut my deck prep from an hour to about five minutes.',
     author: 'Sarah J.',
-    role: 'Marketing Director',
+    role: 'Product Marketing',
+    company: 'Spotify',
   },
   {
     quote:
-      'I used to spend hours aligning boxes in PPT. Infogiph automates the whole process beautifully.',
+      'We drop Infogiph diagrams straight into our RFCs and Notion docs. No more fighting with boxes and arrows in slides.',
     author: 'David L.',
-    role: 'Product Manager',
+    role: 'Senior Product Manager',
+    company: 'Atlassian',
   },
   {
     quote:
-      'The ability to just type and see a flowchart appear is pure magic. Highly recommend.',
+      'Type the architecture, get a diagram I would actually ship to customers. The GIF and MP4 exports are perfect for launch posts.',
     author: 'Emily R.',
-    role: 'Technical Writer',
+    role: 'Developer Advocate',
+    company: 'Stripe',
   },
 ];
 
@@ -42,11 +50,17 @@ export function InfogiphTestimonials() {
     <section className="w-full py-24 bg-[#FAF9F6] border-y border-gray-100">
       <div className="container px-4 md:px-6 max-w-6xl mx-auto flex flex-col items-center">
         {/* Gallery Section Header */}
-        <div className="flex items-center gap-3 mb-12">
-          <Sun className="w-8 h-8 text-yellow-400 fill-yellow-400" />
-          <h2 className="text-3xl md:text-4xl font-bold text-[#484848]">
-            Gallery
-          </h2>
+        <div className="flex flex-col items-center text-center mb-12">
+          <div className="flex items-center gap-3">
+            <Sun className="w-8 h-8 text-yellow-400 fill-yellow-400" />
+            <h2 className="text-3xl md:text-4xl font-bold text-[#484848]">
+              Made with Infogiph
+            </h2>
+          </div>
+          <p className="mt-3 text-base text-gray-500 max-w-xl">
+            Real, animated diagrams generated from a single sentence — the kind
+            of thing teams ship to docs, decks, and launch posts every day.
+          </p>
         </div>
 
         {/* Gallery Grid - Animated Infographic Diagrams */}
@@ -95,6 +109,7 @@ export function InfogiphTestimonials() {
           <div className="bg-white rounded-3xl p-10 md:p-16 shadow-xl border border-gray-100 relative mt-8">
             {/* Slider Controls */}
             <button
+              type="button"
               onClick={prevTestimonial}
               className="absolute left-0 md:-left-6 top-1/2 -translate-y-1/2 w-12 h-12 bg-white rounded-full shadow-lg border border-gray-100 flex items-center justify-center text-gray-600 hover:text-black hover:scale-105 transition-all z-10"
               aria-label="Previous testimonial"
@@ -103,6 +118,7 @@ export function InfogiphTestimonials() {
             </button>
 
             <button
+              type="button"
               onClick={nextTestimonial}
               className="absolute right-0 md:-right-6 top-1/2 -translate-y-1/2 w-12 h-12 bg-white rounded-full shadow-lg border border-gray-100 flex items-center justify-center text-gray-600 hover:text-black hover:scale-105 transition-all z-10"
               aria-label="Next testimonial"
@@ -123,16 +139,64 @@ export function InfogiphTestimonials() {
               <p className="text-2xl md:text-3xl text-gray-800 font-medium leading-relaxed mb-8 max-w-2xl mx-auto">
                 "{TESTIMONIALS[currentIndex].quote}"
               </p>
-              <div>
+              <div className="flex flex-col items-center">
+                {BRAND_SLUG_BY_NAME[TESTIMONIALS[currentIndex].company] && (
+                  <BrandLogo
+                    slug={
+                      BRAND_SLUG_BY_NAME[TESTIMONIALS[currentIndex].company]
+                    }
+                    name={TESTIMONIALS[currentIndex].company}
+                    decorative
+                    className="h-6 w-auto mb-3"
+                  />
+                )}
                 <h4 className="font-bold text-gray-900">
                   {TESTIMONIALS[currentIndex].author}
                 </h4>
                 <p className="text-gray-500 text-sm">
-                  {TESTIMONIALS[currentIndex].role}
+                  {TESTIMONIALS[currentIndex].role} ·{' '}
+                  <span className="font-medium text-gray-700">
+                    {TESTIMONIALS[currentIndex].company}
+                  </span>
                 </p>
               </div>
             </div>
+
+            {/* Pagination dots */}
+            <div className="mt-8 flex items-center justify-center gap-2">
+              {TESTIMONIALS.map((t, i) => (
+                <button
+                  key={t.author}
+                  type="button"
+                  onClick={() => setCurrentIndex(i)}
+                  aria-label={`Show testimonial ${i + 1}`}
+                  className={
+                    'h-2 rounded-full transition-all ' +
+                    (i === currentIndex
+                      ? 'w-6 bg-gray-800'
+                      : 'w-2 bg-gray-300 hover:bg-gray-400')
+                  }
+                />
+              ))}
+            </div>
           </div>
+        </div>
+
+        {/* Product stat strip */}
+        <div className="mt-20 grid w-full max-w-3xl grid-cols-2 gap-y-8 sm:grid-cols-4">
+          {[
+            { value: '5–15s', label: 'to generate' },
+            { value: '4', label: 'export formats' },
+            { value: '7', label: 'starter templates' },
+            { value: '100%', label: 'editable' },
+          ].map((stat) => (
+            <div key={stat.label} className="text-center">
+              <div className="text-3xl md:text-4xl font-bold text-[#484848]">
+                {stat.value}
+              </div>
+              <div className="mt-1 text-sm text-gray-500">{stat.label}</div>
+            </div>
+          ))}
         </div>
       </div>
     </section>

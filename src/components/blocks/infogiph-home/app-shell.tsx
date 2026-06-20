@@ -1,6 +1,5 @@
 import type { ReactNode } from 'react';
-import { MobileNav } from './mobile-nav';
-import { TopBar } from './topbar';
+import { SiteHeader } from './site-header';
 
 export function AppShell({ children }: { children: ReactNode }) {
   return (
@@ -8,13 +7,10 @@ export function AppShell({ children }: { children: ReactNode }) {
       <div className="flex flex-col h-screen overflow-hidden">
         <div className="flex flex-1 overflow-hidden">
           <div className="flex-1 flex flex-col min-w-0">
-            <TopBar />
-            <div className="flex-1 overflow-auto pb-20 md:pb-0">
-              {children}
-            </div>
+            <SiteHeader />
+            <div className="flex-1 overflow-auto">{children}</div>
           </div>
         </div>
-        <MobileNav />
       </div>
     </div>
   );

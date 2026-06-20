@@ -1,5 +1,7 @@
 'use client';
 
+import { EXPORT_PRESETS, type ExportPreset } from '@/hooks/use-export';
+import { templates } from '@/lib/infogiph-home-content';
 import { useRouter } from 'next/navigation';
 import {
   type ChangeEvent,
@@ -8,12 +10,10 @@ import {
   useRef,
   useState,
 } from 'react';
-import { templates } from '@/lib/infogiph-home-content';
-import { EXPORT_PRESETS, type ExportPreset } from '@/hooks/use-export';
 import { ChevronDownIcon, ImageIcon, SparkleIcon } from './icons';
 
 const ASPECT_OPTIONS = (Object.keys(EXPORT_PRESETS) as ExportPreset[]).filter(
-  (k) => k !== 'original',
+  (k) => k !== 'original'
 );
 
 export function Hero() {
@@ -89,7 +89,8 @@ export function Hero() {
         What do you want to visualize?
       </h1>
       <p className="mt-2 text-center text-sm md:text-base text-muted-foreground mb-6">
-        Your AI infographic designer for stunning, animated diagrams
+        The AI infographic generator that turns a sentence into a polished,
+        animated infographic in seconds — no design skills required.
       </p>
 
       <form onSubmit={handleCreate} className="mb-8 md:mb-10">
@@ -178,9 +179,7 @@ export function Hero() {
                         }}
                         className={
                           'w-full text-left px-3 py-2.5 transition-colors hover:bg-[#fafafa] ' +
-                          (selectedTemplate === 'ai'
-                            ? 'bg-[#f0f0f0]'
-                            : '')
+                          (selectedTemplate === 'ai' ? 'bg-[#f0f0f0]' : '')
                         }
                       >
                         <span className="flex items-center gap-2">
@@ -273,6 +272,10 @@ export function Hero() {
           </div>
         </div>
       </form>
+
+      <p className="-mt-4 mb-2 text-center text-xs text-muted-foreground">
+        Free to start · No credit card · Export to SVG, PNG, GIF &amp; MP4
+      </p>
     </section>
   );
 }

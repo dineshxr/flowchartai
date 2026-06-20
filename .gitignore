@@ -66,3 +66,6 @@ next-env.d.ts
 .env.production
 
 .sh
+# Firebase service account keys (never commit)
+*firebase-adminsdk*.json
+serviceAccount*.json

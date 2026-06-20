@@ -2,67 +2,10 @@ import type { SVGProps } from 'react';
 
 type IconProps = SVGProps<SVGSVGElement>;
 
-// Infogiph wordmark — hub-and-spoke dot cluster paired with "Infogiph" text.
-export function InfogiphWordmark(props: IconProps) {
-  return (
-    <svg
-      viewBox="0 0 230 48"
-      xmlns="http://www.w3.org/2000/svg"
-      fill="currentColor"
-      aria-hidden
-      {...props}
-    >
-      <g transform="translate(0,8)">
-        <circle cx="16" cy="16" r="4" />
-        <circle cx="4" cy="4" r="2.4" />
-        <circle cx="28" cy="4" r="2.4" />
-        <circle cx="4" cy="28" r="2.4" />
-        <circle cx="28" cy="28" r="2.4" />
-        <line
-          x1="16"
-          y1="16"
-          x2="4"
-          y2="4"
-          stroke="currentColor"
-          strokeWidth="1.2"
-        />
-        <line
-          x1="16"
-          y1="16"
-          x2="28"
-          y2="4"
-          stroke="currentColor"
-          strokeWidth="1.2"
-        />
-        <line
-          x1="16"
-          y1="16"
-          x2="4"
-          y2="28"
-          stroke="currentColor"
-          strokeWidth="1.2"
-        />
-        <line
-          x1="16"
-          y1="16"
-          x2="28"
-          y2="28"
-          stroke="currentColor"
-          strokeWidth="1.2"
-        />
-      </g>
-      <text
-        x="44"
-        y="30"
-        fontFamily="Geist, system-ui, sans-serif"
-        fontSize="24"
-        fontWeight="700"
-        letterSpacing="-0.02em"
-      >
-        Infogiph
-      </text>
-    </svg>
-  );
+// Infogiph wordmark — the full brand logo. Rendered as an image so it stays in
+// sync with /public/infogiph-logo.png everywhere the wordmark appears.
+export function InfogiphWordmark({ className }: { className?: string }) {
+  return <img src="/infogiph-logo.png" alt="Infogiph" className={className} />;
 }
 
 export function SparkleIcon(props: IconProps) {

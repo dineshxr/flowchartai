@@ -12,10 +12,8 @@ import { getAvatarLinks } from '@/config/avatar-config';
 import { useLocaleRouter } from '@/i18n/navigation';
 import { authClient } from '@/lib/auth-client';
 import { usePaymentStore } from '@/stores/payment-store';
-// import type { User } from 'better-auth';
-import type { Session } from 'next-auth';
 
-// Define a simplified User type for NextAuth.js
+// Minimal user shape returned by the auth client.
 interface User {
   id: string;
   name?: string | null;

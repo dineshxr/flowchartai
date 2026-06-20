@@ -1,5 +1,5 @@
-import Link from 'next/link';
 import { brandTagline, footerColumns } from '@/lib/infogiph-home-content';
+import Link from 'next/link';
 import { InfogiphWordmark } from './icons';
 
 export function Footer() {
@@ -36,26 +36,47 @@ export function Footer() {
           <span>
             © {new Date().getFullYear()} Infogiph. All rights reserved.
           </span>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <Link
-              href="/canvas"
+              href="/infographic-maker"
               className="hover:text-foreground transition-colors"
             >
-              AI Infographics
+              Infographic Maker
             </Link>
             <span>•</span>
             <Link
-              href="/canvas"
+              href="/free-infographic-maker"
               className="hover:text-foreground transition-colors"
             >
-              Animated Diagrams
+              Free Infographic Maker
             </Link>
             <span>•</span>
             <Link
-              href="/canvas"
+              href="/infographic-video-maker"
               className="hover:text-foreground transition-colors"
             >
-              Flowchart Templates
+              Infographic Video Maker
+            </Link>
+            <span>•</span>
+            <Link
+              href="/blog"
+              className="hover:text-foreground transition-colors"
+            >
+              Blog
+            </Link>
+            <span>•</span>
+            <Link
+              href="/blog/infographics-generator-ai"
+              className="hover:text-foreground transition-colors"
+            >
+              AI Infographic Generator
+            </Link>
+            <span>•</span>
+            <Link
+              href="/blog/text-to-infographic-generator"
+              className="hover:text-foreground transition-colors"
+            >
+              Text to Infographic
             </Link>
           </div>
         </div>
