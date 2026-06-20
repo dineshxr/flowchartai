@@ -3,7 +3,6 @@
 import { AuthCard } from '@/components/auth/auth-card';
 import { getUrlWithLocaleInCallbackUrl } from '@/lib/urls/urls';
 import { cn } from '@/lib/utils';
-import { Routes } from '@/routes';
 import { DEFAULT_LOGIN_REDIRECT } from '@/routes';
 import { useLocale, useTranslations } from 'next-intl';
 import { useSearchParams } from 'next/navigation';
@@ -29,12 +28,7 @@ export const LoginForm = ({
   const callbackUrl = propCallbackUrl || paramCallbackUrl || defaultCallbackUrl;
 
   return (
-    <AuthCard
-      headerLabel={t('welcomeBack')}
-      bottomButtonLabel={t('signUpHint')}
-      bottomButtonHref={`${Routes.Login}`}
-      className={cn('', className)}
-    >
+    <AuthCard headerLabel={t('welcomeBack')} className={cn('', className)}>
       <div className="space-y-4">
         <p className="text-center text-sm text-muted-foreground">
           Sign in with your Google account to continue
