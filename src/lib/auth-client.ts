@@ -1,13 +1,16 @@
 'use client';
 
-import { createSupabaseBrowserClient } from '@/lib/supabase';
-import type { Session, User } from '@supabase/supabase-js';
+import { firebaseAuth, googleProvider } from '@/lib/firebase/client';
+import {
+  type User,
+  signOut as firebaseSignOut,
+  onAuthStateChanged,
+  signInWithPopup,
+} from 'firebase/auth';
 import { useEffect, useState } from 'react';
 
-const supabase = createSupabaseBrowserClient();
-
 // ---------------------------------------------------------------------------
-// Types matching the shape consumers expect from the old Better Auth client
+// Types matching the shape consumers expect (unchanged across the app)
 // ---------------------------------------------------------------------------
 interface AppUser {
   id: string;
@@ -23,94 +26,93 @@ interface SessionData {
 
 function mapUser(user: User): AppUser {
   return {
-    id: user.id,
-    name:
-      user.user_metadata?.full_name ||
-      user.user_metadata?.name ||
-      user.email?.split('@')[0] ||
-      '',
+    id: user.uid,
+    name: user.displayName || user.email?.split('@')[0] || '',
     email: user.email || '',
-    image:
-      user.user_metadata?.avatar_url || user.user_metadata?.picture || null,
-    role: user.user_metadata?.role || null,
+    image: user.photoURL || null,
+    role: null,
   };
 }
 
 // ---------------------------------------------------------------------------
-// useSession hook — drop-in replacement for authClient.useSession()
+// Keep the server-side HttpOnly session cookie in sync with the client token
+// ---------------------------------------------------------------------------
+async function syncSessionCookie(user: User | null) {
+  try {
+    if (user) {
+      const idToken = await user.getIdToken();
+      await fetch('/api/auth/session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ idToken }),
+      });
+    } else {
+      await fetch('/api/auth/session', { method: 'DELETE' });
+    }
+  } catch {
+    // Network hiccup syncing the cookie — non-fatal; will retry on next change.
+  }
+}
+
+// ---------------------------------------------------------------------------
+// useSession hook — drop-in replacement for the previous authClient.useSession()
 // ---------------------------------------------------------------------------
 function useSession(): { data: SessionData | null; isPending: boolean } {
-  const [session, setSession] = useState<Session | null>(null);
+  const [user, setUser] = useState<AppUser | null>(null);
   const [isPending, setIsPending] = useState(true);
 
   useEffect(() => {
-    // Get the initial session
-    supabase.auth.getSession().then(({ data: { session: s } }) => {
-      setSession(s);
+    const unsubscribe = onAuthStateChanged(firebaseAuth, (u) => {
+      setUser(u ? mapUser(u) : null);
       setIsPending(false);
     });
-
-    // Listen for auth state changes
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, s) => {
-      setSession(s);
-      setIsPending(false);
-    });
-
-    return () => subscription.unsubscribe();
+    return () => unsubscribe();
   }, []);
 
-  const data: SessionData | null = session?.user
-    ? { user: mapUser(session.user) }
-    : null;
-
-  return { data, isPending };
+  return { data: user ? { user } : null, isPending };
 }
 
 // ---------------------------------------------------------------------------
-// signIn.social — drop-in replacement for authClient.signIn.social()
+// signIn.social — Google-only via Firebase popup, then set the server cookie
+// (the `provider` arg is kept for interface compatibility but always Google)
 // ---------------------------------------------------------------------------
 async function signInSocial({
-  provider,
   callbackURL,
 }: {
-  provider: 'google' | 'github';
+  provider?: 'google' | 'github';
   callbackURL?: string;
 }) {
-  const redirectTo = `${window.location.origin}/api/auth/callback?next=${encodeURIComponent(callbackURL || '/dashboard')}`;
-
-  const { error } = await supabase.auth.signInWithOAuth({
-    provider,
-    options: { redirectTo },
-  });
-
-  if (error) {
-    return { error: { message: error.message } };
+  try {
+    const result = await signInWithPopup(firebaseAuth, googleProvider);
+    await syncSessionCookie(result.user);
+    window.location.href = callbackURL || '/dashboard';
+    return {};
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : 'Sign-in failed. Please retry.';
+    return { error: { message } };
   }
-  return {};
 }
 
 // ---------------------------------------------------------------------------
-// signOut — drop-in replacement for authClient.signOut()
+// signOut — drop-in replacement for the previous authClient.signOut()
 // ---------------------------------------------------------------------------
 async function signOut() {
-  await supabase.auth.signOut();
+  await firebaseSignOut(firebaseAuth);
+  await syncSessionCookie(null);
   window.location.href = '/';
 }
 
 // ---------------------------------------------------------------------------
-// $store.atoms.session — synchronous session access for utils.ts
+// $store.atoms.session — synchronous session access for utilities
+// Also keeps the server cookie fresh as the ID token rotates.
 // ---------------------------------------------------------------------------
-let _cachedSession: Session | null = null;
+let _cachedUser: AppUser | null = null;
 
-// Bootstrap once
 if (typeof window !== 'undefined') {
-  supabase.auth.getSession().then(({ data: { session: s } }) => {
-    _cachedSession = s;
-  });
-  supabase.auth.onAuthStateChange((_event, s) => {
-    _cachedSession = s;
+  onAuthStateChanged(firebaseAuth, (u) => {
+    _cachedUser = u ? mapUser(u) : null;
+    syncSessionCookie(u);
   });
 }
 
@@ -118,15 +120,14 @@ const $store = {
   atoms: {
     session: {
       get(): SessionData | null {
-        if (!_cachedSession?.user) return null;
-        return { user: mapUser(_cachedSession.user) };
+        return _cachedUser ? { user: _cachedUser } : null;
       },
     },
   },
 };
 
 // ---------------------------------------------------------------------------
-// Exported client — same shape as the old Better Auth authClient
+// Exported client — same shape the rest of the app already imports
 // ---------------------------------------------------------------------------
 export const authClient = {
   useSession,

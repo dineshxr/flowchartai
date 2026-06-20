@@ -1,4 +1,8 @@
+import { BrandLogo } from '@/components/brand-logos';
 import { FileText, Layout, MessageSquare, Presentation } from 'lucide-react';
+
+const logoBadge =
+  'w-10 h-10 rounded-full bg-white shadow-md flex items-center justify-center p-2';
 
 export function InfogiphUseCases() {
   return (
@@ -27,17 +31,21 @@ export function InfogiphUseCases() {
               <div className="w-full h-48 bg-white/60 rounded-xl shadow-sm border border-orange-100 flex items-center justify-center">
                 <Presentation className="w-16 h-16 text-[#DD6B20] opacity-50 group-hover:scale-110 transition-transform duration-500" />
               </div>
-              {/* Integration integrations */}
+              {/* Integration logos */}
               <div className="absolute -bottom-4 right-4 flex space-x-2">
-                <div className="w-10 h-10 rounded-full bg-white shadow-md flex items-center justify-center p-2">
-                  <img
-                    src="https://upload.wikimedia.org/wikipedia/commons/1/1e/Google_Slides_logo_%282014-2020%29.svg"
-                    alt="Google Slides"
+                <div className={logoBadge}>
+                  <BrandLogo
+                    slug="google-slides"
+                    name="Google Slides"
                     className="w-full h-full object-contain"
                   />
                 </div>
-                <div className="w-10 h-10 rounded-full bg-orange-600 shadow-md flex items-center justify-center p-2 text-white font-bold text-xs">
-                  PPT
+                <div className={logoBadge}>
+                  <BrandLogo
+                    slug="microsoft-powerpoint"
+                    name="Microsoft PowerPoint"
+                    className="w-full h-full object-contain"
+                  />
                 </div>
               </div>
             </div>
@@ -59,19 +67,14 @@ export function InfogiphUseCases() {
               <div className="w-full h-48 bg-white/60 rounded-xl shadow-sm border border-purple-100 flex items-center justify-center">
                 <MessageSquare className="w-16 h-16 text-[#9F7AEA] opacity-50 group-hover:scale-110 transition-transform duration-500" />
               </div>
-              {/* Integration */}
+              {/* Integration logos */}
               <div className="absolute -bottom-4 right-4 flex space-x-2">
-                <div className="w-10 h-10 rounded-full bg-black shadow-md flex items-center justify-center text-white">
-                  <svg
-                    viewBox="0 0 1043.63 592.71"
-                    className="w-6 h-6 fill-current"
-                  >
-                    <g data-name="Layer 2">
-                      <g data-name="Layer 1">
-                        <path d="M588.67 296.36c0 163.67-131.78 296.35-294.33 296.35S0 460 0 296.36 131.78 0 294.34 0s294.33 132.69 294.33 296.36M911.56 296.36c0 154.06-65.89 279-147.17 279s-147.17-124.94-147.17-279 65.88-279 147.16-279 147.17 124.9 147.17 279M1043.63 296.36c0 138-23.17 249.94-51.76 249.94s-51.75-111.91-51.75-249.94 23.17-249.94 51.75-249.94 51.76 111.9 51.76 249.94"></path>
-                      </g>
-                    </g>
-                  </svg>
+                <div className={logoBadge}>
+                  <BrandLogo
+                    slug="medium"
+                    name="Medium"
+                    className="w-full h-full object-contain"
+                  />
                 </div>
               </div>
             </div>
@@ -95,15 +98,21 @@ export function InfogiphUseCases() {
               <div className="w-full h-48 bg-white/60 rounded-xl shadow-sm border border-green-100 flex items-center justify-center">
                 <Layout className="w-16 h-16 text-[#48BB78] opacity-50 group-hover:scale-110 transition-transform duration-500" />
               </div>
-              {/* Integration */}
+              {/* Integration logos */}
               <div className="absolute -bottom-4 right-4 flex space-x-2">
-                <div className="w-10 h-10 rounded-full bg-[#0077b5] shadow-md flex items-center justify-center text-white font-bold text-sm">
-                  in
+                <div className={logoBadge}>
+                  <BrandLogo
+                    slug="linkedin"
+                    name="LinkedIn"
+                    className="w-full h-full object-contain"
+                  />
                 </div>
-                <div className="w-10 h-10 rounded-full bg-black shadow-md flex items-center justify-center p-2 text-white">
-                  <svg viewBox="0 0 24 24" className="w-5 h-5 fill-current">
-                    <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
-                  </svg>
+                <div className={logoBadge}>
+                  <BrandLogo
+                    slug="x"
+                    name="X"
+                    className="w-full h-full object-contain"
+                  />
                 </div>
               </div>
             </div>
@@ -125,12 +134,12 @@ export function InfogiphUseCases() {
               <div className="w-full h-48 bg-white/60 rounded-xl shadow-sm border border-blue-100 flex items-center justify-center">
                 <FileText className="w-16 h-16 text-[#4299E1] opacity-50 group-hover:scale-110 transition-transform duration-500" />
               </div>
-              {/* Integration */}
+              {/* Integration logos */}
               <div className="absolute -bottom-4 right-4 flex space-x-2">
-                <div className="w-10 h-10 rounded-full bg-white shadow-md flex items-center justify-center p-2">
-                  <img
-                    src="https://upload.wikimedia.org/wikipedia/commons/e/e1/Google_Docs_logo_%282014-2020%29.svg"
-                    alt="Google Docs"
+                <div className={logoBadge}>
+                  <BrandLogo
+                    slug="notion"
+                    name="Notion"
                     className="w-full h-full object-contain"
                   />
                 </div>

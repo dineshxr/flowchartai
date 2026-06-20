@@ -18,7 +18,9 @@ export const websiteConfig: WebsiteConfig = {
       enableSwitch: true,
     },
     images: {
-      ogImage: '/og.png',
+      // Dynamic, Infogiph-branded Open Graph image (see src/app/api/og/route.tsx).
+      // Used as the default og:image for any page that doesn't set its own.
+      ogImage: '/api/og',
       logoLight: '/logo.png',
       logoDark: '/logo.png',
     },

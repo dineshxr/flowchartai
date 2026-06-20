@@ -165,21 +165,23 @@ export const footerColumns: FooterColumn[] = [
   {
     heading: 'Product',
     links: [
-      { label: 'Templates', href: '/' },
-      { label: 'Canvas', href: '/canvas' },
+      { label: 'Infographic Maker', href: '/infographic-maker' },
+      { label: 'Free Infographic Maker', href: '/free-infographic-maker' },
+      { label: 'Infographic Video Maker', href: '/infographic-video-maker' },
+      { label: 'Templates', href: '/templates' },
       { label: 'Pricing', href: '/pricing' },
-      { label: 'Get Started', href: '/auth/register' },
+      { label: 'Canvas', href: '/canvas' },
     ],
   },
   {
     heading: 'Templates',
     links: [
-      { label: 'Chatbot Architecture', href: '/canvas' },
-      { label: 'SaaS Platform', href: '/canvas' },
-      { label: 'E-Commerce Flow', href: '/canvas' },
-      { label: 'Data Pipeline', href: '/canvas' },
-      { label: 'AI Agent System', href: '/canvas' },
-      { label: 'Org Chart', href: '/canvas' },
+      { label: 'All Templates', href: '/templates' },
+      { label: 'Architecture', href: '/templates/architecture' },
+      { label: 'Data & Analytics', href: '/templates/data' },
+      { label: 'AI & ML', href: '/templates/ai-ml' },
+      { label: 'DevOps & Cloud', href: '/templates/devops-cloud' },
+      { label: 'Marketing', href: '/templates/marketing' },
     ],
   },
   {

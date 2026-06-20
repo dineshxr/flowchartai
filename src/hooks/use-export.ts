@@ -1,8 +1,7 @@
-import { useState } from 'react';
+import { encodeGif, encodeMp4, getFFmpeg } from '@/lib/ffmpeg-export';
 import { domToCanvas, domToDataUrl } from 'modern-screenshot';
+import { useState } from 'react';
 import { toast } from 'sonner';
-import GIF from 'gif.js.optimized';
-import { Muxer, ArrayBufferTarget } from 'mp4-muxer';
 
 // ─── size presets ─────────────────────────────────────────────────────────────
 
@@ -64,7 +63,7 @@ function drawWatermark(ctx: CanvasRenderingContext2D, w: number, h: number) {
 
 function finaliseCanvas(
   source: HTMLCanvasElement,
-  preset: ExportPreset,
+  preset: ExportPreset
 ): HTMLCanvasElement {
   const p = EXPORT_PRESETS[preset];
   const target = document.createElement('canvas');
@@ -75,7 +74,7 @@ function finaliseCanvas(
   ctx.fillRect(0, 0, target.width, target.height);
   const scale = Math.min(
     target.width / source.width,
-    target.height / source.height,
+    target.height / source.height
   );
   const dw = source.width * scale;
   const dh = source.height * scale;
@@ -86,7 +85,7 @@ function finaliseCanvas(
     (target.width - dw) / 2,
     (target.height - dh) / 2,
     dw,
-    dh,
+    dh
   );
   drawWatermark(ctx, target.width, target.height);
   return target;
@@ -102,81 +101,87 @@ async function capture(el: HTMLElement, scale = 2): Promise<HTMLCanvasElement> {
   });
 }
 
-// SMIL properties that we inline onto parents so the serialised DOM reflects
-// the animation state at time `t`.
-const SMIL_PROPS = [
-  'transform',
+// CSS/geometry presentation values driven by SMIL <animate> that we bake onto
+// the target element so the serialised DOM clone reflects the paused frame.
+const SMIL_BAKE_PROPS = [
   'opacity',
-  'cx',
-  'cy',
-  'r',
-  'x',
-  'y',
-  'stroke-dashoffset',
-  'stroke-dasharray',
   'fill-opacity',
   'stroke-opacity',
+  'stroke-dashoffset',
+  'stroke-dasharray',
+  'r',
+  'cx',
+  'cy',
+  'x',
+  'y',
+  'width',
+  'height',
 ];
 
-type Saved = {
-  el: Element;
-  parent: Element;
-  origDisplay: string;
-  inlined: { prop: string; orig: string }[];
-};
+/**
+ * Bake the CURRENT SMIL presentation state of an SVG (after pauseAnimations +
+ * setCurrentTime) directly onto the animated elements, so a DOM-to-canvas clone
+ * renders the exact paused frame. Crucially this includes the consolidated
+ * transform produced by <animateMotion>/<animateTransform> (the traveling
+ * dots/arrows) — which getComputedStyle alone does NOT expose. Returns a
+ * function that restores the original DOM.
+ */
+function bakeSmilFrame(svg: SVGSVGElement): () => void {
+  const restores: Array<() => void> = [];
+  const targets = new Set<Element>();
+  for (const a of svg.querySelectorAll(
+    'animate, animateMotion, animateTransform'
+  )) {
+    if (a.parentElement) targets.add(a.parentElement);
+  }
 
-function collectSMIL(svg: SVGSVGElement): Saved[] {
-  const out: Saved[] = [];
-  svg
-    .querySelectorAll('animate, animateMotion, animateTransform')
-    .forEach((el) => {
-      const parent = el.parentElement;
-      if (parent) {
-        out.push({
-          el,
-          parent,
-          origDisplay: (el as HTMLElement).style.display,
-          inlined: [],
-        });
+  for (const el of targets) {
+    // 1) Consolidated transform — captures animateMotion + animateTransform.
+    try {
+      const consolidated = (
+        el as SVGGraphicsElement
+      ).transform?.animVal?.consolidate?.();
+      if (consolidated) {
+        const m = consolidated.matrix;
+        const prev = el.getAttribute('transform');
+        el.setAttribute(
+          'transform',
+          `matrix(${m.a} ${m.b} ${m.c} ${m.d} ${m.e} ${m.f})`
+        );
+        restores.push(() =>
+          prev === null
+            ? el.removeAttribute('transform')
+            : el.setAttribute('transform', prev)
+        );
       }
-    });
-  return out;
-}
+    } catch {
+      // element has no transform interface — skip
+    }
 
-function inlineSMIL(entries: Saved[]) {
-  for (const e of entries) {
-    const cs = getComputedStyle(e.parent as HTMLElement);
-    e.inlined = [];
-    for (const prop of SMIL_PROPS) {
+    // 2) Animated geometry / opacity / dash presentation values.
+    const cs = getComputedStyle(el);
+    const style = (el as HTMLElement).style;
+    for (const prop of SMIL_BAKE_PROPS) {
       const val = cs.getPropertyValue(prop);
-      if (val && val !== '' && val !== 'none' && val !== '0') {
-        const orig = (e.parent as HTMLElement).style.getPropertyValue(prop);
-        (e.parent as HTMLElement).style.setProperty(prop, val);
-        e.inlined.push({ prop, orig });
+      if (val && val !== '' && val !== 'none') {
+        const prev = style.getPropertyValue(prop);
+        style.setProperty(prop, val);
+        restores.push(() =>
+          prev ? style.setProperty(prop, prev) : style.removeProperty(prop)
+        );
       }
     }
-    (e.el as HTMLElement).style.display = 'none';
   }
-}
 
-function restoreSMIL(entries: Saved[]) {
-  for (const e of entries) {
-    for (const { prop, orig } of e.inlined) {
-      if (orig) {
-        (e.parent as HTMLElement).style.setProperty(prop, orig);
-      } else {
-        (e.parent as HTMLElement).style.removeProperty(prop);
-      }
-    }
-    (e.el as HTMLElement).style.display = e.origDisplay;
-    e.inlined = [];
-  }
+  return () => {
+    for (const r of restores) r();
+  };
 }
 
 // ─── hook ────────────────────────────────────────────────────────────────────
 
 export function useFlowchartExport(
-  containerRef: React.RefObject<HTMLDivElement | null>,
+  containerRef: React.RefObject<HTMLDivElement | null>
 ) {
   const [isExporting, setIsExporting] = useState(false);
   const [exportProgress, setExportProgress] = useState(0);
@@ -186,12 +191,16 @@ export function useFlowchartExport(
     a.download = filename;
     a.href = typeof data === 'string' ? data : URL.createObjectURL(data);
     a.click();
-    if (typeof data !== 'string') setTimeout(() => URL.revokeObjectURL(a.href), 60_000);
+    if (typeof data !== 'string')
+      setTimeout(() => URL.revokeObjectURL(a.href), 60_000);
   };
 
   // ── PNG ──────────────────────────────────────────────────────────────────────
 
-  const exportPNG = async (title: string, preset: ExportPreset = 'original') => {
+  const exportPNG = async (
+    title: string,
+    preset: ExportPreset = 'original'
+  ) => {
     if (!containerRef.current) return;
     setIsExporting(true);
     setExportProgress(20);
@@ -212,7 +221,10 @@ export function useFlowchartExport(
 
   // ── SVG ──────────────────────────────────────────────────────────────────────
 
-  const exportSVG = async (title: string, preset: ExportPreset = 'original') => {
+  const exportSVG = async (
+    title: string,
+    preset: ExportPreset = 'original'
+  ) => {
     if (!containerRef.current) return;
     setIsExporting(true);
     setExportProgress(40);
@@ -240,7 +252,7 @@ export function useFlowchartExport(
 </svg>`;
       download(
         new Blob([wrapper], { type: 'image/svg+xml;charset=utf-8' }),
-        `${title || 'infogiph'}.svg`,
+        `${title || 'infogiph'}.svg`
       );
       setExportProgress(100);
       toast.success('SVG exported');
@@ -253,175 +265,180 @@ export function useFlowchartExport(
     }
   };
 
-  // ── Frame capture (deterministic SMIL seek) ─────────────────────────────────
+  // ── Frame capture ───────────────────────────────────────────────────────────
+  // Returns the animation as an array of canvases plus the fps to play them
+  // back at. SMIL animations are seeked deterministically (exact, smooth);
+  // framer-motion / CSS animations are grabbed in real time (their values live
+  // on inline styles, so a plain capture reflects the current frame).
 
   const captureFrames = async (
     fps: number,
-    durationSecs: number,
-  ): Promise<HTMLCanvasElement[]> => {
-    if (!containerRef.current) return [];
+    durationSecs: number
+  ): Promise<{ frames: HTMLCanvasElement[]; fps: number }> => {
+    if (!containerRef.current) return { frames: [], fps };
     const container = containerRef.current;
     const svg = container.querySelector('svg') as SVGSVGElement | null;
 
+    const hasSmil =
+      !!svg &&
+      svg.querySelectorAll('animate, animateMotion, animateTransform').length >
+        0;
     const canSeek =
-      svg &&
-      typeof svg.pauseAnimations === 'function' &&
-      typeof svg.setCurrentTime === 'function' &&
-      typeof svg.unpauseAnimations === 'function';
+      hasSmil &&
+      typeof svg!.pauseAnimations === 'function' &&
+      typeof svg!.setCurrentTime === 'function' &&
+      typeof svg!.unpauseAnimations === 'function';
 
-    const total = Math.round(fps * durationSecs);
+    const total = Math.max(1, Math.round(fps * durationSecs));
     const frames: HTMLCanvasElement[] = [];
-    const entries = svg ? collectSMIL(svg) : [];
 
-    if (canSeek) svg!.pauseAnimations();
-
-    try {
-      for (let i = 0; i < total; i++) {
-        if (canSeek) {
+    if (canSeek) {
+      svg!.pauseAnimations();
+      try {
+        for (let i = 0; i < total; i++) {
           svg!.setCurrentTime(i / fps);
           await raf();
           await raf();
-          inlineSMIL(entries);
-        } else {
-          await delay(1000 / fps);
+          const restore = bakeSmilFrame(svg!);
+          try {
+            frames.push(await capture(container, 2));
+          } finally {
+            restore();
+          }
+          setExportProgress(Math.round(((i + 1) / total) * 45));
         }
-        frames.push(await capture(container, 2));
-        if (canSeek) restoreSMIL(entries);
-        setExportProgress(Math.round(((i + 1) / total) * 50));
+      } finally {
+        try {
+          svg!.unpauseAnimations();
+        } catch {
+          // ignore
+        }
       }
-    } finally {
-      if (canSeek) {
-        restoreSMIL(entries);
-        svg!.unpauseAnimations();
-      }
+      return { frames, fps };
     }
-    return frames;
+
+    // Real-time capture (framer-motion / CSS). Grab as fast as possible and
+    // measure the true fps so playback speed matches the live animation.
+    const start = performance.now();
+    for (let i = 0; i < total; i++) {
+      frames.push(await capture(container, 2));
+      setExportProgress(Math.round(((i + 1) / total) * 45));
+      const elapsed = performance.now() - start;
+      const expected = (i + 1) * (1000 / fps);
+      if (elapsed < expected) await delay(expected - elapsed);
+    }
+    const seconds = (performance.now() - start) / 1000 || 1;
+    const realFps = Math.max(
+      1,
+      Math.min(fps, Math.round(frames.length / seconds))
+    );
+    return { frames, fps: realFps };
   };
 
-  // ── GIF ──────────────────────────────────────────────────────────────────────
+  // Apply preset sizing + watermark to every frame, then encode to PNG blobs.
+  const framesToPngBlobs = async (
+    rawFrames: HTMLCanvasElement[],
+    preset: ExportPreset
+  ): Promise<Blob[]> => {
+    const blobs: Blob[] = [];
+    for (let i = 0; i < rawFrames.length; i++) {
+      const out = finaliseCanvas(rawFrames[i], preset);
+      const blob = await new Promise<Blob>((resolve, reject) =>
+        out.toBlob(
+          (b) => (b ? resolve(b) : reject(new Error('toBlob failed'))),
+          'image/png'
+        )
+      );
+      blobs.push(blob);
+      setExportProgress(45 + Math.round(((i + 1) / rawFrames.length) * 15));
+    }
+    return blobs;
+  };
 
-  const exportGIF = async (title: string, preset: ExportPreset = 'original') => {
+  // ── GIF (ffmpeg.wasm) ─────────────────────────────────────────────────────────
+
+  const exportGIF = async (
+    title: string,
+    preset: ExportPreset = 'original'
+  ) => {
     if (!containerRef.current) return;
     setIsExporting(true);
     setExportProgress(0);
     try {
-      toast.info('Rendering GIF — this may take a moment…');
-      const FPS = 12;
-      const DUR = 3;
-      const rawFrames = await captureFrames(FPS, DUR);
+      toast.info('Rendering GIF — this can take a moment…');
+      const { frames: rawFrames, fps } = await captureFrames(15, 3.4);
       if (!rawFrames.length) throw new Error('No frames captured');
-      const frames = rawFrames.map((f) => finaliseCanvas(f, preset));
+      const blobs = await framesToPngBlobs(rawFrames, preset);
 
-      const gif = new GIF({
-        workers: 2,
-        quality: 8,
-        width: frames[0].width,
-        height: frames[0].height,
-        workerScript: '/gif.worker.js',
-      });
-
-      for (const f of frames) gif.addFrame(f, { delay: Math.round(1000 / FPS), copy: true });
-
-      gif.on('progress', (p: number) => setExportProgress(50 + Math.round(p * 50)));
-      gif.on('finished', (blob: Blob) => {
-        download(blob, `${title || 'infogiph'}.gif`);
-        toast.success('GIF exported');
-        setIsExporting(false);
-        setExportProgress(0);
-      });
-      gif.render();
+      const ff = await getFFmpeg();
+      const onProgress = ({ progress }: { progress: number }) =>
+        setExportProgress(60 + Math.round(Math.min(progress, 1) * 38));
+      ff.on('progress', onProgress);
+      try {
+        const gif = await encodeGif(blobs, fps);
+        download(gif, `${title || 'infogiph'}.gif`);
+      } finally {
+        ff.off('progress', onProgress);
+      }
+      setExportProgress(100);
+      toast.success('GIF exported');
     } catch (err) {
       console.error('[export:gif]', err);
-      toast.error('Failed to export GIF');
-      setIsExporting(false);
-      setExportProgress(0);
-    }
-  };
-
-  // ── MP4 ──────────────────────────────────────────────────────────────────────
-
-  const exportMP4 = async (title: string, preset: ExportPreset = 'original') => {
-    if (!containerRef.current) return;
-    setIsExporting(true);
-    setExportProgress(0);
-    try {
-      toast.info('Rendering MP4 — this may take a moment…');
-      if (typeof window === 'undefined' || !('VideoEncoder' in window)) {
-        throw new Error('MP4 export requires Chrome or Edge (WebCodecs API)');
-      }
-
-      const FPS = 24;
-      const DUR = 3;
-      const rawFrames = await captureFrames(FPS, DUR);
-      if (!rawFrames.length) throw new Error('No frames captured');
-      const frames = rawFrames.map((f) => finaliseCanvas(f, preset));
-
-      const w = frames[0].width;
-      const h = frames[0].height;
-      const evenW = w - (w % 2);
-      const evenH = h - (h % 2);
-      const area = evenW * evenH;
-
-      let codec = 'avc1.42001f';
-      if (area > 921_600) codec = 'avc1.420028';
-      if (area > 2_097_152) codec = 'avc1.42002a';
-      if (area > 2_359_296) codec = 'avc1.420033';
-
-      const muxer = new Muxer({
-        target: new ArrayBufferTarget(),
-        video: { codec: 'avc', width: evenW, height: evenH },
-        fastStart: 'in-memory',
+      toast.error('Failed to export GIF', {
+        description: err instanceof Error ? err.message : undefined,
       });
-
-      const encoder = new (window as any).VideoEncoder({
-        output: (chunk: any, meta: any) => muxer.addVideoChunk(chunk, meta),
-        error: (e: any) => console.error(e),
-      });
-      encoder.configure({
-        codec,
-        width: evenW,
-        height: evenH,
-        bitrate: 8_000_000,
-        framerate: FPS,
-      });
-
-      for (let i = 0; i < frames.length; i++) {
-        let src = frames[i];
-        if (w !== evenW || h !== evenH) {
-          src = document.createElement('canvas');
-          src.width = evenW;
-          src.height = evenH;
-          src.getContext('2d')?.drawImage(frames[i], 0, 0, evenW, evenH);
-        }
-        const bitmap = await createImageBitmap(src);
-        const vf = new (window as any).VideoFrame(bitmap, {
-          timestamp: i * (1_000_000 / FPS),
-        });
-        encoder.encode(vf, { keyFrame: i % FPS === 0 });
-        vf.close();
-        bitmap.close();
-        setExportProgress(50 + Math.round(((i + 1) / frames.length) * 50));
-      }
-
-      await encoder.flush();
-      muxer.finalize();
-
-      const { buffer } = muxer.target as ArrayBufferTarget;
-      download(
-        new Blob([buffer], { type: 'video/mp4' }),
-        `${title || 'infogiph'}.mp4`,
-      );
-      toast.success('MP4 exported');
-    } catch (err: any) {
-      console.error('[export:mp4]', err);
-      toast.error('Failed to export MP4', { description: err.message });
     } finally {
       setIsExporting(false);
       setExportProgress(0);
     }
   };
 
-  return { exportPNG, exportSVG, exportGIF, exportMP4, isExporting, exportProgress };
+  // ── MP4 (ffmpeg.wasm, H.264) ───────────────────────────────────────────────────
+
+  const exportMP4 = async (
+    title: string,
+    preset: ExportPreset = 'original'
+  ) => {
+    if (!containerRef.current) return;
+    setIsExporting(true);
+    setExportProgress(0);
+    try {
+      toast.info('Rendering MP4 — this can take a moment…');
+      const { frames: rawFrames, fps } = await captureFrames(24, 3.4);
+      if (!rawFrames.length) throw new Error('No frames captured');
+      const blobs = await framesToPngBlobs(rawFrames, preset);
+
+      const ff = await getFFmpeg();
+      const onProgress = ({ progress }: { progress: number }) =>
+        setExportProgress(60 + Math.round(Math.min(progress, 1) * 38));
+      ff.on('progress', onProgress);
+      try {
+        const mp4 = await encodeMp4(blobs, fps);
+        download(mp4, `${title || 'infogiph'}.mp4`);
+      } finally {
+        ff.off('progress', onProgress);
+      }
+      setExportProgress(100);
+      toast.success('MP4 exported');
+    } catch (err) {
+      console.error('[export:mp4]', err);
+      toast.error('Failed to export MP4', {
+        description: err instanceof Error ? err.message : undefined,
+      });
+    } finally {
+      setIsExporting(false);
+      setExportProgress(0);
+    }
+  };
+
+  return {
+    exportPNG,
+    exportSVG,
+    exportGIF,
+    exportMP4,
+    isExporting,
+    exportProgress,
+  };
 }
 
 // ─── utils ──────────────────────────────────────────────────────────────────

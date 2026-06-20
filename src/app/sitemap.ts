@@ -2,6 +2,7 @@ import { websiteConfig } from '@/config/website';
 import { getLocalePathname } from '@/i18n/navigation';
 import { routing } from '@/i18n/routing';
 import { source } from '@/lib/docs/source';
+import { allTemplates, getActiveCategories } from '@/lib/templates/catalog';
 import { allPosts } from 'content-collections';
 import type { MetadataRoute } from 'next';
 import type { Locale } from 'next-intl';
@@ -15,6 +16,9 @@ type Href = Parameters<typeof getLocalePathname>[0]['href'];
 function getEnabledStaticRoutes(): string[] {
   const baseRoutes = [
     '/',
+    '/infographic-maker',
+    '/free-infographic-maker',
+    '/infographic-video-maker',
     '/pricing',
     '/about',
     '/contact',
@@ -23,6 +27,7 @@ function getEnabledStaticRoutes(): string[] {
     '/terms',
     '/cookie',
     '/blog', // 添加博客主页
+    '/templates', // 模板库主页
   ];
 
   // 条件性添加页面路由
@@ -62,8 +67,14 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       if (route === '/') {
         priority = 1.0; // highest priority for homepage
         changeFrequency = 'daily';
-      } else if (route === '/pricing') {
-        priority = 0.9; // high priority for key pages
+      } else if (
+        route === '/pricing' ||
+        route === '/infographic-maker' ||
+        route === '/free-infographic-maker' ||
+        route === '/infographic-video-maker' ||
+        route === '/templates'
+      ) {
+        priority = 0.9; // high priority for key commercial pages
         changeFrequency = 'weekly';
       } else if (route === '/blog') {
         priority = 0.8; // high priority for blog main page
@@ -103,6 +114,30 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       )
     );
   }
+
+  // 模板分类页面 (template collection pages)
+  sitemapList.push(
+    ...getActiveCategories().flatMap((c) =>
+      getEntries(`/templates/${c.key}`).map((entry) => ({
+        ...entry,
+        lastModified: new Date('2026-06-20'),
+        priority: 0.8,
+        changeFrequency: 'weekly' as const,
+      }))
+    )
+  );
+
+  // 模板详情页面 (individual template pages)
+  sitemapList.push(
+    ...allTemplates.flatMap((t) =>
+      getEntries(`/templates/${t.category}/${t.slug}`).map((entry) => ({
+        ...entry,
+        lastModified: new Date('2026-06-20'),
+        priority: 0.7,
+        changeFrequency: 'monthly' as const,
+      }))
+    )
+  );
 
   // 添加博客文章页面
   const publishedPosts = allPosts.filter((post) => post.published);
