@@ -45,6 +45,7 @@
     "@ffmpeg/util": "^0.12.2",
     "@fumadocs/content-collections": "^1.1.8",
     "@hookform/resolvers": "^4.1.0",
+    "@lottiefiles/dotlottie-react": "^0.19.4",
     "@next/third-parties": "^15.3.0",
     "@opennextjs/cloudflare": "^1.4.0",
     "@openpanel/nextjs": "^1.0.7",

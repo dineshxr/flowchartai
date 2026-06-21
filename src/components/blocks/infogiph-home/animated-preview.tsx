@@ -16,6 +16,11 @@ export interface PreviewNode {
   key: string;
   icon: ReactNode;
   label?: string;
+  /**
+   * Render the icon edge-to-edge with no white tile chrome — for self-contained
+   * "3D" app-icon glyphs that bring their own background and depth.
+   */
+  flush?: boolean;
 }
 
 export interface TreeNode extends PreviewNode {
@@ -57,6 +62,7 @@ interface PositionedTile {
   y: number;
   size: number;
   center?: boolean;
+  flush?: boolean;
 }
 
 type EdgeKind = 'curve-h' | 'line' | 'bracket-v' | 'cubic';
@@ -68,7 +74,7 @@ interface Edge {
   kind: EdgeKind;
 }
 
-interface Dims {
+export interface Dims {
   W: number;
   H: number;
   tileBase: number;
@@ -77,12 +83,42 @@ interface Dims {
   labelSize: number;
 }
 
-const HOME_DIMS: Dims = {
+export const HOME_DIMS: Dims = {
   W: 240,
   H: 320,
   tileBase: 22,
   tileLarge: 32,
   margin: 52,
+  labelSize: 0,
+};
+
+/** Wide native frame (~7:5) — suits horizontal layouts (hub-lr, pipeline). */
+export const WIDE_DIMS: Dims = {
+  W: 360,
+  H: 248,
+  tileBase: 26,
+  tileLarge: 38,
+  margin: 64,
+  labelSize: 0,
+};
+
+/** Square native frame — suits radial layouts. */
+export const SQUARE_DIMS: Dims = {
+  W: 300,
+  H: 300,
+  tileBase: 26,
+  tileLarge: 38,
+  margin: 64,
+  labelSize: 0,
+};
+
+/** Tall native frame (~3:4) — suits tree / portrait radial heroes. */
+export const TALL_DIMS: Dims = {
+  W: 264,
+  H: 360,
+  tileBase: 24,
+  tileLarge: 34,
+  margin: 56,
   labelSize: 0,
 };
 
@@ -95,7 +131,10 @@ const CANVAS_DIMS: Dims = {
   labelSize: 13,
 };
 
-function hubLRLayout(spec: Extract<PreviewSpec, { layout: 'hub-lr' }>, d: Dims) {
+function hubLRLayout(
+  spec: Extract<PreviewSpec, { layout: 'hub-lr' }>,
+  d: Dims
+) {
   const tiles: PositionedTile[] = [];
   const edges: Edge[] = [];
   const cx = d.W / 2;
@@ -114,8 +153,21 @@ function hubLRLayout(spec: Extract<PreviewSpec, { layout: 'hub-lr' }>, d: Dims) 
   const R = place(spec.right, rightX);
 
   for (const n of [...L, ...R]) {
-    edges.push({ key: `e-${n.key}`, from: n.key, to: spec.center.key, kind: 'curve-h' });
-    tiles.push({ key: n.key, icon: n.icon, label: n.label, x: n.x, y: n.y, size: d.tileBase });
+    edges.push({
+      key: `e-${n.key}`,
+      from: n.key,
+      to: spec.center.key,
+      kind: 'curve-h',
+    });
+    tiles.push({
+      key: n.key,
+      icon: n.icon,
+      label: n.label,
+      x: n.x,
+      y: n.y,
+      size: d.tileBase,
+      flush: n.flush,
+    });
   }
   tiles.push({
     key: spec.center.key,
@@ -125,11 +177,15 @@ function hubLRLayout(spec: Extract<PreviewSpec, { layout: 'hub-lr' }>, d: Dims) 
     y: cy,
     size: d.tileLarge,
     center: true,
+    flush: spec.center.flush,
   });
   return { tiles, edges };
 }
 
-function pipelineLayout(spec: Extract<PreviewSpec, { layout: 'pipeline' }>, d: Dims) {
+function pipelineLayout(
+  spec: Extract<PreviewSpec, { layout: 'pipeline' }>,
+  d: Dims
+) {
   const tiles: PositionedTile[] = [];
   const edges: Edge[] = [];
   const y = d.H / 2;
@@ -159,12 +215,16 @@ function pipelineLayout(spec: Extract<PreviewSpec, { layout: 'pipeline' }>, d: D
       y: p.y,
       size: i === midIdx ? d.tileLarge : d.tileBase,
       center: i === midIdx,
+      flush: p.flush,
     });
   });
   return { tiles, edges };
 }
 
-function radialLayout(spec: Extract<PreviewSpec, { layout: 'radial' }>, d: Dims) {
+function radialLayout(
+  spec: Extract<PreviewSpec, { layout: 'radial' }>,
+  d: Dims
+) {
   const tiles: PositionedTile[] = [];
   const edges: Edge[] = [];
   const cx = d.W / 2;
@@ -177,8 +237,21 @@ function radialLayout(spec: Extract<PreviewSpec, { layout: 'radial' }>, d: Dims)
     const angle = (i / n) * Math.PI * 2 - Math.PI / 2;
     const x = cx + Math.cos(angle) * rx;
     const y = cy + Math.sin(angle) * ry;
-    edges.push({ key: `r-${sat.key}`, from: spec.center.key, to: sat.key, kind: 'cubic' });
-    tiles.push({ key: sat.key, icon: sat.icon, label: sat.label, x, y, size: d.tileBase });
+    edges.push({
+      key: `r-${sat.key}`,
+      from: spec.center.key,
+      to: sat.key,
+      kind: 'cubic',
+    });
+    tiles.push({
+      key: sat.key,
+      icon: sat.icon,
+      label: sat.label,
+      x,
+      y,
+      size: d.tileBase,
+      flush: sat.flush,
+    });
   }
   tiles.push({
     key: spec.center.key,
@@ -188,6 +261,7 @@ function radialLayout(spec: Extract<PreviewSpec, { layout: 'radial' }>, d: Dims)
     y: cy,
     size: d.tileLarge,
     center: true,
+    flush: spec.center.flush,
   });
   return { tiles, edges };
 }
@@ -211,13 +285,27 @@ function treeLayout(spec: Extract<PreviewSpec, { layout: 'tree' }>, d: Dims) {
     y: rootY,
     size: d.tileLarge,
     center: true,
+    flush: root.flush,
   });
 
   level1.forEach((child, i) => {
     const x = d.margin * 0.6 + l1Gap * (i + 1);
     const y = l1Y;
-    edges.push({ key: `t1-${child.key}`, from: root.key, to: child.key, kind: 'bracket-v' });
-    tiles.push({ key: child.key, icon: child.icon, label: child.label, x, y, size: d.tileBase });
+    edges.push({
+      key: `t1-${child.key}`,
+      from: root.key,
+      to: child.key,
+      kind: 'bracket-v',
+    });
+    tiles.push({
+      key: child.key,
+      icon: child.icon,
+      label: child.label,
+      x,
+      y,
+      size: d.tileBase,
+      flush: child.flush,
+    });
 
     const l2 = child.children || [];
     if (l2.length) {
@@ -239,6 +327,7 @@ function treeLayout(spec: Extract<PreviewSpec, { layout: 'tree' }>, d: Dims) {
           x: gx,
           y: l2Y,
           size: d.tileBase * 0.9,
+          flush: gc.flush,
         });
       });
     }
@@ -259,7 +348,10 @@ function computeLayout(spec: PreviewSpec, d: Dims) {
   }
 }
 
-function pathFor(edge: Edge, byKey: Record<string, { x: number; y: number }>): string {
+function pathFor(
+  edge: Edge,
+  byKey: Record<string, { x: number; y: number }>
+): string {
   const a = byKey[edge.from];
   const b = byKey[edge.to];
   if (!a || !b) return '';
@@ -283,6 +375,8 @@ function pathFor(edge: Edge, byKey: Record<string, { x: number; y: number }>): s
 
 export interface AnimatedPreviewProps {
   variant?: 'home' | 'canvas';
+  /** Override the native layout frame (e.g. WIDE_DIMS for horizontal cards). */
+  dims?: Dims;
   modeOverride?: PreviewMode;
   showModeChip?: boolean;
   editable?: boolean;
@@ -293,11 +387,10 @@ export interface AnimatedPreviewProps {
   onLabelChange?: (key: string, label: string) => void;
 }
 
-export function AnimatedPreview(
-  props: PreviewSpec & AnimatedPreviewProps,
-) {
+export function AnimatedPreview(props: PreviewSpec & AnimatedPreviewProps) {
   const {
     variant = 'home',
+    dims: dimsOverride,
     modeOverride,
     showModeChip = true,
     editable = false,
@@ -310,7 +403,7 @@ export function AnimatedPreview(
   } = props as any;
   const spec = specProps as PreviewSpec;
 
-  const dims = variant === 'canvas' ? CANVAS_DIMS : HOME_DIMS;
+  const dims = dimsOverride ?? (variant === 'canvas' ? CANVAS_DIMS : HOME_DIMS);
   const layout = computeLayout(spec, dims);
 
   // Apply position overrides on top of computed layout
@@ -358,7 +451,7 @@ export function AnimatedPreview(
     onPositionChange(
       dragKey.current,
       p.x - dragOffset.current.dx,
-      p.y - dragOffset.current.dy,
+      p.y - dragOffset.current.dy
     );
   };
 
@@ -554,8 +647,11 @@ function Tile({
   const leftPct = (tile.x / dims.W) * 100;
   const topPct = (tile.y / dims.H) * 100;
   const padding = variant === 'canvas' ? 22 : 16;
-  const tilePx = tile.size + padding;
-  const iconPadding = Math.round(tilePx * 0.22);
+  const flush = !!tile.flush;
+  // Flush "3D" icons run edge-to-edge — give them a touch more presence than a
+  // bordered tile of the same node size.
+  const tilePx = tile.size + (flush ? padding * 1.25 : padding);
+  const iconPadding = flush ? 0 : Math.round(tilePx * 0.22);
   const iconPx = tilePx - iconPadding * 2;
 
   const [editing, setEditing] = useState(false);
@@ -583,13 +679,23 @@ function Tile({
       <div
         onPointerDown={onPointerDown}
         className={
-          'flex items-center justify-center rounded-2xl border ' +
+          'flex items-center justify-center ' +
           (editable ? 'cursor-grab active:cursor-grabbing ' : '') +
-          (tile.center
-            ? 'bg-foreground text-background border-foreground shadow-[0_12px_28px_-8px_rgba(0,0,0,0.3)]'
-            : 'bg-white border-border/80 shadow-[0_6px_16px_-6px_rgba(15,42,62,0.18)]')
+          (flush
+            ? ''
+            : 'rounded-2xl border ' +
+              (tile.center
+                ? 'bg-foreground text-background border-foreground shadow-[0_12px_28px_-8px_rgba(0,0,0,0.3)]'
+                : 'bg-white border-border/80 shadow-[0_6px_16px_-6px_rgba(15,42,62,0.18)]'))
         }
-        style={{ width: tilePx, height: tilePx, touchAction: 'none' }}
+        style={{
+          width: tilePx,
+          height: tilePx,
+          touchAction: 'none',
+          filter: flush
+            ? 'drop-shadow(0 8px 16px rgba(15,42,62,0.22))'
+            : undefined,
+        }}
       >
         <div
           className="flex items-center justify-center pointer-events-none"
@@ -602,8 +708,11 @@ function Tile({
         editing ? (
           <input
             value={draft}
+            // biome-ignore lint/a11y/noAutofocus: the inline label editor opens on demand and should take focus immediately
             autoFocus
-            onChange={(e: ChangeEvent<HTMLInputElement>) => setDraft(e.target.value)}
+            onChange={(e: ChangeEvent<HTMLInputElement>) =>
+              setDraft(e.target.value)
+            }
             onBlur={commit}
             onKeyDown={handleKey}
             className="mt-2 text-[13px] font-medium text-foreground/90 bg-white border border-border rounded px-1.5 py-0.5 outline-none focus:border-foreground/50 text-center min-w-20 max-w-44"
@@ -614,7 +723,9 @@ function Tile({
             onClick={() => editable && setEditing(true)}
             className={
               'mt-2 text-[13px] font-medium text-foreground/75 whitespace-nowrap ' +
-              (editable ? 'hover:text-foreground hover:underline cursor-text' : '')
+              (editable
+                ? 'hover:text-foreground hover:underline cursor-text'
+                : '')
             }
           >
             {label || ' '}

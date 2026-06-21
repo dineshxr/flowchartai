@@ -4,10 +4,13 @@ import { LoginForm } from '@/components/auth/login-form';
 import { LoginWrapper } from '@/components/auth/login-wrapper';
 import {
   AnimatedPreview,
+  type Dims,
   type PreviewMode,
   type PreviewSpec,
 } from '@/components/blocks/infogiph-home/animated-preview';
+import { ProcessingOverlay } from '@/components/canvas/processing-overlay';
 import { UserButton } from '@/components/layout/user-button';
+import { UpgradeDialog } from '@/components/pricing/upgrade-dialog';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import {
@@ -20,12 +23,22 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
+import { Textarea } from '@/components/ui/textarea';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import {
+  PLAN_BY_ID,
+  RESOLUTIONS,
+  RESOLUTION_BY_ID,
+  type ResolutionTier,
+  canUseResolution,
+} from '@/config/plans';
 import { useCurrentUserWithStatus } from '@/hooks/use-current-user';
 import {
   EXPORT_PRESETS,
@@ -33,13 +46,17 @@ import {
   useFlowchartExport,
 } from '@/hooks/use-export';
 import { useFlowchart } from '@/hooks/use-flowchart';
+import { useUserPlan } from '@/hooks/use-user-plan';
 import { useLocalePathname } from '@/i18n/navigation';
 import {
   accentForCategory,
+  allTemplates,
   getTemplateBySlug,
   templateTopicSeed,
 } from '@/lib/templates/catalog';
+import { resolveIcon } from '@/lib/templates/icon-registry';
 import { derivePreviewSpec } from '@/lib/templates/preview';
+import type { Template } from '@/lib/templates/types';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
   Activity,
@@ -58,6 +75,7 @@ import {
   LayoutGrid,
   LineChart,
   Loader2,
+  Lock,
   Mail,
   MessageSquare,
   PanelLeftClose,
@@ -73,10 +91,9 @@ import {
   Zap,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { toast } from 'sonner';
 import {
-  AirflowIcon,
   AlgoliaIcon,
   Auth0Icon,
   CloudflareIcon,
@@ -104,58 +121,9 @@ import {
   YouTubeIcon,
 } from './brand-icons';
 
-// Best-effort mapping of a free-text satellite label to a recognisable icon
-// tile. Tries the brand SVGs first, then falls back to a tinted letter tile.
-const iconForLabel = (label: string): React.ReactNode => {
-  const n = (label || '').toLowerCase();
-  if (/whatsapp|whats\s?app/.test(n))
-    return (
-      <WhatsAppIcon className="w-full h-full" style={{ color: '#25D366' }} />
-    );
-  if (/slack/.test(n)) return <SlackIcon className="w-full h-full" />;
-  if (/github|git\b/.test(n)) return <GitHubIcon className="w-full h-full" />;
-  if (/notion/.test(n)) return <NotionIcon className="w-full h-full" />;
-  if (/openai|gpt|llm|claude|anthropic/.test(n))
-    return <OpenAIIcon className="w-full h-full" />;
-  if (/stripe|billing|payment|pay\b/.test(n))
-    return (
-      <StripeIcon className="w-full h-full" style={{ color: '#635BFF' }} />
-    );
-  if (/instagram|insta/.test(n))
-    return (
-      <InstagramIcon className="w-full h-full" style={{ color: '#E4405F' }} />
-    );
-  if (/tiktok|tik\s?tok/.test(n))
-    return <TikTokIcon className="w-full h-full" />;
-  if (/youtube|you\s?tube/.test(n))
-    return (
-      <YouTubeIcon className="w-full h-full" style={{ color: '#FF0000' }} />
-    );
-  if (/drive|gdrive|google\s?drive/.test(n))
-    return <GoogleDriveIcon className="w-full h-full" />;
-  if (/shopify|shop\b/.test(n))
-    return (
-      <ShopifyIcon className="w-full h-full" style={{ color: '#95BF47' }} />
-    );
-  const palette = [
-    '#e63946',
-    '#1AC6FF',
-    '#8b5cf6',
-    '#f59e0b',
-    '#10b981',
-    '#ef4444',
-    '#0ea5e9',
-  ];
-  const color = palette[Math.abs(hashCode(label)) % palette.length];
-  const letter = (label || '?').trim().charAt(0).toUpperCase() || '?';
-  return <LetterIcon className="w-full h-full" letter={letter} color={color} />;
-};
-
-const hashCode = (s: string) => {
-  let h = 0;
-  for (let i = 0; i < s.length; i++) h = (h << 5) - h + s.charCodeAt(i);
-  return h;
-};
+// AI-generated diagrams resolve every node's icon (brand logo / 3D glyph /
+// concept) through the shared registry, so they use the same rich icon set as
+// the templates. See src/lib/templates/icon-registry.tsx.
 
 // Rebuild a PreviewSpec from an AI result using the active template's layout
 // so the output stays in the same animated-beam visual style the user picked.
@@ -167,16 +135,26 @@ const buildPreviewFromAI = (
   const spec = base.preview;
   const centerLabel =
     result.center?.label || (spec as any).center?.label || base.label;
-  const centerIcon = (spec as any).center?.icon || (
-    <Sparkles className="w-full h-full text-white" />
-  );
-  const center = { key: 'center', label: centerLabel, icon: centerIcon };
+  // Resolve the center through the registry. A brand logo at the center is
+  // rendered flush (edge-to-edge) so a colored logo never sits low-contrast on
+  // the dark center tile.
+  const c = resolveIcon(result.center?.icon, result.center?.label, true);
+  const center = {
+    key: 'center',
+    label: centerLabel,
+    icon: c.node,
+    flush: c.flush || c.kind === 'brand',
+  };
   const sats: any[] = result.satellites || [];
-  const satNodes = sats.map((s, i) => ({
-    key: `sat-${i}`,
-    label: s.label,
-    icon: iconForLabel(s.label),
-  }));
+  const satNodes = sats.map((s, i) => {
+    const r = resolveIcon(s.icon, s.label);
+    return {
+      key: `sat-${i}`,
+      label: s.label,
+      icon: r.node,
+      flush: r.flush,
+    };
+  });
 
   switch (spec.layout) {
     case 'hub-lr': {
@@ -184,6 +162,7 @@ const buildPreviewFromAI = (
       return {
         layout: 'hub-lr',
         mode: spec.mode,
+        accent: (spec as any).accent,
         bg: spec.bg,
         left: satNodes.slice(0, mid),
         right: satNodes.slice(mid),
@@ -194,6 +173,7 @@ const buildPreviewFromAI = (
       return {
         layout: 'radial',
         mode: spec.mode,
+        accent: (spec as any).accent,
         bg: spec.bg,
         center,
         satellites: satNodes,
@@ -202,7 +182,13 @@ const buildPreviewFromAI = (
       const mid = Math.floor(satNodes.length / 2);
       const nodes = [...satNodes];
       nodes.splice(mid, 0, center);
-      return { layout: 'pipeline', mode: spec.mode, bg: spec.bg, nodes };
+      return {
+        layout: 'pipeline',
+        mode: spec.mode,
+        accent: (spec as any).accent,
+        bg: spec.bg,
+        nodes,
+      };
     }
     case 'tree': {
       const children = satNodes.slice(0, 3).map((n, i) => ({
@@ -212,12 +198,77 @@ const buildPreviewFromAI = (
       return {
         layout: 'tree',
         mode: spec.mode,
+        accent: (spec as any).accent,
         bg: spec.bg,
         root: { ...center, children },
       };
     }
   }
 };
+
+// Build aspect-aware canvas dims from the measured frame so AnimatedPreview's
+// layout recomputes for the current orientation. Without this it always lays
+// nodes out on a landscape 960×540 grid and a portrait frame squishes them into
+// an overlapping mess. Tile sizes + margins scale with the SHORTER side, so
+// spacing stays generous and nothing overlaps at any aspect ratio.
+function makeCanvasDims(w: number, h: number): Dims {
+  const W = Math.max(w, 1);
+  const H = Math.max(h, 1);
+  const m = Math.min(W, H);
+  const tileBase = Math.min(58, Math.max(36, m * 0.08));
+  const tileLarge = tileBase * 1.5;
+  return {
+    W,
+    H,
+    tileBase,
+    tileLarge,
+    // Keep margins tight: roomier columns (so a node + its label don't collide
+    // with the next node) and a wider horizontal spread away from the center.
+    margin: Math.max(tileLarge * 0.95, m * 0.13),
+    labelSize: Math.min(14, Math.max(11, m * 0.024)),
+  };
+}
+
+// Horizontal layouts (hub-lr, pipeline) need width; in a portrait/narrow frame
+// their three columns collide with the center. Re-arrange them as a radial
+// burst, which fills any aspect cleanly. Node keys are preserved so drag
+// position overrides still apply. Landscape/square keep their intended layout.
+function adaptSpecToAspect(
+  spec: PreviewSpec | null,
+  dims: Dims | undefined
+): PreviewSpec | null {
+  if (!spec || !dims) return spec;
+  const portrait = dims.H > dims.W * 1.1;
+
+  if (spec.layout === 'hub-lr') {
+    // hub-lr stacks satellites in two columns; that overlaps in portrait, and
+    // also once a column holds 4+ nodes (their labels collide). Fall back to an
+    // even radial burst in those cases.
+    const total = spec.left.length + spec.right.length;
+    if (!portrait && total <= 6) return spec;
+    return {
+      layout: 'radial',
+      mode: spec.mode,
+      accent: spec.accent,
+      bg: spec.bg,
+      center: spec.center,
+      satellites: [...spec.left, ...spec.right],
+    };
+  }
+  if (spec.layout === 'pipeline' && (portrait || spec.nodes.length > 6)) {
+    const nodes = spec.nodes;
+    const mid = Math.floor((nodes.length - 1) / 2);
+    return {
+      layout: 'radial',
+      mode: spec.mode,
+      accent: spec.accent,
+      bg: spec.bg,
+      center: nodes[mid],
+      satellites: nodes.filter((_, i) => i !== mid),
+    };
+  }
+  return spec;
+}
 
 const getIcon = (name: string, size = 24) => {
   if (!name) return <Layers size={size} />;
@@ -757,6 +808,16 @@ const TEMPLATES: Array<{
   },
 ];
 
+// One-tap starting points for the generator, so users aren't staring at a blank
+// box wondering what to type.
+const EXAMPLE_PROMPTS = [
+  'SaaS architecture with auth, billing & analytics',
+  'Customer onboarding journey',
+  'CI/CD pipeline with tests and deploy',
+  'Marketing funnel from ads to signups',
+  'Microservices with API gateway & message bus',
+];
+
 export default function FlowVizArchitect({
   flowchartId,
 }: { flowchartId?: string }) {
@@ -778,6 +839,7 @@ export default function FlowVizArchitect({
   const [error, setError] = useState<string | null>(null);
   const [animationType, setAnimationType] = useState<PreviewMode>('dots');
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [templateQuery, setTemplateQuery] = useState('');
   const [diagramData, setDiagramData] = useState<any>({
     center: { label: 'AI Engine', icon: 'bot' },
     satellites: [
@@ -803,6 +865,12 @@ export default function FlowVizArchitect({
   );
   const [animationSpeed, setAnimationSpeed] = useState(1);
   const [exportPreset, setExportPreset] = useState<ExportPreset>('original');
+  const [resolution, setResolution] = useState<ResolutionTier>('1080p');
+  const [upgradeOpen, setUpgradeOpen] = useState(false);
+  const [upgradeReason, setUpgradeReason] = useState<string | undefined>();
+  // Active plan (from the Stripe subscription) — drives watermark, export
+  // resolution and the export limit. Defaults to free until detected.
+  const userPlan = useUserPlan();
   const [sidebarImage, setSidebarImage] = useState<string | null>(null);
   const sidebarFileRef = useRef<HTMLInputElement>(null);
 
@@ -825,6 +893,23 @@ export default function FlowVizArchitect({
     exportProgress,
   } = useFlowchartExport(exportContainerRef);
 
+  // Measure the live canvas frame so the diagram layout can be recomputed for
+  // the current aspect ratio (fixes portrait/landscape squish).
+  const canvasFrameRef = useRef<HTMLDivElement>(null);
+  const [canvasSize, setCanvasSize] = useState({ w: 0, h: 0 });
+  const canvasDims = useMemo(
+    () =>
+      canvasSize.w && canvasSize.h
+        ? makeCanvasDims(canvasSize.w, canvasSize.h)
+        : undefined,
+    [canvasSize.w, canvasSize.h]
+  );
+  // Re-arrange horizontal layouts to radial when the frame is portrait.
+  const renderSpec = useMemo(
+    () => adaptSpecToAspect(activePreview, canvasDims),
+    [activePreview, canvasDims]
+  );
+
   // Export is gated behind sign-in. These drive the "progress saved" dialog and
   // the resume-after-login flow.
   const [showExportAuth, setShowExportAuth] = useState(false);
@@ -840,14 +925,31 @@ export default function FlowVizArchitect({
       if (flowchart.content) {
         try {
           const parsed = JSON.parse(flowchart.content);
-          if (
-            parsed &&
-            typeof parsed === 'object' &&
-            parsed.center &&
-            parsed.satellites
-          ) {
+          const isTree = parsed?.layout === 'tree' && parsed?.root;
+          const isHub = parsed?.center && parsed?.satellites;
+          if (parsed && typeof parsed === 'object' && (isHub || isTree)) {
             setDiagramData(parsed);
-            setActivePreview(null);
+            // Derive an animated spec so a reopened flowchart renders through
+            // AnimatedPreview + the shared icon registry (real brand/3D icons),
+            // matching how it looked when created — not the legacy fallback.
+            const spec = derivePreviewSpec(
+              {
+                slug: 'saved',
+                title: flowchart.title || 'Diagram',
+                shortDescription: '',
+                longDescription: '',
+                category: '',
+                categoryName: '',
+                tags: [],
+                keywords: [],
+                layout: isTree ? 'tree' : 'hub',
+                data: parsed,
+                faqs: [],
+                useCases: [],
+              } as Template,
+              '#6366f1'
+            );
+            setActivePreview(spec);
           }
         } catch (e) {
           console.error('Failed to parse existing flowchart content');
@@ -871,6 +973,25 @@ export default function FlowVizArchitect({
     localStorage.removeItem('flowchart_image');
     localStorage.removeItem('flowchart_aspect');
   }, [authLoading, isAuthenticated]);
+
+  // Keep canvasSize in sync with the rendered frame (aspect changes, sidebar
+  // toggles, window resizes). Rounded + thresholded so the diagram doesn't
+  // re-layout on sub-pixel jitter.
+  useEffect(() => {
+    const el = canvasFrameRef.current;
+    if (!el) return;
+    const update = () => {
+      const w = Math.round(el.clientWidth);
+      const h = Math.round(el.clientHeight);
+      setCanvasSize((prev) =>
+        Math.abs(prev.w - w) > 2 || Math.abs(prev.h - h) > 2 ? { w, h } : prev
+      );
+    };
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   // Deep link: /canvas?template=<slug> opens the editor with that catalog
   // template's diagram pre-loaded (used by the /templates collection pages).
@@ -995,7 +1116,7 @@ export default function FlowVizArchitect({
         });
         toast.success('Flowchart saved successfully');
       } else {
-        const response = await fetch(`/api/flowcharts`, {
+        const response = await fetch('/api/flowcharts', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ content, title: titleToSave }),
@@ -1024,10 +1145,11 @@ export default function FlowVizArchitect({
     if (e) e.preventDefault();
     const userPrompt = (customTopic || topic).trim();
     if (!userPrompt && !imageBase64) return;
-    const activeTopic =
-      activeTemplate && userPrompt
-        ? `${activeTemplate.topic}. Additional requirements: ${userPrompt}`
-        : userPrompt;
+    // The user's prompt is the subject. The active template only supplies the
+    // visual style (layout/mode/accent) via buildPreviewFromAI — its topic must
+    // NOT be mixed in, or e.g. the default Chatbot template leaks "Dialog
+    // Manager" nodes into an unrelated diagram.
+    const activeTopic = userPrompt;
     setLoading(true);
     setError(null);
     try {
@@ -1087,11 +1209,70 @@ export default function FlowVizArchitect({
     }
   };
 
+  // Load a full catalog template (the 98 from /templates) straight into the
+  // editor. Shared by the ?template= deep link and the sidebar search.
+  const loadCatalogTemplate = (tpl: Template) => {
+    const spec = derivePreviewSpec(tpl, accentForCategory(tpl.category));
+    setDiagramData(tpl.data);
+    setActivePreview(spec);
+    setActiveTemplate({
+      id: tpl.slug,
+      label: tpl.title,
+      icon: <Layers size={18} />,
+      topic: templateTopicSeed(tpl),
+      data: tpl.data,
+      preview: spec,
+    });
+    setPositionOverrides({});
+    setLabelOverrides({});
+    setTopic('');
+    if (currentTitle === 'Untitled') {
+      setCurrentTitle(tpl.title);
+      setTempTitle(tpl.title);
+    }
+  };
+
+  // Catalog search for the sidebar (matches title, description, category, tags).
+  const templateResults = useMemo(() => {
+    const q = templateQuery.trim().toLowerCase();
+    if (!q) return [] as Template[];
+    const terms = q.split(/\s+/).filter(Boolean);
+    return allTemplates
+      .filter((t) => {
+        const hay =
+          `${t.title} ${t.shortDescription} ${t.categoryName} ${t.tags.join(' ')} ${t.keywords.join(' ')}`.toLowerCase();
+        return terms.every((term) => hay.includes(term));
+      })
+      .slice(0, 40);
+  }, [templateQuery]);
+
+  const openUpgrade = (reason?: string) => {
+    setUpgradeReason(reason);
+    setUpgradeOpen(true);
+  };
+
+  // 2K/4K are Pro — selecting them on a free plan opens the upgrade prompt.
+  const selectResolution = (r: ResolutionTier) => {
+    if (!canUseResolution(userPlan, r)) {
+      openUpgrade(
+        'Export in 2K & 4K with Pro — crisp video, GIF and images for any screen.'
+      );
+      return;
+    }
+    setResolution(r);
+  };
+
   const runExport = (format: 'png' | 'svg' | 'gif' | 'mp4') => {
-    if (format === 'png') exportPNG(currentTitle, exportPreset);
-    else if (format === 'svg') exportSVG(currentTitle, exportPreset);
-    else if (format === 'gif') exportGIF(currentTitle, exportPreset);
-    else exportMP4(currentTitle, exportPreset);
+    const plan = PLAN_BY_ID[userPlan];
+    const res = canUseResolution(userPlan, resolution) ? resolution : '1080p';
+    const opts = {
+      resolutionScale: RESOLUTION_BY_ID[res].scale,
+      watermark: plan.limits.watermark,
+    };
+    if (format === 'png') exportPNG(currentTitle, exportPreset, opts);
+    else if (format === 'svg') exportSVG(currentTitle, exportPreset, opts);
+    else if (format === 'gif') exportGIF(currentTitle, exportPreset, opts);
+    else exportMP4(currentTitle, exportPreset, opts);
   };
 
   // Exporting requires an account. If the user is signed out, stash their work
@@ -1115,6 +1296,23 @@ export default function FlowVizArchitect({
       // Defer so the export dropdown can close before the dialog takes focus.
       setTimeout(() => setShowExportAuth(true), 30);
       return;
+    }
+    // Free plan: 1 export. (Soft, localStorage-based until Stripe + per-user
+    // server enforcement lands.)
+    const exportsAllowed = PLAN_BY_ID[userPlan].limits.exports;
+    if (typeof exportsAllowed === 'number') {
+      const used = Number(localStorage.getItem('ig_free_exports') || '0');
+      if (used >= exportsAllowed) {
+        openUpgrade(
+          "You've used your free export. Upgrade for unlimited, watermark-free exports."
+        );
+        return;
+      }
+      try {
+        localStorage.setItem('ig_free_exports', String(used + 1));
+      } catch {
+        // storage unavailable — allow the export
+      }
     }
     runExport(format);
   };
@@ -1316,7 +1514,44 @@ export default function FlowVizArchitect({
                 {isExporting && exportProgress > 0 ? ` ${exportProgress}%` : ''}
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48">
+            <DropdownMenuContent align="end" className="w-60">
+              <DropdownMenuLabel className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                Resolution
+              </DropdownMenuLabel>
+              {RESOLUTIONS.map((r) => {
+                const locked = !canUseResolution(userPlan, r.id);
+                const active = resolution === r.id;
+                return (
+                  <DropdownMenuItem
+                    key={r.id}
+                    onSelect={(e) => {
+                      e.preventDefault();
+                      selectResolution(r.id);
+                    }}
+                    className="flex items-center justify-between gap-2"
+                  >
+                    <span className="flex items-center gap-2">
+                      <span
+                        className={
+                          'h-1.5 w-1.5 rounded-full ' +
+                          (active ? 'bg-foreground' : 'bg-border')
+                        }
+                      />
+                      <span className="font-medium">{r.label}</span>
+                      <span className="text-[11px] text-muted-foreground">
+                        {r.note}
+                      </span>
+                    </span>
+                    {locked && (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-foreground/5 px-1.5 py-0.5 text-[10px] font-semibold text-foreground/70">
+                        <Lock className="h-2.5 w-2.5" />
+                        Pro
+                      </span>
+                    )}
+                  </DropdownMenuItem>
+                );
+              })}
+              <DropdownMenuSeparator />
               <DropdownMenuItem onClick={() => handleExport('png')}>
                 Download as PNG
               </DropdownMenuItem>
@@ -1329,6 +1564,23 @@ export default function FlowVizArchitect({
               <DropdownMenuItem onClick={() => handleExport('mp4')}>
                 Download as MP4
               </DropdownMenuItem>
+              {PLAN_BY_ID[userPlan].limits.watermark && (
+                <>
+                  <DropdownMenuSeparator />
+                  <button
+                    type="button"
+                    onClick={() =>
+                      openUpgrade(
+                        'Remove the watermark and unlock 2K & 4K with Pro.'
+                      )
+                    }
+                    className="flex w-full items-center gap-1.5 px-2 py-1.5 text-left text-[11px] text-muted-foreground transition-colors hover:text-foreground"
+                  >
+                    <Lock className="h-3 w-3 shrink-0" />
+                    Watermark on free — remove with Pro →
+                  </button>
+                </>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
 
@@ -1396,47 +1648,140 @@ export default function FlowVizArchitect({
         </DialogContent>
       </Dialog>
 
+      <UpgradeDialog
+        open={upgradeOpen}
+        onOpenChange={setUpgradeOpen}
+        reason={upgradeReason}
+      />
+
       {/* Main Content Area */}
       <div className="flex flex-1 overflow-hidden">
         {/* Sidebar - Template Picker */}
         {sidebarOpen && (
-          <div className="w-[260px] border-r border-border bg-[#fafafa] flex flex-col shrink-0">
-            <div className="px-5 pt-5 pb-3">
-              <h2 className="text-sm font-semibold text-foreground">
-                Templates
-              </h2>
-              <p className="text-xs text-muted-foreground mt-1">
-                Pick a template or describe your own
-              </p>
+          <div className="flex w-[280px] shrink-0 flex-col border-r border-border bg-[#fafafa]">
+            {/* Templates header + search */}
+            <div className="px-4 pb-3 pt-4">
+              <div className="flex items-center justify-between gap-2">
+                <h2 className="text-sm font-semibold text-foreground">
+                  Templates
+                </h2>
+                <a
+                  href="/templates"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="shrink-0 text-[11px] font-medium text-foreground/55 transition-colors hover:text-foreground"
+                >
+                  Browse all {allTemplates.length} →
+                </a>
+              </div>
+              <div className="relative mt-2.5">
+                <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  value={templateQuery}
+                  onChange={(e) => setTemplateQuery(e.target.value)}
+                  placeholder={`Search ${allTemplates.length} templates…`}
+                  className="h-9 rounded-lg border-border bg-white pl-8 text-xs focus-visible:border-foreground/40 focus-visible:ring-0"
+                />
+              </div>
             </div>
+
             <ScrollArea className="flex-1">
-              <div className="px-3 pb-3 space-y-1.5">
-                {TEMPLATES.map((template) => (
+              <div className="space-y-1.5 px-3 pb-3">
+                {templateQuery.trim() ? (
+                  templateResults.length > 0 ? (
+                    templateResults.map((t) => (
+                      <button
+                        key={t.slug}
+                        type="button"
+                        onClick={() => loadCatalogTemplate(t)}
+                        className="group flex w-full items-center gap-3 rounded-xl border border-transparent bg-white px-3 py-2.5 text-left transition-all hover:border-border hover:shadow-sm"
+                      >
+                        <span
+                          className="h-9 w-9 shrink-0 rounded-lg"
+                          style={{
+                            background: `${accentForCategory(t.category)}1a`,
+                            border: `1px solid ${accentForCategory(t.category)}40`,
+                          }}
+                        />
+                        <div className="min-w-0">
+                          <div className="truncate text-xs font-medium text-foreground">
+                            {t.title}
+                          </div>
+                          <div className="mt-0.5 truncate text-[11px] text-muted-foreground">
+                            {t.categoryName}
+                          </div>
+                        </div>
+                      </button>
+                    ))
+                  ) : (
+                    <div className="px-3 py-8 text-center">
+                      <p className="text-xs text-muted-foreground">
+                        No templates match “{templateQuery.trim()}”.
+                      </p>
+                      <a
+                        href="/templates"
+                        target="_blank"
+                        rel="noreferrer"
+                        className="mt-1 inline-block text-xs font-medium text-foreground hover:underline"
+                      >
+                        Browse all templates →
+                      </a>
+                    </div>
+                  )
+                ) : (
+                  <>
+                    <p className="px-1 pb-0.5 pt-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                      Quick start
+                    </p>
+                    {TEMPLATES.map((template) => (
+                      <button
+                        key={template.id}
+                        type="button"
+                        onClick={() => handleTemplateSelect(template)}
+                        className="group flex w-full items-center gap-3 rounded-xl border border-transparent bg-white px-3 py-2.5 text-left text-sm transition-all hover:border-border hover:shadow-sm"
+                      >
+                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border bg-white text-foreground/70 transition-colors group-hover:text-foreground">
+                          {template.icon}
+                        </div>
+                        <div className="min-w-0">
+                          <div className="truncate text-xs font-medium text-foreground">
+                            {template.label}
+                          </div>
+                          <div className="mt-0.5 truncate text-[11px] text-muted-foreground">
+                            {template.data.satellites?.length ||
+                              template.data.root?.children?.length ||
+                              0}{' '}
+                            nodes
+                          </div>
+                        </div>
+                      </button>
+                    ))}
+                  </>
+                )}
+              </div>
+            </ScrollArea>
+
+            {/* Generator */}
+            <div className="border-t border-border bg-white p-3">
+              <div className="mb-2 flex items-center gap-1.5">
+                <Sparkles className="h-3.5 w-3.5 text-foreground" />
+                <span className="text-xs font-semibold text-foreground">
+                  Generate with AI
+                </span>
+              </div>
+              <div className="mb-2 flex flex-wrap gap-1.5">
+                {EXAMPLE_PROMPTS.slice(0, 4).map((ex) => (
                   <button
-                    key={template.id}
+                    key={ex}
                     type="button"
-                    onClick={() => handleTemplateSelect(template)}
-                    className="group w-full flex items-center gap-3 rounded-xl border border-transparent bg-white px-3 py-2.5 text-left text-sm transition-all hover:border-border hover:shadow-sm"
+                    onClick={() => setTopic(ex)}
+                    title={ex}
+                    className="rounded-full border border-border bg-[#fafafa] px-2 py-1 text-[10px] font-medium text-foreground/65 transition-colors hover:border-foreground/30 hover:text-foreground"
                   >
-                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border bg-white text-foreground/70 group-hover:text-foreground transition-colors">
-                      {template.icon}
-                    </div>
-                    <div className="min-w-0">
-                      <div className="font-medium text-xs truncate text-foreground">
-                        {template.label}
-                      </div>
-                      <div className="text-[11px] text-muted-foreground truncate mt-0.5">
-                        {template.data.satellites?.length ||
-                          template.data.root?.children?.length ||
-                          0}{' '}
-                        nodes
-                      </div>
-                    </div>
+                    {ex.split(' ').slice(0, 3).join(' ')}…
                   </button>
                 ))}
               </div>
-            </ScrollArea>
-            <div className="p-3 border-t border-border bg-white">
               <form
                 onSubmit={(e) => {
                   e.preventDefault();
@@ -1448,11 +1793,22 @@ export default function FlowVizArchitect({
                 }}
                 className="space-y-2"
               >
-                <Input
+                <Textarea
                   value={topic}
                   onChange={(e) => setTopic(e.target.value)}
-                  placeholder="Describe your system..."
-                  className="text-xs h-9 rounded-lg border-border bg-white focus-visible:ring-0 focus-visible:border-foreground/40"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      generateDiagram(
+                        undefined,
+                        undefined,
+                        sidebarImage || undefined
+                      );
+                    }
+                  }}
+                  placeholder="Describe what you want to visualize…"
+                  rows={2}
+                  className="resize-none rounded-lg border-border bg-white text-xs focus-visible:border-foreground/40 focus-visible:ring-0"
                 />
                 <div className="flex items-center gap-2">
                   <input
@@ -1477,7 +1833,7 @@ export default function FlowVizArchitect({
                     type="button"
                     variant="outline"
                     size="sm"
-                    className="text-xs h-9 rounded-lg border-border hover:bg-[#fafafa] shrink-0"
+                    className="h-9 shrink-0 rounded-lg border-border text-xs hover:bg-[#fafafa]"
                     onClick={() => sidebarFileRef.current?.click()}
                   >
                     {sidebarImage ? '✓ Image' : '+ Image'}
@@ -1485,7 +1841,7 @@ export default function FlowVizArchitect({
                   <Button
                     type="submit"
                     disabled={loading || (!topic.trim() && !sidebarImage)}
-                    className="flex-1 gap-2 text-xs h-9 rounded-lg bg-foreground text-background hover:bg-neutral-800 disabled:opacity-50"
+                    className="h-9 flex-1 gap-2 rounded-lg bg-foreground text-xs text-background hover:bg-neutral-800 disabled:opacity-50"
                     size="sm"
                   >
                     {loading ? (
@@ -1536,26 +1892,34 @@ export default function FlowVizArchitect({
                 ref={exportContainerRef}
                 className="w-full h-full flex items-center justify-center p-8"
               >
-                {activePreview ? (
-                  <AnimatedPreview
-                    {...(activePreview as any)}
-                    variant="canvas"
-                    modeOverride={animationType}
-                    showModeChip={false}
-                    editable
-                    speed={animationSpeed}
-                    positionOverrides={positionOverrides}
-                    labelOverrides={labelOverrides}
-                    onPositionChange={(key, x, y) =>
-                      setPositionOverrides((p) => ({ ...p, [key]: { x, y } }))
-                    }
-                    onLabelChange={(key, label) =>
-                      setLabelOverrides((p) => ({ ...p, [key]: label }))
-                    }
-                  />
-                ) : (
-                  <DiagramRenderer data={diagramData} mode={animationType} />
-                )}
+                <div ref={canvasFrameRef} className="relative h-full w-full">
+                  {renderSpec ? (
+                    <AnimatedPreview
+                      {...(renderSpec as any)}
+                      variant="canvas"
+                      dims={canvasDims}
+                      modeOverride={animationType}
+                      showModeChip={false}
+                      editable
+                      speed={animationSpeed}
+                      positionOverrides={positionOverrides}
+                      labelOverrides={labelOverrides}
+                      onPositionChange={(key, x, y) =>
+                        setPositionOverrides((p) => ({ ...p, [key]: { x, y } }))
+                      }
+                      onLabelChange={(key, label) =>
+                        setLabelOverrides((p) => ({ ...p, [key]: label }))
+                      }
+                    />
+                  ) : (
+                    <DiagramRenderer data={diagramData} mode={animationType} />
+                  )}
+                  {loading && (
+                    <ProcessingOverlay
+                      accent={(activePreview as any)?.accent || '#6366f1'}
+                    />
+                  )}
+                </div>
               </div>
             </div>
           </div>
@@ -1802,165 +2166,159 @@ function RadialDiagramRenderer({ data, mode }: { data: any; mode: string }) {
 
         <AnimatePresence mode="wait">
           <g key={`${JSON.stringify(data)}-${mode}`}>
-            {data.satellites &&
-              data.satellites.map((sat: any, i: number) => {
-                const angle = (i / data.satellites.length) * 2 * Math.PI;
-                const x = centerX + radiusX * Math.cos(angle);
-                const y = centerY + radiusY * Math.sin(angle);
-                const cp1X = centerX + (x - centerX) * 0.5;
-                const cp1Y = centerY;
-                const cp2X = centerX + (x - centerX) * 0.5;
-                const cp2Y = y;
-                const pathD = `M ${centerX} ${centerY} C ${cp1X} ${cp1Y}, ${cp2X} ${cp2Y}, ${x} ${y}`;
+            {data.satellites?.map((sat: any, i: number) => {
+              const angle = (i / data.satellites.length) * 2 * Math.PI;
+              const x = centerX + radiusX * Math.cos(angle);
+              const y = centerY + radiusY * Math.sin(angle);
+              const cp1X = centerX + (x - centerX) * 0.5;
+              const cp1Y = centerY;
+              const cp2X = centerX + (x - centerX) * 0.5;
+              const cp2Y = y;
+              const pathD = `M ${centerX} ${centerY} C ${cp1X} ${cp1Y}, ${cp2X} ${cp2Y}, ${x} ${y}`;
 
-                return (
-                  <React.Fragment key={i}>
-                    <motion.path
-                      d={pathD}
-                      fill="none"
-                      stroke="#e2e8f0"
-                      strokeWidth="2"
-                      initial={{ pathLength: 0, opacity: 0 }}
-                      animate={{ pathLength: 1, opacity: 1 }}
-                      transition={{ duration: 1, delay: i * 0.1 }}
-                    />
+              return (
+                <React.Fragment key={i}>
+                  <motion.path
+                    d={pathD}
+                    fill="none"
+                    stroke="#e2e8f0"
+                    strokeWidth="2"
+                    initial={{ pathLength: 0, opacity: 0 }}
+                    animate={{ pathLength: 1, opacity: 1 }}
+                    transition={{ duration: 1, delay: i * 0.1 }}
+                  />
 
-                    {mode === 'dots' &&
-                      [0, 0.3, 0.6].map((offset) => (
-                        <motion.circle
-                          key={offset}
-                          r="3"
-                          fill="#3b82f6"
-                          initial={{ '--offset-distance': '0%' } as any}
-                          animate={{ '--offset-distance': '100%' } as any}
-                          transition={{
-                            duration: 2.5,
-                            repeat: Number.POSITIVE_INFINITY,
-                            ease: 'linear',
-                            delay: offset + i * 0.2,
-                          }}
-                          style={
-                            {
-                              offsetPath: `path("${pathD}")`,
-                              offsetDistance: 'var(--offset-distance)',
-                            } as React.CSSProperties
-                          }
-                        />
-                      ))}
-
-                    {mode === 'beams' && (
-                      <motion.path
-                        d={pathD}
-                        fill="none"
-                        stroke="url(#beamGradient)"
-                        strokeWidth="4"
-                        strokeDasharray="50, 150"
-                        initial={{ strokeDashoffset: 200 }}
-                        animate={{ strokeDashoffset: 0 }}
-                        transition={{
-                          duration: 2,
-                          repeat: Number.POSITIVE_INFINITY,
-                          ease: 'linear',
-                          delay: i * 0.15,
-                        }}
-                      />
-                    )}
-
-                    {mode === 'pulses' && (
+                  {mode === 'dots' &&
+                    [0, 0.3, 0.6].map((offset) => (
                       <motion.circle
-                        cx={centerX}
-                        cy={centerY}
-                        r="10"
-                        stroke="#3b82f6"
-                        strokeWidth="2"
-                        fill="none"
-                        initial={
-                          {
-                            opacity: 0.8,
-                            scale: 0,
-                            '--offset-distance': '0%',
-                          } as any
-                        }
-                        animate={
-                          {
-                            opacity: 0,
-                            scale: 10,
-                            '--offset-distance': '100%',
-                          } as any
-                        }
-                        transition={{
-                          duration: 3,
-                          repeat: Number.POSITIVE_INFINITY,
-                          ease: 'easeOut',
-                          delay: i * 0.4,
-                        }}
-                        style={
-                          {
-                            offsetPath: `path("${pathD}")`,
-                            offsetDistance: 'var(--offset-distance)',
-                          } as React.CSSProperties
-                        }
-                      />
-                    )}
-
-                    {mode === 'arrows' && (
-                      <motion.path
-                        d="M -5,-3 L 5,0 L -5,3 Z"
+                        key={offset}
+                        r="3"
                         fill="#3b82f6"
                         initial={{ '--offset-distance': '0%' } as any}
                         animate={{ '--offset-distance': '100%' } as any}
                         transition={{
-                          duration: 2,
+                          duration: 2.5,
                           repeat: Number.POSITIVE_INFINITY,
                           ease: 'linear',
-                          delay: i * 0.1,
+                          delay: offset + i * 0.2,
                         }}
                         style={
                           {
                             offsetPath: `path("${pathD}")`,
                             offsetDistance: 'var(--offset-distance)',
-                            offsetRotate: 'auto',
                           } as React.CSSProperties
                         }
                       />
-                    )}
+                    ))}
 
-                    <motion.g
-                      initial={{ scale: 0, opacity: 0 }}
-                      animate={{ scale: 1, opacity: 1 }}
+                  {mode === 'beams' && (
+                    <motion.path
+                      d={pathD}
+                      fill="none"
+                      stroke="url(#beamGradient)"
+                      strokeWidth="4"
+                      strokeDasharray="50, 150"
+                      initial={{ strokeDashoffset: 200 }}
+                      animate={{ strokeDashoffset: 0 }}
                       transition={{
-                        type: 'spring',
-                        damping: 12,
-                        delay: 0.5 + i * 0.1,
+                        duration: 2,
+                        repeat: Number.POSITIVE_INFINITY,
+                        ease: 'linear',
+                        delay: i * 0.15,
                       }}
-                    >
-                      <circle
-                        cx={x}
-                        cy={y}
-                        r="40"
-                        fill="url(#nodeGradient)"
-                        filter="url(#shadow)"
-                        className="stroke-slate-200 stroke-1"
-                      />
-                      <foreignObject
-                        x={x - 40}
-                        y={y - 40}
-                        width="80"
-                        height="80"
-                      >
-                        <div className="w-full h-full flex flex-col items-center justify-center p-2 text-center pointer-events-none">
-                          <div className="text-blue-500 mb-1">
-                            {getIcon(sat.icon || sat.label)}
-                          </div>
-                          <span className="text-[10px] font-bold text-slate-600 leading-tight uppercase tracking-tighter line-clamp-2">
-                            {sat.label}
-                          </span>
+                    />
+                  )}
+
+                  {mode === 'pulses' && (
+                    <motion.circle
+                      cx={centerX}
+                      cy={centerY}
+                      r="10"
+                      stroke="#3b82f6"
+                      strokeWidth="2"
+                      fill="none"
+                      initial={
+                        {
+                          opacity: 0.8,
+                          scale: 0,
+                          '--offset-distance': '0%',
+                        } as any
+                      }
+                      animate={
+                        {
+                          opacity: 0,
+                          scale: 10,
+                          '--offset-distance': '100%',
+                        } as any
+                      }
+                      transition={{
+                        duration: 3,
+                        repeat: Number.POSITIVE_INFINITY,
+                        ease: 'easeOut',
+                        delay: i * 0.4,
+                      }}
+                      style={
+                        {
+                          offsetPath: `path("${pathD}")`,
+                          offsetDistance: 'var(--offset-distance)',
+                        } as React.CSSProperties
+                      }
+                    />
+                  )}
+
+                  {mode === 'arrows' && (
+                    <motion.path
+                      d="M -5,-3 L 5,0 L -5,3 Z"
+                      fill="#3b82f6"
+                      initial={{ '--offset-distance': '0%' } as any}
+                      animate={{ '--offset-distance': '100%' } as any}
+                      transition={{
+                        duration: 2,
+                        repeat: Number.POSITIVE_INFINITY,
+                        ease: 'linear',
+                        delay: i * 0.1,
+                      }}
+                      style={
+                        {
+                          offsetPath: `path("${pathD}")`,
+                          offsetDistance: 'var(--offset-distance)',
+                          offsetRotate: 'auto',
+                        } as React.CSSProperties
+                      }
+                    />
+                  )}
+
+                  <motion.g
+                    initial={{ scale: 0, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    transition={{
+                      type: 'spring',
+                      damping: 12,
+                      delay: 0.5 + i * 0.1,
+                    }}
+                  >
+                    <circle
+                      cx={x}
+                      cy={y}
+                      r="40"
+                      fill="url(#nodeGradient)"
+                      filter="url(#shadow)"
+                      className="stroke-slate-200 stroke-1"
+                    />
+                    <foreignObject x={x - 40} y={y - 40} width="80" height="80">
+                      <div className="w-full h-full flex flex-col items-center justify-center p-2 text-center pointer-events-none">
+                        <div className="text-blue-500 mb-1">
+                          {getIcon(sat.icon || sat.label)}
                         </div>
-                      </foreignObject>
-                    </motion.g>
-                  </React.Fragment>
-                );
-              })}
+                        <span className="text-[10px] font-bold text-slate-600 leading-tight uppercase tracking-tighter line-clamp-2">
+                          {sat.label}
+                        </span>
+                      </div>
+                    </foreignObject>
+                  </motion.g>
+                </React.Fragment>
+              );
+            })}
 
             {data.center && (
               <motion.g

@@ -1,181 +1,97 @@
 'use client';
 
+// Homepage showcase data. Each card is DERIVED from a real catalog template via
+// the same `derivePreviewSpec` used by the /templates detail page and the
+// /canvas editor — so the thumbnail a user sees here is exactly what they get
+// when they click through. No more "the template doesn't match the preview".
+//
+// We only choose the bento sizing (hero / wide / square / tall) here; the
+// diagram itself — icons, layout, animation, colours — comes from the curated
+// template data in src/lib/templates/curated.data.ts.
+
+import { accentForCategory, getTemplateBySlug } from '@/lib/templates/catalog';
+import { derivePreviewSpec } from '@/lib/templates/preview';
 import {
-  Bot,
-  Cloud,
-  Database,
-  Share2,
-  ShoppingBag,
-  Sparkles,
-  Users,
-} from 'lucide-react';
-import {
-  AirflowIcon,
-  AlgoliaIcon,
-  Auth0Icon,
-  CloudflareIcon,
-  DbtIcon,
-  GitHubIcon,
-  GoogleAnalyticsIcon,
-  GoogleDriveIcon,
-  InstagramIcon,
-  LetterIcon,
-  MailchimpIcon,
-  NotionIcon,
-  OpenAIIcon,
-  PineconeIcon,
-  PostgresIcon,
-  RedisIcon,
-  SalesforceIcon,
-  ShopifyIcon,
-  SlackIcon,
-  SnowflakeIcon,
-  StripeIcon,
-  TableauIcon,
-  TikTokIcon,
-  UPSIcon,
-  WhatsAppIcon,
-  YouTubeIcon,
-} from '@/components/canvas/brand-icons';
-import type { PreviewSpec } from './animated-preview';
+  type Dims,
+  type PreviewSpec,
+  SQUARE_DIMS,
+  TALL_DIMS,
+  WIDE_DIMS,
+} from './animated-preview';
 
-// Per-template preview specs. Each picks a layout and a mode that suit the
-// template's structure; the home cards collectively showcase all four layouts
-// and all four animation modes. Accents and backgrounds are tuned per-template
-// for brand-appropriate visual identity.
-export const templatePreviews: Record<string, PreviewSpec> = {
-  chatbot: {
-    layout: 'hub-lr',
-    mode: 'beams',
-    accent: '#8b5cf6',
-    bg: 'linear-gradient(135deg,#faf5ff 0%,#fdf2f8 100%)',
-    left: [
-      { key: 'wa', icon: <WhatsAppIcon className="w-full h-full" style={{ color: '#25D366' }} /> },
-      { key: 'sl', icon: <SlackIcon className="w-full h-full" /> },
-      { key: 'ig', icon: <InstagramIcon className="w-full h-full" style={{ color: '#E4405F' }} /> },
-    ],
-    right: [
-      { key: 'ai', icon: <OpenAIIcon className="w-full h-full" /> },
-      { key: 'nt', icon: <NotionIcon className="w-full h-full" /> },
-      { key: 'crm', icon: <SalesforceIcon className="w-full h-full" /> },
-    ],
-    center: { key: 'bot', icon: <Bot className="w-full h-full text-white" /> },
-  },
+export interface ShowcaseItem {
+  key: string;
+  title: string;
+  desc: string;
+  /** Real /templates detail page this card opens. */
+  href: string;
+  /** Bento role: feature band vs. masonry cell shape. */
+  size: 'hero' | 'wide' | 'square' | 'tall';
+  dims: Dims;
+  spec: PreviewSpec;
+}
 
-  saas: {
-    layout: 'hub-lr',
-    mode: 'dots',
-    accent: '#0ea5e9',
-    bg: 'linear-gradient(135deg,#f0f9ff 0%,#ecfeff 100%)',
-    left: [
-      { key: 'st', icon: <StripeIcon className="w-full h-full" style={{ color: '#635BFF' }} /> },
-      { key: 'a0', icon: <Auth0Icon className="w-full h-full" /> },
-      { key: 'pg', icon: <PostgresIcon className="w-full h-full" /> },
-    ],
-    right: [
-      { key: 'gd', icon: <GoogleDriveIcon className="w-full h-full" /> },
-      { key: 'gh', icon: <GitHubIcon className="w-full h-full" /> },
-      { key: 'nt', icon: <NotionIcon className="w-full h-full" /> },
-    ],
-    center: { key: 'cloud', icon: <Cloud className="w-full h-full text-white" /> },
-  },
+type Size = ShowcaseItem['size'];
 
-  ecommerce: {
-    layout: 'radial',
-    mode: 'pulses',
-    accent: '#f97316',
-    bg: 'linear-gradient(135deg,#fff7ed 0%,#fffbeb 100%)',
-    center: { key: 'shop', icon: <ShoppingBag className="w-full h-full text-white" /> },
-    satellites: [
-      { key: 'sh', icon: <ShopifyIcon className="w-full h-full" style={{ color: '#95BF47' }} /> },
-      { key: 'st', icon: <StripeIcon className="w-full h-full" style={{ color: '#635BFF' }} /> },
-      { key: 'mc', icon: <MailchimpIcon className="w-full h-full" /> },
-      { key: 'up', icon: <UPSIcon className="w-full h-full" /> },
-      { key: 'ga', icon: <GoogleAnalyticsIcon className="w-full h-full" /> },
-      { key: 'pg', icon: <PostgresIcon className="w-full h-full" /> },
-    ],
-  },
+const dimsForSize = (size: Size): Dims =>
+  size === 'tall' ? TALL_DIMS : size === 'square' ? SQUARE_DIMS : WIDE_DIMS;
 
-  'data-pipeline': {
-    layout: 'pipeline',
-    mode: 'arrows',
-    accent: '#14b8a6',
-    bg: 'linear-gradient(135deg,#f0fdfa 0%,#f0f9ff 100%)',
-    nodes: [
-      { key: 'sn', icon: <SnowflakeIcon className="w-full h-full" /> },
-      { key: 'dbt', icon: <DbtIcon className="w-full h-full" /> },
-      { key: 'db', icon: <Database className="w-full h-full text-white" /> },
-      { key: 'ai', icon: <OpenAIIcon className="w-full h-full" /> },
-      { key: 'tab', icon: <TableauIcon className="w-full h-full" /> },
-    ],
-  },
-
-  'social-media': {
-    layout: 'hub-lr',
-    mode: 'dots',
-    accent: '#ec4899',
-    bg: 'linear-gradient(135deg,#fdf2f8 0%,#fff1f2 100%)',
-    left: [
-      { key: 'ig', icon: <InstagramIcon className="w-full h-full" style={{ color: '#E4405F' }} /> },
-      { key: 'tt', icon: <TikTokIcon className="w-full h-full" /> },
-      { key: 'yt', icon: <YouTubeIcon className="w-full h-full" style={{ color: '#FF0000' }} /> },
-    ],
-    right: [
-      { key: 'wa', icon: <WhatsAppIcon className="w-full h-full" style={{ color: '#25D366' }} /> },
-      { key: 'cdn', icon: <CloudflareIcon className="w-full h-full" /> },
-      { key: 'alg', icon: <AlgoliaIcon className="w-full h-full" /> },
-    ],
-    center: { key: 'feed', icon: <Share2 className="w-full h-full text-white" /> },
-  },
-
-  'ai-agent': {
-    layout: 'radial',
-    mode: 'beams',
-    accent: '#6366f1',
-    bg: 'linear-gradient(135deg,#eef2ff 0%,#f5f3ff 100%)',
-    center: { key: 'agent', icon: <Sparkles className="w-full h-full text-white" /> },
-    satellites: [
-      { key: 'ai', icon: <OpenAIIcon className="w-full h-full" /> },
-      { key: 'pc', icon: <PineconeIcon className="w-full h-full" /> },
-      { key: 'gh', icon: <GitHubIcon className="w-full h-full" /> },
-      { key: 'gd', icon: <GoogleDriveIcon className="w-full h-full" /> },
-      { key: 'nt', icon: <NotionIcon className="w-full h-full" /> },
-      { key: 'rd', icon: <RedisIcon className="w-full h-full" /> },
-    ],
-  },
-
-  'org-chart': {
-    layout: 'tree',
-    mode: 'pulses',
-    accent: '#f59e0b',
-    bg: 'linear-gradient(135deg,#fffbeb 0%,#fef3c7 100%)',
-    root: {
-      key: 'ceo',
-      icon: <Users className="w-full h-full text-white" />,
-      children: [
-        {
-          key: 'cmo',
-          icon: <LetterIcon className="w-full h-full" letter="M" color="#ff6b9d" />,
-        },
-        {
-          key: 'cto',
-          icon: <LetterIcon className="w-full h-full" letter="T" color="#c74bb5" />,
-          children: [
-            {
-              key: 'eng1',
-              icon: <LetterIcon className="w-full h-full" letter="E" color="#f5c84b" />,
-            },
-            {
-              key: 'eng2',
-              icon: <LetterIcon className="w-full h-full" letter="E" color="#f5c84b" />,
-            },
-          ],
-        },
-        {
-          key: 'coo',
-          icon: <LetterIcon className="w-full h-full" letter="O" color="#ff8a5c" />,
-        },
-      ],
-    },
-  },
+/** Short, punchy card subtitles (the catalog shortDescription can be long). */
+const DESCS: Record<string, string> = {
+  'how-llms-work-diagram': 'Prompt → tokens → transformer → answer',
+  'claude-code-architecture-diagram': 'Terminal agent, MCP tools & your repo',
+  'codex-architecture-diagram': 'Plans, writes & tests code in a sandbox',
+  'aws-cloud-architecture-diagram': 'Compute, containers, data & CDN on AWS',
+  'supply-chain-diagram': 'Suppliers, ERP, logistics & retail',
+  'ai-agent-architecture-diagram': 'Autonomous agent with tools & memory',
+  'microservices-architecture-diagram': 'Gateway, services, data & payments',
+  'kubernetes-architecture-diagram': 'Pods, control plane & ingress',
+  'zero-trust-architecture-diagram': 'Verify every request, trust no network',
+  'ci-cd-pipeline-diagram': 'Commit → build → ship, automatically',
+  'marketing-funnel-diagram': 'Turn reach into signups across channels',
+  'org-chart-template': 'Reporting lines across the company',
+  'payment-processing-flow-diagram': 'Checkout, gateway, ledger & payout',
+  'serverless-architecture-template': 'Functions, auth & managed data',
+  'learning-path-diagram': 'A structured route from basics to mastery',
 };
+
+function build(slug: string, size: Size): ShowcaseItem | null {
+  const t = getTemplateBySlug(slug);
+  if (!t) return null;
+  const spec = derivePreviewSpec(t, accentForCategory(t.category));
+  return {
+    key: slug,
+    title: t.title,
+    desc: DESCS[slug] || t.shortDescription,
+    href: `/templates/${t.category}/${t.slug}`,
+    size,
+    dims: dimsForSize(size),
+    spec,
+  };
+}
+
+const compact = (items: (ShowcaseItem | null)[]): ShowcaseItem[] =>
+  items.filter((x): x is ShowcaseItem => x !== null);
+
+/** Big, brand-rich "key examples" rendered as a feature band. */
+export const showcaseHeroes: ShowcaseItem[] = compact([
+  build('how-llms-work-diagram', 'hero'),
+  build('claude-code-architecture-diagram', 'hero'),
+  build('codex-architecture-diagram', 'hero'),
+]);
+
+/** The varied-size animated gallery beneath the heroes. */
+export const showcaseGallery: ShowcaseItem[] = compact([
+  build('aws-cloud-architecture-diagram', 'wide'),
+  build('supply-chain-diagram', 'wide'),
+  build('ai-agent-architecture-diagram', 'square'),
+  build('microservices-architecture-diagram', 'wide'),
+  build('kubernetes-architecture-diagram', 'square'),
+  build('org-chart-template', 'tall'),
+  build('zero-trust-architecture-diagram', 'square'),
+  build('ci-cd-pipeline-diagram', 'wide'),
+  build('marketing-funnel-diagram', 'wide'),
+  build('payment-processing-flow-diagram', 'square'),
+  build('learning-path-diagram', 'tall'),
+  build('serverless-architecture-template', 'wide'),
+]);

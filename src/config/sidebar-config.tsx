@@ -7,9 +7,11 @@ import {
   CircleUserRoundIcon,
   CreditCardIcon,
   LayoutDashboardIcon,
+  LayoutTemplateIcon,
   LockKeyholeIcon,
   Settings2Icon,
   SettingsIcon,
+  SparklesIcon,
   UsersRoundIcon,
 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
@@ -35,6 +37,24 @@ export function getSidebarLinks(): NestedMenuItem[] {
       title: t('dashboard.title'),
       icon: <LayoutDashboardIcon className="size-4 shrink-0" />,
       href: Routes.Dashboard,
+      external: false,
+    },
+    {
+      title: 'New Diagram',
+      icon: <SparklesIcon className="size-4 shrink-0" />,
+      href: '/canvas',
+      external: false,
+    },
+    {
+      title: 'Templates',
+      icon: <LayoutTemplateIcon className="size-4 shrink-0" />,
+      href: '/templates',
+      external: false,
+    },
+    {
+      title: 'Billing',
+      icon: <CreditCardIcon className="size-4 shrink-0" />,
+      href: '/dashboard/billing',
       external: false,
     },
     {

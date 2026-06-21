@@ -14,15 +14,14 @@ import Link from 'next/link';
 
 const PATH = '/templates';
 const TITLE = 'Infographic & Diagram Templates';
-const SUBTITLE =
-  'Browse 90+ free, editable infographic and diagram templates — architecture, data, AI, marketing, and more. Pick one and customise it in seconds with Infogiph.';
+const SUBTITLE = `Browse ${allTemplates.length}+ free, editable infographic and diagram templates — architecture, data, AI, marketing, and more. Pick one and customise it in seconds with Infogiph.`;
 
 export const metadata: Metadata = constructMetadata({
   title: `${TITLE} — ${allTemplates.length}+ Free Templates | Infogiph`,
   description:
     'Browse free, editable infographic and diagram templates across architecture, data, AI, business, marketing, DevOps and more. Search, customise, and export to PNG, SVG, GIF, or MP4.',
   canonicalUrl: `${getBaseUrl()}${PATH}`,
-  image: `/api/og?title=${encodeURIComponent(TITLE)}&subtitle=${encodeURIComponent('90+ free, editable templates you can customise in seconds.')}`,
+  image: `/api/og?title=${encodeURIComponent(TITLE)}&subtitle=${encodeURIComponent(`${allTemplates.length}+ free, editable templates you can customise in seconds.`)}`,
 });
 
 export default function TemplatesHubPage() {

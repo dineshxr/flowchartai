@@ -62,6 +62,11 @@ function useSession(): { data: SessionData | null; isPending: boolean } {
   const [isPending, setIsPending] = useState(true);
 
   useEffect(() => {
+    // Firebase not configured in this build → treat as signed-out, don't crash.
+    if (!firebaseAuth) {
+      setIsPending(false);
+      return;
+    }
     const unsubscribe = onAuthStateChanged(firebaseAuth, (u) => {
       setUser(u ? mapUser(u) : null);
       setIsPending(false);
@@ -82,6 +87,14 @@ async function signInSocial({
   provider?: 'google' | 'github';
   callbackURL?: string;
 }) {
+  if (!firebaseAuth || !googleProvider) {
+    return {
+      error: {
+        message:
+          'Sign-in is not configured. Please contact support or try again later.',
+      },
+    };
+  }
   try {
     const result = await signInWithPopup(firebaseAuth, googleProvider);
     await syncSessionCookie(result.user);
@@ -98,7 +111,7 @@ async function signInSocial({
 // signOut — drop-in replacement for the previous authClient.signOut()
 // ---------------------------------------------------------------------------
 async function signOut() {
-  await firebaseSignOut(firebaseAuth);
+  if (firebaseAuth) await firebaseSignOut(firebaseAuth);
   await syncSessionCookie(null);
   window.location.href = '/';
 }
@@ -109,7 +122,7 @@ async function signOut() {
 // ---------------------------------------------------------------------------
 let _cachedUser: AppUser | null = null;
 
-if (typeof window !== 'undefined') {
+if (typeof window !== 'undefined' && firebaseAuth) {
   onAuthStateChanged(firebaseAuth, (u) => {
     _cachedUser = u ? mapUser(u) : null;
     syncSessionCookie(u);

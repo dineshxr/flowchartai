@@ -38,10 +38,13 @@ export async function POST(req: Request) {
     const { topic, image } = await req.json();
 
     if (!topic && !image) {
-      return new Response(JSON.stringify({ error: 'Topic or image is required' }), {
-        status: 400,
-        headers: { 'Content-Type': 'application/json' },
-      });
+      return new Response(
+        JSON.stringify({ error: 'Topic or image is required' }),
+        {
+          status: 400,
+          headers: { 'Content-Type': 'application/json' },
+        }
+      );
     }
 
     const openai = new OpenAI({
@@ -54,21 +57,17 @@ export async function POST(req: Request) {
       },
     });
 
-    const systemPrompt = `Analyze the given topic and create a structural integration diagram. 
-Identify one central entity (the hub) and 4 to 8 satellites. Return icon keywords.
-Return valid JSON ONLY. It must strictly match the following format without any markdown wrappers or codeblocks:
-{
-  "center": {
-    "label": "string",
-    "icon": "string"
-  },
-  "satellites": [
-    {
-      "label": "string",
-      "icon": "string"
-    }
-  ]
-}`;
+    const systemPrompt = `You are an expert information designer. Turn the user's topic into a clean, uncluttered hub-and-spoke infographic: one central hub and its most important related components.
+
+REQUIREMENTS
+- Choose EXACTLY 5 to 7 satellites — never more than 7 — so the diagram stays readable and well spaced. Pick the most important, distinct components; no duplicates, no filler.
+- center.label: the single core entity of the topic, 1-3 words.
+- Each satellites[].label: 1-3 words, at most 20 characters. When one specific real product/tool is the obvious choice, use its brand name (e.g. Stripe, PostgreSQL, OpenAI, Slack, Shopify, GitHub, Notion, WhatsApp, Instagram) so its logo can be shown; otherwise use a short plain noun (Auth, Analytics, Payments, Search, Database).
+- icon: ONE lowercase keyword describing the node, chosen ONLY from this set: bot, database, cloud, web, chat, drive, mobile, mail, search, process, automation, social, payment, analytics, security, api, code, storage. Pick the closest match.
+- Order the satellites in a logical sequence (by flow or importance).
+
+Return STRICT minified JSON ONLY — no markdown, no code fences, no commentary — exactly matching this shape:
+{"center":{"label":"string","icon":"string"},"satellites":[{"label":"string","icon":"string"}]}`;
 
     // Build user message — multimodal if an image was provided
     const userContent: any[] = [];
@@ -89,7 +88,10 @@ Return valid JSON ONLY. It must strictly match the following format without any 
       model: 'google/gemini-2.5-flash',
       messages: [
         { role: 'system', content: systemPrompt },
-        { role: 'user', content: userContent.length === 1 ? userContent[0].text : userContent },
+        {
+          role: 'user',
+          content: userContent.length === 1 ? userContent[0].text : userContent,
+        },
       ],
       response_format: { type: 'json_object' },
       temperature: 0.3,
@@ -109,6 +111,34 @@ Return valid JSON ONLY. It must strictly match the following format without any 
 
     const jsonString = extractJson(rawContent);
     const parsedData: DiagramData = JSON.parse(jsonString);
+
+    // Defensive cleanup so the diagram always lays out cleanly: trim labels,
+    // drop empties/dupes, and cap satellites at 7 (more than that overcrowds
+    // the radial/hub layouts and overlaps in portrait frames).
+    const tidy = (s: unknown) =>
+      String(s ?? '')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .slice(0, 24);
+    if (parsedData?.center) {
+      parsedData.center.label = tidy(parsedData.center.label) || 'Core';
+      parsedData.center.icon = tidy(parsedData.center.icon).toLowerCase();
+    }
+    if (Array.isArray(parsedData?.satellites)) {
+      const seen = new Set<string>();
+      parsedData.satellites = parsedData.satellites
+        .map((s) => ({
+          label: tidy(s?.label),
+          icon: tidy(s?.icon).toLowerCase(),
+        }))
+        .filter((s) => {
+          const key = s.label.toLowerCase();
+          if (!s.label || seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        })
+        .slice(0, 7);
+    }
 
     // Record the usage securely if logged in
     if (userId) {

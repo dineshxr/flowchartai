@@ -59,16 +59,34 @@ function drawWatermark(ctx: CanvasRenderingContext2D, w: number, h: number) {
   ctx.restore();
 }
 
-// ─── finalise (preset + watermark) ────────────────────────────────────────────
+// ─── finalise (preset + resolution + watermark) ───────────────────────────────
+
+/**
+ * Per-export options. Defaults match the free tier (1080p, watermark on); paid
+ * plans pass a higher `resolutionScale` (2K/4K) and `watermark: false`.
+ */
+export interface ExportOptions {
+  /** Multiplier on the preset dimensions: 1 = 1080p, 1.34 = 2K, 2 = 4K. */
+  resolutionScale: number;
+  /** Whether to stamp the infogiph.com watermark. */
+  watermark: boolean;
+}
+
+const DEFAULT_EXPORT_OPTIONS: ExportOptions = {
+  resolutionScale: 1,
+  watermark: true,
+};
 
 function finaliseCanvas(
   source: HTMLCanvasElement,
-  preset: ExportPreset
+  preset: ExportPreset,
+  opts: ExportOptions = DEFAULT_EXPORT_OPTIONS
 ): HTMLCanvasElement {
   const p = EXPORT_PRESETS[preset];
+  const res = Math.max(1, opts.resolutionScale || 1);
   const target = document.createElement('canvas');
-  target.width = p.w ?? source.width;
-  target.height = p.h ?? source.height;
+  target.width = Math.round((p.w ?? source.width) * res);
+  target.height = Math.round((p.h ?? source.height) * res);
   const ctx = target.getContext('2d')!;
   ctx.fillStyle = '#ffffff';
   ctx.fillRect(0, 0, target.width, target.height);
@@ -87,7 +105,7 @@ function finaliseCanvas(
     dw,
     dh
   );
-  drawWatermark(ctx, target.width, target.height);
+  if (opts.watermark) drawWatermark(ctx, target.width, target.height);
   return target;
 }
 
@@ -199,14 +217,18 @@ export function useFlowchartExport(
 
   const exportPNG = async (
     title: string,
-    preset: ExportPreset = 'original'
+    preset: ExportPreset = 'original',
+    opts: ExportOptions = DEFAULT_EXPORT_OPTIONS
   ) => {
     if (!containerRef.current) return;
     setIsExporting(true);
     setExportProgress(20);
     try {
-      const raw = await capture(containerRef.current, 3);
-      const out = finaliseCanvas(raw, preset);
+      const raw = await capture(
+        containerRef.current,
+        Math.round(3 * Math.max(1, opts.resolutionScale))
+      );
+      const out = finaliseCanvas(raw, preset, opts);
       setExportProgress(100);
       download(out.toDataURL('image/png'), `${title || 'infogiph'}.png`);
       toast.success('PNG exported');
@@ -223,14 +245,15 @@ export function useFlowchartExport(
 
   const exportSVG = async (
     title: string,
-    preset: ExportPreset = 'original'
+    preset: ExportPreset = 'original',
+    opts: ExportOptions = DEFAULT_EXPORT_OPTIONS
   ) => {
     if (!containerRef.current) return;
     setIsExporting(true);
     setExportProgress(40);
     try {
       const dataUrl = await domToDataUrl(containerRef.current, {
-        scale: 2,
+        scale: Math.round(2 * Math.max(1, opts.resolutionScale)),
         backgroundColor: '#ffffff',
       });
       const img = new Image();
@@ -244,7 +267,7 @@ export function useFlowchartExport(
       raw.width = img.naturalWidth || containerRef.current.clientWidth * 2;
       raw.height = img.naturalHeight || containerRef.current.clientHeight * 2;
       raw.getContext('2d')?.drawImage(img, 0, 0, raw.width, raw.height);
-      const out = finaliseCanvas(raw, preset);
+      const out = finaliseCanvas(raw, preset, opts);
 
       const wrapper = `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="${out.width}" height="${out.height}" viewBox="0 0 ${out.width} ${out.height}">
@@ -338,11 +361,12 @@ export function useFlowchartExport(
   // Apply preset sizing + watermark to every frame, then encode to PNG blobs.
   const framesToPngBlobs = async (
     rawFrames: HTMLCanvasElement[],
-    preset: ExportPreset
+    preset: ExportPreset,
+    opts: ExportOptions
   ): Promise<Blob[]> => {
     const blobs: Blob[] = [];
     for (let i = 0; i < rawFrames.length; i++) {
-      const out = finaliseCanvas(rawFrames[i], preset);
+      const out = finaliseCanvas(rawFrames[i], preset, opts);
       const blob = await new Promise<Blob>((resolve, reject) =>
         out.toBlob(
           (b) => (b ? resolve(b) : reject(new Error('toBlob failed'))),
@@ -359,7 +383,8 @@ export function useFlowchartExport(
 
   const exportGIF = async (
     title: string,
-    preset: ExportPreset = 'original'
+    preset: ExportPreset = 'original',
+    opts: ExportOptions = DEFAULT_EXPORT_OPTIONS
   ) => {
     if (!containerRef.current) return;
     setIsExporting(true);
@@ -368,7 +393,7 @@ export function useFlowchartExport(
       toast.info('Rendering GIF — this can take a moment…');
       const { frames: rawFrames, fps } = await captureFrames(15, 3.4);
       if (!rawFrames.length) throw new Error('No frames captured');
-      const blobs = await framesToPngBlobs(rawFrames, preset);
+      const blobs = await framesToPngBlobs(rawFrames, preset, opts);
 
       const ff = await getFFmpeg();
       const onProgress = ({ progress }: { progress: number }) =>
@@ -397,7 +422,8 @@ export function useFlowchartExport(
 
   const exportMP4 = async (
     title: string,
-    preset: ExportPreset = 'original'
+    preset: ExportPreset = 'original',
+    opts: ExportOptions = DEFAULT_EXPORT_OPTIONS
   ) => {
     if (!containerRef.current) return;
     setIsExporting(true);
@@ -406,7 +432,7 @@ export function useFlowchartExport(
       toast.info('Rendering MP4 — this can take a moment…');
       const { frames: rawFrames, fps } = await captureFrames(24, 3.4);
       if (!rawFrames.length) throw new Error('No frames captured');
-      const blobs = await framesToPngBlobs(rawFrames, preset);
+      const blobs = await framesToPngBlobs(rawFrames, preset, opts);
 
       const ff = await getFFmpeg();
       const onProgress = ({ progress }: { progress: number }) =>
