@@ -8,6 +8,14 @@ import createNextIntlPlugin from 'next-intl/plugin';
 const nextConfig: NextConfig = {
   devIndicators: false,
 
+  // firebase-admin (v14) pulls in ESM-only `jose@6`. If Next bundles it into the
+  // serverless function, webpack emits a `require()` of that ESM module and the
+  // function crashes at runtime with "require() of ES Module not supported"
+  // (breaks /api/auth/session and anything calling getSession, e.g. /api/ai/*).
+  // Marking it external leaves it in node_modules so Node loads the ESM deps
+  // natively. Works in `next dev` regardless, so this only shows up in prod.
+  serverExternalPackages: ['firebase-admin'],
+
   // Remove all console.* calls in production only
   compiler: {
     removeConsole: process.env.NODE_ENV === 'production',
