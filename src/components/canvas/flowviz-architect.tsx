@@ -54,6 +54,7 @@ import {
   getTemplateBySlug,
   templateTopicSeed,
 } from '@/lib/templates/catalog';
+import { resolveIcon } from '@/lib/templates/icon-registry';
 import { derivePreviewSpec } from '@/lib/templates/preview';
 import type { Template } from '@/lib/templates/types';
 import { AnimatePresence, motion } from 'framer-motion';
@@ -65,8 +66,6 @@ import {
   ChevronLeft,
   CircleDot,
   Cloud,
-  Code,
-  CreditCard,
   Database,
   Download,
   Edit,
@@ -84,7 +83,6 @@ import {
   Search,
   Send,
   Share2,
-  Shield,
   Smartphone,
   Sparkles,
   User,
@@ -96,7 +94,6 @@ import { useRouter } from 'next/navigation';
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { toast } from 'sonner';
 import {
-  AirflowIcon,
   AlgoliaIcon,
   Auth0Icon,
   CloudflareIcon,
@@ -124,122 +121,9 @@ import {
   YouTubeIcon,
 } from './brand-icons';
 
-// Maps the AI's icon keyword to a tinted concept glyph, so non-brand nodes get
-// a meaningful icon instead of a bland initial tile. Keep the keys in sync with
-// the icon vocabulary in the /api/ai/flowviz system prompt.
-const CONCEPT_ICONS: Record<
-  string,
-  {
-    Icon: React.ComponentType<{
-      className?: string;
-      style?: React.CSSProperties;
-    }>;
-    color: string;
-  }
-> = {
-  bot: { Icon: Bot, color: '#8b5cf6' },
-  database: { Icon: Database, color: '#0ea5e9' },
-  storage: { Icon: HardDrive, color: '#0ea5e9' },
-  cloud: { Icon: Cloud, color: '#38bdf8' },
-  web: { Icon: Globe, color: '#3b82f6' },
-  api: { Icon: Code, color: '#6366f1' },
-  code: { Icon: Code, color: '#6366f1' },
-  chat: { Icon: MessageSquare, color: '#10b981' },
-  drive: { Icon: HardDrive, color: '#f59e0b' },
-  mobile: { Icon: Smartphone, color: '#ec4899' },
-  mail: { Icon: Mail, color: '#ef4444' },
-  search: { Icon: Search, color: '#14b8a6' },
-  process: { Icon: Workflow, color: '#a855f7' },
-  automation: { Icon: Zap, color: '#f59e0b' },
-  social: { Icon: Share2, color: '#ec4899' },
-  payment: { Icon: CreditCard, color: '#635BFF' },
-  analytics: { Icon: LineChart, color: '#10b981' },
-  security: { Icon: Shield, color: '#06b6d4' },
-};
-
-const conceptIcon = (key?: string): React.ReactNode => {
-  if (!key) return null;
-  const k = key.toLowerCase().trim();
-  const match =
-    CONCEPT_ICONS[k] ||
-    CONCEPT_ICONS[
-      Object.keys(CONCEPT_ICONS).find((kk) => k.includes(kk)) ?? ''
-    ];
-  if (!match) return null;
-  const { Icon, color } = match;
-  return <Icon className="w-full h-full" style={{ color }} />;
-};
-
-// White concept glyph for the dark center tile (its color comes from the tile).
-const centerIconForKey = (key?: string): React.ReactNode => {
-  if (!key) return null;
-  const k = key.toLowerCase().trim();
-  const match =
-    CONCEPT_ICONS[k] ||
-    CONCEPT_ICONS[
-      Object.keys(CONCEPT_ICONS).find((kk) => k.includes(kk)) ?? ''
-    ];
-  if (!match) return null;
-  const { Icon } = match;
-  return <Icon className="w-full h-full text-white" />;
-};
-
-// Best-effort mapping of a satellite to a recognisable icon tile. Tries the
-// brand SVGs (by label) first, then the AI icon keyword (concept glyph), then
-// falls back to a tinted letter tile.
-const iconForLabel = (label: string, iconKey?: string): React.ReactNode => {
-  const n = (label || '').toLowerCase();
-  if (/whatsapp|whats\s?app/.test(n))
-    return (
-      <WhatsAppIcon className="w-full h-full" style={{ color: '#25D366' }} />
-    );
-  if (/slack/.test(n)) return <SlackIcon className="w-full h-full" />;
-  if (/github|git\b/.test(n)) return <GitHubIcon className="w-full h-full" />;
-  if (/notion/.test(n)) return <NotionIcon className="w-full h-full" />;
-  if (/openai|gpt|llm|claude|anthropic/.test(n))
-    return <OpenAIIcon className="w-full h-full" />;
-  if (/stripe|billing|payment|pay\b/.test(n))
-    return (
-      <StripeIcon className="w-full h-full" style={{ color: '#635BFF' }} />
-    );
-  if (/instagram|insta/.test(n))
-    return (
-      <InstagramIcon className="w-full h-full" style={{ color: '#E4405F' }} />
-    );
-  if (/tiktok|tik\s?tok/.test(n))
-    return <TikTokIcon className="w-full h-full" />;
-  if (/youtube|you\s?tube/.test(n))
-    return (
-      <YouTubeIcon className="w-full h-full" style={{ color: '#FF0000' }} />
-    );
-  if (/drive|gdrive|google\s?drive/.test(n))
-    return <GoogleDriveIcon className="w-full h-full" />;
-  if (/shopify|shop\b/.test(n))
-    return (
-      <ShopifyIcon className="w-full h-full" style={{ color: '#95BF47' }} />
-    );
-  const concept = conceptIcon(iconKey);
-  if (concept) return concept;
-
-  const palette = [
-    '#e63946',
-    '#1AC6FF',
-    '#8b5cf6',
-    '#f59e0b',
-    '#10b981',
-    '#ef4444',
-    '#0ea5e9',
-  ];
-  const color = palette[Math.abs(hashCode(label)) % palette.length];
-  const letter = (label || '?').trim().charAt(0).toUpperCase() || '?';
-  return <LetterIcon className="w-full h-full" letter={letter} color={color} />;
-};
-
-const hashCode = (s: string) => {
-  let h = 0;
-  for (let i = 0; i < s.length; i++) h = (h << 5) - h + s.charCodeAt(i);
-  return h;
-};
+// AI-generated diagrams resolve every node's icon (brand logo / 3D glyph /
+// concept) through the shared registry, so they use the same rich icon set as
+// the templates. See src/lib/templates/icon-registry.tsx.
 
 // Rebuild a PreviewSpec from an AI result using the active template's layout
 // so the output stays in the same animated-beam visual style the user picked.
@@ -251,17 +135,26 @@ const buildPreviewFromAI = (
   const spec = base.preview;
   const centerLabel =
     result.center?.label || (spec as any).center?.label || base.label;
-  const centerIcon = centerIconForKey(result.center?.icon) ||
-    (spec as any).center?.icon || (
-      <Sparkles className="w-full h-full text-white" />
-    );
-  const center = { key: 'center', label: centerLabel, icon: centerIcon };
+  // Resolve the center through the registry. A brand logo at the center is
+  // rendered flush (edge-to-edge) so a colored logo never sits low-contrast on
+  // the dark center tile.
+  const c = resolveIcon(result.center?.icon, result.center?.label, true);
+  const center = {
+    key: 'center',
+    label: centerLabel,
+    icon: c.node,
+    flush: c.flush || c.kind === 'brand',
+  };
   const sats: any[] = result.satellites || [];
-  const satNodes = sats.map((s, i) => ({
-    key: `sat-${i}`,
-    label: s.label,
-    icon: iconForLabel(s.label, s.icon),
-  }));
+  const satNodes = sats.map((s, i) => {
+    const r = resolveIcon(s.icon, s.label);
+    return {
+      key: `sat-${i}`,
+      label: s.label,
+      icon: r.node,
+      flush: r.flush,
+    };
+  });
 
   switch (spec.layout) {
     case 'hub-lr': {
@@ -1032,14 +925,31 @@ export default function FlowVizArchitect({
       if (flowchart.content) {
         try {
           const parsed = JSON.parse(flowchart.content);
-          if (
-            parsed &&
-            typeof parsed === 'object' &&
-            parsed.center &&
-            parsed.satellites
-          ) {
+          const isTree = parsed?.layout === 'tree' && parsed?.root;
+          const isHub = parsed?.center && parsed?.satellites;
+          if (parsed && typeof parsed === 'object' && (isHub || isTree)) {
             setDiagramData(parsed);
-            setActivePreview(null);
+            // Derive an animated spec so a reopened flowchart renders through
+            // AnimatedPreview + the shared icon registry (real brand/3D icons),
+            // matching how it looked when created — not the legacy fallback.
+            const spec = derivePreviewSpec(
+              {
+                slug: 'saved',
+                title: flowchart.title || 'Diagram',
+                shortDescription: '',
+                longDescription: '',
+                category: '',
+                categoryName: '',
+                tags: [],
+                keywords: [],
+                layout: isTree ? 'tree' : 'hub',
+                data: parsed,
+                faqs: [],
+                useCases: [],
+              } as Template,
+              '#6366f1'
+            );
+            setActivePreview(spec);
           }
         } catch (e) {
           console.error('Failed to parse existing flowchart content');

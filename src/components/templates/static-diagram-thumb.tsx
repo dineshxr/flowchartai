@@ -3,8 +3,10 @@
 // A lightweight, non-animated SVG/HTML thumbnail of a template's diagram.
 // Used in catalog grids where many cards render at once — cheap to paint and
 // fully server-rendered for SEO. The animated version lives on detail pages.
+// Icons come from the shared registry, so grid cards show the same real brand
+// logos / 3D glyphs as the homepage and the canvas.
 
-import { iconNodeFromKey } from '@/lib/templates/preview';
+import { resolveIcon } from '@/lib/templates/icon-registry';
 import type { DiagramData } from '@/lib/templates/types';
 
 const W = 240;
@@ -16,6 +18,7 @@ interface Tile {
   y: number;
   size: number;
   center?: boolean;
+  flush?: boolean;
   icon: React.ReactNode;
 }
 
@@ -35,26 +38,30 @@ function computeLayout(data: DiagramData): { tiles: Tile[]; edges: Edge[] } {
     const root = data.root;
     const rootX = W / 2;
     const rootY = 52;
+    const ri = resolveIcon(root.icon, root.label, true);
     tiles.push({
       key: 'root',
       x: rootX,
       y: rootY,
       size: 56,
       center: true,
-      icon: iconNodeFromKey(root.icon, true),
+      flush: ri.flush || ri.kind === 'brand',
+      icon: ri.node,
     });
     const level1 = (root.children || []).slice(0, 4);
     const l1Y = 176;
     const l1Gap = W / (level1.length + 1);
     level1.forEach((child, i) => {
       const x = l1Gap * (i + 1);
+      const cIcon = resolveIcon(child.icon, child.label);
       edges.push({ key: `e1-${i}`, x1: rootX, y1: rootY, x2: x, y2: l1Y });
       tiles.push({
         key: `c${i}`,
         x,
         y: l1Y,
         size: 42,
-        icon: iconNodeFromKey(child.icon),
+        flush: cIcon.flush,
+        icon: cIcon.node,
       });
       const l2 = (child.children || []).slice(0, 3);
       if (l2.length) {
@@ -63,13 +70,15 @@ function computeLayout(data: DiagramData): { tiles: Tile[]; edges: Edge[] } {
         const startX = x - ((l2.length - 1) * gap) / 2;
         l2.forEach((gc, j) => {
           const gx = Math.max(22, Math.min(W - 22, startX + gap * j));
+          const gi = resolveIcon(gc.icon, gc.label);
           edges.push({ key: `e2-${i}-${j}`, x1: x, y1: l1Y, x2: gx, y2: l2Y });
           tiles.push({
             key: `c${i}-${j}`,
             x: gx,
             y: l2Y,
             size: 34,
-            icon: iconNodeFromKey(gc.icon),
+            flush: gi.flush,
+            icon: gi.node,
           });
         });
       }
@@ -88,22 +97,26 @@ function computeLayout(data: DiagramData): { tiles: Tile[]; edges: Edge[] } {
     const angle = (i / n) * Math.PI * 2 - Math.PI / 2;
     const x = cx + Math.cos(angle) * rx;
     const y = cy + Math.sin(angle) * ry;
+    const si = resolveIcon(sat.icon, sat.label);
     edges.push({ key: `e-${i}`, x1: cx, y1: cy, x2: x, y2: y });
     tiles.push({
       key: `sat-${i}`,
       x,
       y,
       size: 42,
-      icon: iconNodeFromKey(sat.icon),
+      flush: si.flush,
+      icon: si.node,
     });
   });
+  const ci = resolveIcon(hub.center.icon, hub.center.label, true);
   tiles.push({
     key: 'center',
     x: cx,
     y: cy,
     size: 60,
     center: true,
-    icon: iconNodeFromKey(hub.center.icon, true),
+    flush: ci.flush || ci.kind === 'brand',
+    icon: ci.node,
   });
   return { tiles, edges };
 }
@@ -146,6 +159,7 @@ export function StaticDiagramThumb({
       {tiles.map((t) => {
         const leftPct = (t.x / W) * 100;
         const topPct = (t.y / H) * 100;
+        const flush = !!t.flush;
         return (
           <div
             key={t.key}
@@ -156,16 +170,25 @@ export function StaticDiagramThumb({
               width: t.size,
               height: t.size,
               transform: 'translate(-50%, -50%)',
-              background: t.center ? accent : 'white',
-              border: t.center ? 'none' : '1px solid rgba(0,0,0,0.08)',
-              boxShadow: t.center
-                ? `0 6px 18px ${accent}55`
-                : '0 1px 3px rgba(0,0,0,0.06)',
+              background: flush ? 'transparent' : t.center ? accent : 'white',
+              border: flush
+                ? 'none'
+                : t.center
+                  ? 'none'
+                  : '1px solid rgba(0,0,0,0.08)',
+              boxShadow: flush
+                ? '0 4px 10px rgba(15,42,62,0.18)'
+                : t.center
+                  ? `0 6px 18px ${accent}55`
+                  : '0 1px 3px rgba(0,0,0,0.06)',
               color: t.center ? 'white' : '#475569',
             }}
           >
             <div
-              style={{ width: t.size * 0.5, height: t.size * 0.5 }}
+              style={{
+                width: flush ? t.size : t.size * 0.5,
+                height: flush ? t.size : t.size * 0.5,
+              }}
               className="flex items-center justify-center"
             >
               {t.icon}

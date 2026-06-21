@@ -8,26 +8,20 @@
 //    into the editor at /canvas.
 
 /**
- * Icon keys understood by both the canvas (`getIcon` in flowviz-architect.tsx)
- * and the preview deriver (`iconNodeFromKey` in preview.tsx). Keep this list in
- * sync with both mappers.
+ * An icon key references something in the shared icon registry
+ * (`src/lib/templates/icon-registry.tsx`). It can be:
+ *  - a concept key  ("bot", "database", "cloud", … — the base set below),
+ *  - a brand key    ("openai", "claude", "stripe", "aws", "fedex", …), or
+ *  - a 3D key       ("brain3d", "cube3d", "terminal3d", … — rendered flush).
+ *
+ * It's typed as a permissive string so curated templates can use the full
+ * registry vocabulary while the auto-generated catalog sticks to the base
+ * concept set. Add new keys in icon-registry.tsx, not here.
  */
-export type IconKey =
-  | 'bot'
-  | 'database'
-  | 'cloud'
-  | 'web'
-  | 'chat'
-  | 'drive'
-  | 'mobile'
-  | 'mail'
-  | 'search'
-  | 'process'
-  | 'automation'
-  | 'social'
-  | 'layers';
+export type IconKey = string;
 
-export const ICON_KEYS: IconKey[] = [
+/** The base concept keys the auto-generator is allowed to emit. */
+export const ICON_KEYS = [
   'bot',
   'database',
   'cloud',
@@ -41,7 +35,7 @@ export const ICON_KEYS: IconKey[] = [
   'automation',
   'social',
   'layers',
-];
+] as const;
 
 export interface DiagramNode {
   label: string;
@@ -62,6 +56,24 @@ export interface TreeDiagramData {
 }
 
 export type DiagramData = HubDiagramData | TreeDiagramData;
+
+/** Animated preview layout shapes (mirrors PreviewSpec.layout). */
+export type TemplateLayout = 'radial' | 'hub-lr' | 'pipeline' | 'tree';
+/** Animated preview motion styles (mirrors PreviewMode). */
+export type TemplateMode = 'dots' | 'beams' | 'pulses' | 'arrows';
+
+/**
+ * Optional visual pinning for a template's animated preview. When present, the
+ * deriver uses these instead of its slug-hash defaults — so curated "key
+ * example" templates render the exact look they were designed with, and the
+ * homepage thumbnail matches the detail page and the canvas.
+ */
+export interface TemplateStyle {
+  layout?: TemplateLayout;
+  mode?: TemplateMode;
+  accent?: string;
+  bg?: string;
+}
 
 export interface TemplateFaq {
   q: string;
@@ -92,6 +104,8 @@ export interface RawTemplate {
   useCases: string[];
   category: string;
   categoryName: string;
+  /** Optional pinned visual style (curated templates only). */
+  style?: TemplateStyle;
 }
 
 /** Runtime template with the canvas diagram `data` assembled. */
@@ -109,6 +123,8 @@ export interface Template {
   data: DiagramData;
   faqs: TemplateFaq[];
   useCases: string[];
+  /** Optional pinned visual style (curated templates only). */
+  style?: TemplateStyle;
 }
 
 export interface CategoryMeta {

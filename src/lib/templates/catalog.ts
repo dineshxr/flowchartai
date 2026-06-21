@@ -3,6 +3,7 @@
 // from server components, client components, and the sitemap alike.
 
 import { rawTemplates } from './catalog.data';
+import { curatedOverrides, curatedTemplates } from './curated.data';
 import type {
   CategoryMeta,
   DiagramData,
@@ -198,10 +199,26 @@ function toTemplate(raw: RawTemplate): Template {
     data: toDiagramData(raw),
     faqs: raw.faqs,
     useCases: raw.useCases,
+    style: raw.style,
   };
 }
 
-export const allTemplates: Template[] = rawTemplates.map(toTemplate);
+/**
+ * Apply a curated override (richer diagram + pinned style) onto a base catalog
+ * template, keeping its SEO copy. Only the keys present in the override replace
+ * the base, so the original title/description/FAQs are preserved.
+ */
+function applyOverride(raw: RawTemplate): RawTemplate {
+  const ov = curatedOverrides[raw.slug];
+  return ov ? ({ ...raw, ...ov } as RawTemplate) : raw;
+}
+
+// Curated full templates lead the list (so they head their category pages),
+// followed by the auto-generated catalog with any rich overrides applied.
+export const allTemplates: Template[] = [
+  ...curatedTemplates,
+  ...rawTemplates.map(applyOverride),
+].map(toTemplate);
 
 const templateBySlug = new Map(allTemplates.map((t) => [t.slug, t]));
 
