@@ -1,32 +1,25 @@
 import { getDb } from '@/db';
 import { aiUsage, payment } from '@/db/schema';
+import { planForPriceId } from '@/lib/stripe/prices';
 import { and, eq, gte, sql } from 'drizzle-orm';
 
-// AI使用量限制配置
+// AI usage limits. Free users get a one-time lifetime grant; paid plans reset
+// monthly. (Keep in sync with src/config/plans.ts.)
 export const AI_USAGE_LIMITS = {
-  FREE_USER_DAILY: 1, // 免费用户每天1次
-  HOBBY_USER_MONTHLY: 100, // Hobby用户每月100次
-  PROFESSIONAL_USER_MONTHLY: 9999, // Professional用户每月9999次（无限制）
+  FREE_USER_LIFETIME: 5, // free plan: 5 generations, lifetime
+  HOBBY_USER_MONTHLY: 500, // Pro: 500 / month
+  PROFESSIONAL_USER_MONTHLY: 999999, // Max: effectively unlimited / month
 } as const;
 
-// 通过Creem产品ID识别计划等级
+// Map a Stripe price ID to an internal usage tier:
+//   pro → 'hobby' (500/mo), max → 'professional' (unlimited).
 function getPlanLevelFromPriceId(
   priceId: string
 ): 'free' | 'hobby' | 'professional' {
-  // 检查环境变量中的产品ID
-  const hobbyIds = [
-    process.env.NEXT_PUBLIC_CREEM_PRODUCT_ID_HOBBY_MONTHLY,
-    process.env.NEXT_PUBLIC_CREEM_PRODUCT_ID_HOBBY_YEARLY,
-  ];
-
-  const professionalIds = [
-    process.env.NEXT_PUBLIC_CREEM_PRODUCT_ID_PROFESSIONAL_MONTHLY,
-    process.env.NEXT_PUBLIC_CREEM_PRODUCT_ID_PROFESSIONAL_YEARLY,
-  ];
-
-  if (hobbyIds.includes(priceId)) return 'hobby';
-  if (professionalIds.includes(priceId)) return 'professional';
-  return 'free'; // 未知产品ID按免费限制处理
+  const plan = planForPriceId(priceId)?.plan;
+  if (plan === 'pro') return 'hobby';
+  if (plan === 'max') return 'professional';
+  return 'free';
 }
 
 // 获取用户的计划类型
@@ -125,7 +118,7 @@ export async function canUserUseAI(userId: string): Promise<{
   reason?: string;
   remainingUsage?: number;
   limit?: number;
-  timeFrame?: 'daily' | 'monthly';
+  timeFrame?: 'daily' | 'monthly' | 'lifetime';
   nextResetTime?: Date;
 }> {
   const db = await getDb();
@@ -135,19 +128,15 @@ export async function canUserUseAI(userId: string): Promise<{
 
   let limit: number;
   let timeFrame: Date;
-  let timeFrameType: 'daily' | 'monthly';
+  let timeFrameType: 'daily' | 'monthly' | 'lifetime';
   let nextResetTime: Date;
 
   if (subscription.type === 'free' || !subscription.priceId) {
-    // 免费用户：每天1次
-    limit = AI_USAGE_LIMITS.FREE_USER_DAILY;
-    timeFrame = new Date();
-    timeFrame.setHours(0, 0, 0, 0); // 今天开始时间
-    timeFrameType = 'daily';
-
-    // 下次重置时间（明天0点）
-    nextResetTime = new Date(timeFrame);
-    nextResetTime.setDate(nextResetTime.getDate() + 1);
+    // Free plan: 5 generations, lifetime (count over all history).
+    limit = AI_USAGE_LIMITS.FREE_USER_LIFETIME;
+    timeFrame = new Date(0); // epoch → counts every generation ever
+    timeFrameType = 'lifetime';
+    nextResetTime = new Date(0); // never resets
   } else {
     // 付费用户：根据产品ID确定计划等级
     const planLevel = getPlanLevelFromPriceId(subscription.priceId);
@@ -173,13 +162,11 @@ export async function canUserUseAI(userId: string): Promise<{
       nextResetTime = new Date(timeFrame);
       nextResetTime.setMonth(nextResetTime.getMonth() + 1);
     } else {
-      // 未知产品ID按免费限制处理
-      limit = AI_USAGE_LIMITS.FREE_USER_DAILY;
-      timeFrame = new Date();
-      timeFrame.setHours(0, 0, 0, 0);
-      timeFrameType = 'daily';
-      nextResetTime = new Date(timeFrame);
-      nextResetTime.setDate(nextResetTime.getDate() + 1);
+      // 未知产品ID按免费限制处理 (free lifetime)
+      limit = AI_USAGE_LIMITS.FREE_USER_LIFETIME;
+      timeFrame = new Date(0);
+      timeFrameType = 'lifetime';
+      nextResetTime = new Date(0);
     }
   }
 
@@ -199,12 +186,14 @@ export async function canUserUseAI(userId: string): Promise<{
   const remainingUsage = Math.max(0, limit - currentUsage);
 
   if (currentUsage >= limit) {
-    const timeFrameText = timeFrameType === 'daily' ? 'today' : 'this month';
-    const resetText = timeFrameType === 'daily' ? 'tomorrow' : 'next month';
+    const reason =
+      timeFrameType === 'lifetime'
+        ? `You've used all ${limit} of your free AI generations. Upgrade to Pro for 500 generations a month.`
+        : `You have reached your AI usage limit this month. Used: ${currentUsage}/${limit}. Resets next month.`;
 
     return {
       canUse: false,
-      reason: `You have reached your AI usage limit for ${timeFrameText}. Used: ${currentUsage}/${limit}. Resets ${resetText}.`,
+      reason,
       remainingUsage: 0,
       limit,
       timeFrame: timeFrameType,

@@ -3,6 +3,7 @@ import {
   SESSION_COOKIE_NAME,
   SESSION_EXPIRES_IN_MS,
 } from '@/lib/firebase/constants';
+import { ensureUser } from '@/lib/user';
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 
@@ -25,6 +26,20 @@ export async function POST(req: Request) {
   }
 
   try {
+    // Verify the token and mirror the user into our DB (best-effort) so
+    // payments / credits / usage can reference user.id.
+    try {
+      const decoded = await getAdminAuth().verifyIdToken(idToken);
+      await ensureUser({
+        id: decoded.uid,
+        email: decoded.email,
+        name: decoded.name as string | undefined,
+        image: decoded.picture,
+      });
+    } catch (syncError) {
+      console.error('[auth/session] user sync failed', syncError);
+    }
+
     const sessionCookie = await getAdminAuth().createSessionCookie(idToken, {
       expiresIn: SESSION_EXPIRES_IN_MS,
     });
