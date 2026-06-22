@@ -8,6 +8,7 @@ import {
   type PreviewMode,
   type PreviewSpec,
 } from '@/components/blocks/infogiph-home/animated-preview';
+import { ElementInspector } from '@/components/canvas/element-inspector';
 import { ProcessingOverlay } from '@/components/canvas/processing-overlay';
 import { UserButton } from '@/components/layout/user-button';
 import { UpgradeDialog } from '@/components/pricing/upgrade-dialog';
@@ -205,6 +206,108 @@ const buildPreviewFromAI = (
     }
   }
 };
+
+// ---- In-canvas element editing ---------------------------------------------
+// A node's icon can be swapped to another registry key, or replaced with an
+// uploaded custom logo (an image URL).
+type IconOverride =
+  | { kind: 'key'; key: string }
+  | { kind: 'image'; url: string };
+
+const overrideIcon = (node: any, ov: IconOverride | undefined) => {
+  if (!ov) return node;
+  if (ov.kind === 'image') {
+    return {
+      ...node,
+      icon: (
+        <img src={ov.url} alt="" className="h-full w-full object-contain" />
+      ),
+      flush: false,
+    };
+  }
+  const isCenter = node.key === 'center';
+  // Resolve the EXPLICIT picked key only — pass no label, so resolveIcon's
+  // label→brand inference can't override the user's choice (e.g. picking the
+  // "database" concept for a node still labelled "WhatsApp").
+  const r = resolveIcon(ov.key, undefined, isCenter);
+  return {
+    ...node,
+    icon: r.node,
+    flush: isCenter ? r.flush || r.kind === 'brand' : r.flush,
+  };
+};
+
+// Apply the user's element edits (deletions + icon swaps) to the spec before it
+// renders. Node keys are stable (center, sat-N) so edits survive layout changes.
+function applyElementEdits(
+  spec: PreviewSpec | null,
+  deleted: Set<string>,
+  iconOverrides: Record<string, IconOverride>
+): PreviewSpec | null {
+  if (!spec) return spec;
+  const keep = (n: any) => !deleted.has(n.key);
+  const tn = (n: any) => overrideIcon(n, iconOverrides[n.key]);
+  switch (spec.layout) {
+    case 'hub-lr':
+      return {
+        ...spec,
+        left: spec.left.filter(keep).map(tn),
+        right: spec.right.filter(keep).map(tn),
+        center: tn(spec.center),
+      };
+    case 'radial':
+      return {
+        ...spec,
+        satellites: spec.satellites.filter(keep).map(tn),
+        center: tn(spec.center),
+      };
+    case 'pipeline':
+      return { ...spec, nodes: spec.nodes.filter(keep).map(tn) };
+    case 'tree': {
+      const root = spec.root;
+      const children = (root.children || []).filter(keep).map((c: any) => ({
+        ...tn(c),
+        children: (c.children || []).filter(keep).map(tn),
+      }));
+      return { ...spec, root: { ...tn(root), children } };
+    }
+  }
+  return spec;
+}
+
+// Flatten the spec into a key -> { label, isCenter } index so the inspector can
+// describe the selected node regardless of layout.
+function indexSpecNodes(
+  spec: PreviewSpec | null
+): Record<string, { label: string; isCenter: boolean }> {
+  const out: Record<string, { label: string; isCenter: boolean }> = {};
+  if (!spec) return out;
+  const add = (n: any, isCenter = false) => {
+    if (n) out[n.key] = { label: n.label ?? '', isCenter };
+  };
+  switch (spec.layout) {
+    case 'hub-lr':
+      spec.left.forEach((n: any) => add(n));
+      spec.right.forEach((n: any) => add(n));
+      add(spec.center, true);
+      break;
+    case 'radial':
+      spec.satellites.forEach((n: any) => add(n));
+      add(spec.center, true);
+      break;
+    case 'pipeline':
+      spec.nodes.forEach((n: any) => add(n, n.key === 'center'));
+      break;
+    case 'tree':
+      add(spec.root, true);
+      (spec.root.children || []).forEach((c: any) => {
+        add(c);
+        (c.children || []).forEach((gc: any) => add(gc));
+      });
+      break;
+  }
+  return out;
+}
 
 // Build aspect-aware canvas dims from the measured frame so AnimatedPreview's
 // layout recomputes for the current orientation. Without this it always lays
@@ -863,6 +966,13 @@ export default function FlowVizArchitect({
   const [labelOverrides, setLabelOverrides] = useState<Record<string, string>>(
     {}
   );
+  // In-canvas element editor: selection + icon/logo swaps + deletions.
+  const [selectedKey, setSelectedKey] = useState<string | null>(null);
+  const [iconOverrides, setIconOverrides] = useState<
+    Record<string, IconOverride>
+  >({});
+  const [deletedKeys, setDeletedKeys] = useState<string[]>([]);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
   const [animationSpeed, setAnimationSpeed] = useState(1);
   const [exportPreset, setExportPreset] = useState<ExportPreset>('original');
   const [resolution, setResolution] = useState<ResolutionTier>('1080p');
@@ -909,6 +1019,30 @@ export default function FlowVizArchitect({
     () => adaptSpecToAspect(activePreview, canvasDims),
     [activePreview, canvasDims]
   );
+  // Element edits (icon/logo swaps + deletions) layer on top of the rendered
+  // spec; the inspector reads node info from the same edited spec.
+  const editedSpec = useMemo(
+    () => applyElementEdits(renderSpec, new Set(deletedKeys), iconOverrides),
+    [renderSpec, deletedKeys, iconOverrides]
+  );
+  const nodeIndex = useMemo(() => indexSpecNodes(editedSpec), [editedSpec]);
+  const selectedNode = useMemo(() => {
+    if (!selectedKey) return null;
+    const info = nodeIndex[selectedKey];
+    if (!info) return null;
+    return {
+      key: selectedKey,
+      label: labelOverrides[selectedKey] ?? info.label,
+      isCenter: info.isCenter,
+    };
+  }, [selectedKey, nodeIndex, labelOverrides]);
+
+  // A new diagram (generate / template / load) clears element selection + edits.
+  useEffect(() => {
+    setSelectedKey(null);
+    setIconOverrides({});
+    setDeletedKeys([]);
+  }, [activePreview]);
 
   // Export is gated behind sign-in. These drive the "progress saved" dialog and
   // the resume-after-login flow.
@@ -1318,7 +1452,47 @@ export default function FlowVizArchitect({
   };
 
   const handleManualSave = () => {
+    if (!currentUser) {
+      toast.error('Please sign in to save your work.');
+      return;
+    }
     saveFlowchart(diagramData);
+  };
+
+  // Upload a custom logo for the selected element via the storage API, then use
+  // the returned URL as that node's icon.
+  const handleLogoUpload = async (file: File) => {
+    if (!selectedKey) return;
+    const key = selectedKey;
+    setUploadingLogo(true);
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      fd.append('folder', 'logos');
+      const res = await fetch('/api/storage/upload', {
+        method: 'POST',
+        body: fd,
+      });
+      const data = await res.json();
+      if (!res.ok || !data?.url) {
+        throw new Error(data?.error || 'Upload failed');
+      }
+      setIconOverrides((p) => ({
+        ...p,
+        [key]: { kind: 'image', url: data.url },
+      }));
+      toast.success('Logo added');
+    } catch (err: any) {
+      toast.error(err?.message || 'Could not upload logo');
+    } finally {
+      setUploadingLogo(false);
+    }
+  };
+
+  const handleDeleteSelected = () => {
+    if (!selectedKey) return;
+    setDeletedKeys((d) => [...d, selectedKey]);
+    setSelectedKey(null);
   };
 
   if (flowchartId && flowchartLoading) {
@@ -1605,13 +1779,20 @@ export default function FlowVizArchitect({
             </Button>
           )}
 
-          <Button
-            size="sm"
-            className="ig-gradient text-xs gap-1.5 rounded-lg text-white shadow-[0_2px_10px_rgba(255,107,157,0.35)] hover:opacity-95"
-          >
-            <Sparkles className="h-3.5 w-3.5" />
-            Upgrade
-          </Button>
+          {userPlan !== 'max' && (
+            <Button
+              size="sm"
+              onClick={() =>
+                openUpgrade(
+                  'Unlock Pro — unlimited generations, watermark-free exports, and 2K/4K downloads.'
+                )
+              }
+              className="ig-gradient text-xs gap-1.5 rounded-lg text-white shadow-[0_2px_10px_rgba(255,107,157,0.35)] hover:opacity-95"
+            >
+              <Sparkles className="h-3.5 w-3.5" />
+              Upgrade
+            </Button>
+          )}
 
           {currentUser ? (
             <UserButton user={currentUser} />
@@ -1859,6 +2040,24 @@ export default function FlowVizArchitect({
 
         {/* Canvas Area */}
         <div className="flex-1 relative overflow-hidden bg-white">
+          <ElementInspector
+            node={selectedNode}
+            uploading={uploadingLogo}
+            onClose={() => setSelectedKey(null)}
+            onLabelChange={(label) =>
+              selectedKey &&
+              setLabelOverrides((p) => ({ ...p, [selectedKey]: label }))
+            }
+            onIconChange={(iconKey) =>
+              selectedKey &&
+              setIconOverrides((p) => ({
+                ...p,
+                [selectedKey]: { kind: 'key', key: iconKey },
+              }))
+            }
+            onUploadLogo={handleLogoUpload}
+            onDelete={handleDeleteSelected}
+          />
           {/* On-canvas brand watermark. Exports get their own watermark baked
               in by finaliseCanvas(), so this stays outside exportContainerRef
               to avoid doubling up in downloads. */}
@@ -1893,9 +2092,9 @@ export default function FlowVizArchitect({
                 className="w-full h-full flex items-center justify-center p-8"
               >
                 <div ref={canvasFrameRef} className="relative h-full w-full">
-                  {renderSpec ? (
+                  {editedSpec ? (
                     <AnimatedPreview
-                      {...(renderSpec as any)}
+                      {...(editedSpec as any)}
                       variant="canvas"
                       dims={canvasDims}
                       modeOverride={animationType}
@@ -1904,6 +2103,8 @@ export default function FlowVizArchitect({
                       speed={animationSpeed}
                       positionOverrides={positionOverrides}
                       labelOverrides={labelOverrides}
+                      selectedKey={selectedKey}
+                      onSelect={setSelectedKey}
                       onPositionChange={(key, x, y) =>
                         setPositionOverrides((p) => ({ ...p, [key]: { x, y } }))
                       }
