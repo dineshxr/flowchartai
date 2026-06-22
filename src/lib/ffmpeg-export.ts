@@ -1,23 +1,73 @@
 'use client';
 
-import { FFmpeg } from '@ffmpeg/ffmpeg';
-import { fetchFile, toBlobURL } from '@ffmpeg/util';
+// The @ffmpeg/ffmpeg wrapper is loaded at RUNTIME from a self-hosted UMD bundle
+// (public/ffmpeg/*) via a <script> tag — it is NOT bundled. Its
+// `new Worker(new URL(..., import.meta.url))` + dynamic `import()` can't be
+// resolved by the dev bundler: webpack-dev left an undefined module factory
+// ("Cannot read properties of undefined (reading 'call')") on every route, and
+// Turbopack failed with "Can't resolve <dynamic>". Loading the prebuilt UMD
+// keeps @ffmpeg out of the webpack/turbopack graph entirely, and same-origin
+// files let the worker blob resolve. Behaves the same in the production build.
+import type { FFmpeg } from '@ffmpeg/ffmpeg';
 
+// Self-hosted @ffmpeg/ffmpeg UMD (wrapper + 814 worker chunk) — see public/ffmpeg/.
+const FFMPEG_BASE = '/ffmpeg';
 // Single-thread ffmpeg.wasm core — no SharedArrayBuffer, so it works without
 // COOP/COEP cross-origin-isolation headers. Runs entirely in the browser.
 const CORE_VERSION = '0.12.6';
 const CORE_BASE = `https://unpkg.com/@ffmpeg/core@${CORE_VERSION}/dist/umd`;
 
+// Inlined @ffmpeg/util helpers, so no @ffmpeg/* package is bundled at all.
+async function toBlobURL(url: string, mimeType: string): Promise<string> {
+  const buf = await (await fetch(url)).arrayBuffer();
+  return URL.createObjectURL(new Blob([buf], { type: mimeType }));
+}
+async function fileData(blob: Blob): Promise<Uint8Array> {
+  return new Uint8Array(await blob.arrayBuffer());
+}
+
 let ffmpeg: FFmpeg | null = null;
 let loadPromise: Promise<FFmpeg> | null = null;
+let classPromise: Promise<{ new (): FFmpeg }> | null = null;
+
+/** Inject the self-hosted UMD wrapper once and resolve its FFmpeg constructor. */
+function loadFFmpegClass(): Promise<{ new (): FFmpeg }> {
+  if (classPromise) return classPromise;
+  classPromise = new Promise((resolve, reject) => {
+    const w = window as unknown as {
+      FFmpegWASM?: { FFmpeg: { new (): FFmpeg } };
+    };
+    if (w.FFmpegWASM?.FFmpeg) {
+      resolve(w.FFmpegWASM.FFmpeg);
+      return;
+    }
+    const script = document.createElement('script');
+    script.src = `${FFMPEG_BASE}/ffmpeg.js`;
+    script.onload = () => {
+      if (w.FFmpegWASM?.FFmpeg) {
+        resolve(w.FFmpegWASM.FFmpeg);
+      } else {
+        reject(new Error('FFmpeg global missing after script load'));
+      }
+    };
+    script.onerror = () => reject(new Error('Failed to load ffmpeg.js'));
+    document.head.appendChild(script);
+  });
+  return classPromise;
+}
 
 /** Lazily create + load the ffmpeg.wasm instance (downloads core once). */
 export async function getFFmpeg(): Promise<FFmpeg> {
   if (ffmpeg) return ffmpeg;
   if (!loadPromise) {
     loadPromise = (async () => {
-      const instance = new FFmpeg();
+      const FFmpegClass = await loadFFmpegClass();
+      const instance = new FFmpegClass();
       await instance.load({
+        classWorkerURL: await toBlobURL(
+          `${FFMPEG_BASE}/814.ffmpeg.js`,
+          'text/javascript'
+        ),
         coreURL: await toBlobURL(
           `${CORE_BASE}/ffmpeg-core.js`,
           'text/javascript'
@@ -40,7 +90,7 @@ function frameName(i: number) {
 
 async function writeFrames(ff: FFmpeg, frames: Blob[]) {
   for (let i = 0; i < frames.length; i++) {
-    await ff.writeFile(frameName(i), await fetchFile(frames[i]));
+    await ff.writeFile(frameName(i), await fileData(frames[i]));
   }
 }
 

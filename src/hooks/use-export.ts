@@ -1,4 +1,9 @@
-import { encodeGif, encodeMp4, getFFmpeg } from '@/lib/ffmpeg-export';
+// @/lib/ffmpeg-export (and the heavy ffmpeg.wasm encoder it pulls in) is imported
+// DYNAMICALLY inside the GIF/MP4 handlers below. A static import lands @ffmpeg in
+// every page bundle that touches this hook — the homepage Hero imports
+// EXPORT_PRESETS from here — and @ffmpeg's `new Worker(new URL(...))` can't be
+// resolved by `next dev`, which crashed every route. Loading it on demand keeps
+// it out of page bundles entirely until the user actually exports a GIF/MP4.
 import { domToCanvas, domToDataUrl } from 'modern-screenshot';
 import { useState } from 'react';
 import { toast } from 'sonner';
@@ -395,6 +400,7 @@ export function useFlowchartExport(
       if (!rawFrames.length) throw new Error('No frames captured');
       const blobs = await framesToPngBlobs(rawFrames, preset, opts);
 
+      const { getFFmpeg, encodeGif } = await import('@/lib/ffmpeg-export');
       const ff = await getFFmpeg();
       const onProgress = ({ progress }: { progress: number }) =>
         setExportProgress(60 + Math.round(Math.min(progress, 1) * 38));
@@ -434,6 +440,7 @@ export function useFlowchartExport(
       if (!rawFrames.length) throw new Error('No frames captured');
       const blobs = await framesToPngBlobs(rawFrames, preset, opts);
 
+      const { getFFmpeg, encodeMp4 } = await import('@/lib/ffmpeg-export');
       const ff = await getFFmpeg();
       const onProgress = ({ progress }: { progress: number }) =>
         setExportProgress(60 + Math.round(Math.min(progress, 1) * 38));

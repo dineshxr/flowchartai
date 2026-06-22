@@ -2,8 +2,11 @@
   "name": "infogiph",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": "22.x"
+  },
   "scripts": {
-    "dev": "concurrently \"content-collections watch\" \"next dev\"",
+    "dev": "concurrently \"content-collections watch\" \"next dev --turbopack\"",
     "build": "content-collections build && next build",
     "start": "next start",
     "lint": "biome check --write .",
