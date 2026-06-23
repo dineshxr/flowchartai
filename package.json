@@ -169,5 +169,10 @@
     "tailwindcss": "^4.0.14",
     "tsx": "^4.19.3",
     "typescript": "^5"
+  },
+  "pnpm": {
+    "overrides": {
+      "jose": "4.15.9"
+    }
   }
 }
