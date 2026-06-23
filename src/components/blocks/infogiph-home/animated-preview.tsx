@@ -497,6 +497,20 @@ export function AnimatedPreview(props: PreviewSpec & AnimatedPreviewProps) {
             <stop offset="50%" stopColor={accent} stopOpacity="0.95" />
             <stop offset="100%" stopColor="rgba(255,107,157,0)" />
           </linearGradient>
+          {/* Canvas beam gradient: glows brightest mid-edge but never goes fully
+              transparent at the ends, so the beam keeps its soft gradient look
+              yet still visibly reaches the nodes (flows end-to-end). */}
+          <linearGradient
+            id={`${gradId}-glow`}
+            x1="0%"
+            y1="0%"
+            x2="100%"
+            y2="0%"
+          >
+            <stop offset="0%" stopColor={accent} stopOpacity="0.35" />
+            <stop offset="50%" stopColor={accent} stopOpacity="1" />
+            <stop offset="100%" stopColor={accent} stopOpacity="0.35" />
+          </linearGradient>
         </defs>
 
         {layout.edges.map((e, i) => {
@@ -521,18 +535,19 @@ export function AnimatedPreview(props: PreviewSpec & AnimatedPreviewProps) {
 
               {mode === 'beams' &&
                 (variant === 'canvas' ? (
-                  // Canvas edges vary in length, so a fixed dash pattern + a
-                  // gradient that fades to transparent at both ends made the
-                  // beam stall partway and never reach the nodes. Normalise the
-                  // path to 100 units so one solid lit segment sweeps the FULL
-                  // edge, node to node, every cycle.
+                  // Canvas edges vary in length, so the original fixed dash
+                  // pattern (longer than short edges) made the beam blink and
+                  // stall before the nodes. Normalise the path to 100 units so
+                  // one soft gradient segment sweeps the FULL edge every cycle;
+                  // the `-glow` gradient keeps the beam visible at the nodes
+                  // (end-to-end) while preserving the gradient look.
                   <path
                     d={d}
                     pathLength={100}
-                    stroke={accent}
+                    stroke={`url(#${gradId}-glow)`}
                     strokeWidth={beamW}
                     strokeLinecap="round"
-                    strokeDasharray="22 78"
+                    strokeDasharray="40 60"
                     fill="none"
                   >
                     <animate

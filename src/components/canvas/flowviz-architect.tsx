@@ -1459,31 +1459,33 @@ export default function FlowVizArchitect({
     saveFlowchart(diagramData);
   };
 
-  // Upload a custom logo for the selected element via the storage API, then use
-  // the returned URL as that node's icon.
+  // Use a custom logo for the selected element. Read it client-side as a data
+  // URL and embed it directly — no R2/storage upload, so it works in any
+  // environment (no "storage region not configured"), matches how the sidebar
+  // AI-vision image is handled, and stays same-origin so it doesn't taint the
+  // canvas during PNG/SVG export the way an external URL would.
   const handleLogoUpload = async (file: File) => {
     if (!selectedKey) return;
     const key = selectedKey;
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error('Logo too large — please use an image under 2 MB.');
+      return;
+    }
     setUploadingLogo(true);
     try {
-      const fd = new FormData();
-      fd.append('file', file);
-      fd.append('folder', 'logos');
-      const res = await fetch('/api/storage/upload', {
-        method: 'POST',
-        body: fd,
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = () => reject(new Error('Could not read the image'));
+        reader.readAsDataURL(file);
       });
-      const data = await res.json();
-      if (!res.ok || !data?.url) {
-        throw new Error(data?.error || 'Upload failed');
-      }
       setIconOverrides((p) => ({
         ...p,
-        [key]: { kind: 'image', url: data.url },
+        [key]: { kind: 'image', url: dataUrl },
       }));
       toast.success('Logo added');
     } catch (err: any) {
-      toast.error(err?.message || 'Could not upload logo');
+      toast.error(err?.message || 'Could not add logo');
     } finally {
       setUploadingLogo(false);
     }
