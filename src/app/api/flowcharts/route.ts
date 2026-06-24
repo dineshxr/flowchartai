@@ -1,7 +1,6 @@
 import { getDb } from '@/db';
-import { flowcharts } from '@/db/schema';
+import { COLLECTIONS, type FlowchartDoc, tsToDate } from '@/db/schema';
 import { getSession } from '@/lib/server';
-import { desc, eq } from 'drizzle-orm';
 import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 
@@ -24,19 +23,27 @@ export async function GET(request: NextRequest) {
     // For now, return empty flowcharts array if database is not available
     // This allows the app to work without database dependency
     try {
-      const db = await getDb();
-      const userFlowcharts = await db
-        .select({
-          id: flowcharts.id,
-          title: flowcharts.title,
-          content: flowcharts.content,
-          thumbnail: flowcharts.thumbnail,
-          createdAt: flowcharts.createdAt,
-          updatedAt: flowcharts.updatedAt,
+      const db = getDb();
+      const qs = await db
+        .collection(COLLECTIONS.flowcharts)
+        .where('userId', '==', session.user.id)
+        .get();
+
+      const userFlowcharts = qs.docs
+        .map((d) => d.data() as FlowchartDoc)
+        .sort((a, b) => {
+          const aTime = tsToDate(a.updatedAt)?.getTime() ?? 0;
+          const bTime = tsToDate(b.updatedAt)?.getTime() ?? 0;
+          return bTime - aTime;
         })
-        .from(flowcharts)
-        .where(eq(flowcharts.userId, session.user.id))
-        .orderBy(desc(flowcharts.updatedAt));
+        .map((f) => ({
+          id: f.id,
+          title: f.title,
+          content: f.content,
+          thumbnail: f.thumbnail,
+          createdAt: tsToDate(f.createdAt),
+          updatedAt: tsToDate(f.updatedAt),
+        }));
 
       return NextResponse.json({
         flowcharts: userFlowcharts,
@@ -76,24 +83,27 @@ export async function POST(request: NextRequest) {
     const flowchartId = `flowchart_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
 
     try {
-      const db = await getDb();
+      const db = getDb();
+      const ref = db.collection(COLLECTIONS.flowcharts);
+      const now = new Date();
 
       if (isPreCreation) {
         // Pre-create flowchart with minimal data
-        const [newFlowchart] = await db
-          .insert(flowcharts)
-          .values({
-            id: flowchartId,
-            title: 'Untitled',
-            content:
-              '{"type":"excalidraw","version":2,"source":"https://excalidraw.com","elements":[],"appState":{"gridSize":null,"viewBackgroundColor":"#ffffff"}}', // Empty Excalidraw content
-            userId: session.user.id,
-          })
-          .returning({ id: flowcharts.id });
+        const doc: FlowchartDoc = {
+          id: flowchartId,
+          title: 'Untitled',
+          content:
+            '{"type":"excalidraw","version":2,"source":"https://excalidraw.com","elements":[],"appState":{"gridSize":null,"viewBackgroundColor":"#ffffff"}}', // Empty Excalidraw content
+          thumbnail: null,
+          userId: session.user.id,
+          createdAt: now,
+          updatedAt: now,
+        };
+        await ref.doc(flowchartId).set(doc);
 
         return NextResponse.json(
           {
-            id: newFlowchart.id,
+            id: flowchartId,
             preCreated: true,
           },
           { status: 201 }
@@ -103,24 +113,27 @@ export async function POST(request: NextRequest) {
       // Regular creation with content
       const validatedData = createFlowchartSchema.parse(body);
 
-      const [newFlowchart] = await db
-        .insert(flowcharts)
-        .values({
-          id: flowchartId,
-          title: validatedData.title,
-          content: validatedData.content,
-          thumbnail: validatedData.thumbnail,
-          userId: session.user.id,
-        })
-        .returning({ id: flowcharts.id });
+      const doc: FlowchartDoc = {
+        id: flowchartId,
+        title: validatedData.title,
+        content: validatedData.content,
+        thumbnail: validatedData.thumbnail ?? null,
+        userId: session.user.id,
+        createdAt: now,
+        updatedAt: now,
+      };
+      await ref.doc(flowchartId).set(doc);
 
       return NextResponse.json(
         {
-          id: newFlowchart.id,
+          id: flowchartId,
         },
         { status: 201 }
       );
     } catch (dbError) {
+      if (dbError instanceof z.ZodError) {
+        throw dbError;
+      }
       console.warn(
         'Database connection failed, returning mock flowchart ID:',
         dbError

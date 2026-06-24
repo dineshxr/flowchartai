@@ -373,6 +373,9 @@ function pathFor(
   }
 }
 
+/** Selection ring colour — a distinct blue so it never clashes with the pink beams. */
+const SELECTION_COLOR = '#2563eb';
+
 export interface AnimatedPreviewProps {
   variant?: 'home' | 'canvas';
   /** Override the native layout frame (e.g. WIDE_DIMS for horizontal cards). */
@@ -385,6 +388,10 @@ export interface AnimatedPreviewProps {
   labelOverrides?: Record<string, string>;
   onPositionChange?: (key: string, x: number, y: number) => void;
   onLabelChange?: (key: string, label: string) => void;
+  /** Key of the currently selected element (drives the inspector + selection ring). */
+  selectedKey?: string | null;
+  /** Fired when a tile is selected, or null when the empty canvas is clicked. */
+  onSelect?: (key: string | null) => void;
 }
 
 export function AnimatedPreview(props: PreviewSpec & AnimatedPreviewProps) {
@@ -399,6 +406,8 @@ export function AnimatedPreview(props: PreviewSpec & AnimatedPreviewProps) {
     labelOverrides = {},
     onPositionChange,
     onLabelChange,
+    selectedKey = null,
+    onSelect,
     ...specProps
   } = props as any;
   const spec = specProps as PreviewSpec;
@@ -488,6 +497,20 @@ export function AnimatedPreview(props: PreviewSpec & AnimatedPreviewProps) {
             <stop offset="50%" stopColor={accent} stopOpacity="0.95" />
             <stop offset="100%" stopColor="rgba(255,107,157,0)" />
           </linearGradient>
+          {/* Canvas beam gradient: glows brightest mid-edge but never goes fully
+              transparent at the ends, so the beam keeps its soft gradient look
+              yet still visibly reaches the nodes (flows end-to-end). */}
+          <linearGradient
+            id={`${gradId}-glow`}
+            x1="0%"
+            y1="0%"
+            x2="100%"
+            y2="0%"
+          >
+            <stop offset="0%" stopColor={accent} stopOpacity="0.35" />
+            <stop offset="50%" stopColor={accent} stopOpacity="1" />
+            <stop offset="100%" stopColor={accent} stopOpacity="0.35" />
+          </linearGradient>
         </defs>
 
         {layout.edges.map((e, i) => {
@@ -510,24 +533,50 @@ export function AnimatedPreview(props: PreviewSpec & AnimatedPreviewProps) {
                 fill="none"
               />
 
-              {mode === 'beams' && (
-                <path
-                  d={d}
-                  stroke={`url(#${gradId})`}
-                  strokeWidth={beamW}
-                  strokeDasharray={beamDash}
-                  fill="none"
-                >
-                  <animate
-                    attributeName="stroke-dashoffset"
-                    from={beamOffset}
-                    to={0}
-                    dur={sm(2.4)}
-                    begin={`${i * 0.2}s`}
-                    repeatCount="indefinite"
-                  />
-                </path>
-              )}
+              {mode === 'beams' &&
+                (variant === 'canvas' ? (
+                  // Canvas edges vary in length, so the original fixed dash
+                  // pattern (longer than short edges) made the beam blink and
+                  // stall before the nodes. Normalise the path to 100 units so
+                  // one soft gradient segment sweeps the FULL edge every cycle;
+                  // the `-glow` gradient keeps the beam visible at the nodes
+                  // (end-to-end) while preserving the gradient look.
+                  <path
+                    d={d}
+                    pathLength={100}
+                    stroke={`url(#${gradId}-glow)`}
+                    strokeWidth={beamW}
+                    strokeLinecap="round"
+                    strokeDasharray="40 60"
+                    fill="none"
+                  >
+                    <animate
+                      attributeName="stroke-dashoffset"
+                      from={100}
+                      to={0}
+                      dur={sm(2.4)}
+                      begin={`${i * 0.2}s`}
+                      repeatCount="indefinite"
+                    />
+                  </path>
+                ) : (
+                  <path
+                    d={d}
+                    stroke={`url(#${gradId})`}
+                    strokeWidth={beamW}
+                    strokeDasharray={beamDash}
+                    fill="none"
+                  >
+                    <animate
+                      attributeName="stroke-dashoffset"
+                      from={beamOffset}
+                      to={0}
+                      dur={sm(2.4)}
+                      begin={`${i * 0.2}s`}
+                      repeatCount="indefinite"
+                    />
+                  </path>
+                ))}
 
               {mode === 'dots' &&
                 [0, 0.35, 0.7].map((offset) => (
@@ -599,6 +648,14 @@ export function AnimatedPreview(props: PreviewSpec & AnimatedPreviewProps) {
         onPointerMove={editable ? moveDrag : undefined}
         onPointerUp={editable ? endDrag : undefined}
         onPointerCancel={editable ? endDrag : undefined}
+        onPointerDown={
+          editable && onSelect
+            ? (e) => {
+                // Clicking the empty canvas (not a tile) clears selection.
+                if (e.target === e.currentTarget) onSelect(null);
+              }
+            : undefined
+        }
       >
         {tiles.map((t) => (
           <Tile
@@ -607,6 +664,8 @@ export function AnimatedPreview(props: PreviewSpec & AnimatedPreviewProps) {
             dims={dims}
             variant={variant}
             editable={editable}
+            selected={selectedKey === t.key}
+            onSelect={onSelect}
             label={labelOverrides[t.key] ?? t.label}
             onLabelChange={onLabelChange}
             onPointerDown={beginDrag(t.key)}
@@ -632,6 +691,8 @@ function Tile({
   dims,
   variant,
   editable,
+  selected,
+  onSelect,
   label,
   onLabelChange,
   onPointerDown,
@@ -640,6 +701,8 @@ function Tile({
   dims: Dims;
   variant: 'home' | 'canvas';
   editable: boolean;
+  selected: boolean;
+  onSelect?: (key: string | null) => void;
   label?: string;
   onLabelChange?: (key: string, label: string) => void;
   onPointerDown: (e: PointerEvent<HTMLDivElement>) => void;
@@ -677,7 +740,15 @@ function Tile({
       style={{ left: `${leftPct}%`, top: `${topPct}%` }}
     >
       <div
-        onPointerDown={onPointerDown}
+        onPointerDown={(e) => {
+          if (editable && onSelect) {
+            // Select this tile and keep the click from bubbling to the
+            // background deselect handler.
+            e.stopPropagation();
+            onSelect(tile.key);
+          }
+          onPointerDown(e);
+        }}
         className={
           'flex items-center justify-center ' +
           (editable ? 'cursor-grab active:cursor-grabbing ' : '') +
@@ -695,6 +766,9 @@ function Tile({
           filter: flush
             ? 'drop-shadow(0 8px 16px rgba(15,42,62,0.22))'
             : undefined,
+          outline: selected ? `2px solid ${SELECTION_COLOR}` : undefined,
+          outlineOffset: 3,
+          borderRadius: flush ? 18 : undefined,
         }}
       >
         <div

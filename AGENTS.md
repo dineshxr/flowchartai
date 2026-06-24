@@ -4,7 +4,7 @@ FlowchartAI runs on Next.js 15 with TypeScript and Cloudflare Workers. Follow th
 
 ## Project Structure & Module Organization
 - Core routes, layouts, and server actions are in `src/app`; shared UI lives in `src/components`, with feature logic grouped under `src/actions`, `src/hooks`, `src/lib`, and `src/utils`.
-- Database schemas and queries live in `src/db` beside `drizzle.config.ts`; email templates are under `src/mail`.
+- The Firestore client (`getDb`) and collection/document types live in `src/db`; email templates are under `src/mail`.
 - Editorial content sits in `content/` and `docs/`; static files belong in `public/` or `src/assets`.
 - Automation scripts live in `scripts/`, and platform config stays in root files like `open-next.config.ts`, `wrangler.jsonc`, and `vercel.json`.
 
@@ -13,7 +13,7 @@ FlowchartAI runs on Next.js 15 with TypeScript and Cloudflare Workers. Follow th
 - `pnpm build`: Build content collections, then compile the production bundle.
 - `pnpm start`: Serve the compiled build for staging checks.
 - `pnpm lint` / `pnpm format`: Run Biome checks and fix formatting.
-- `pnpm db:generate`, `pnpm db:migrate`, `pnpm db:push`: Manage Drizzle migrations using the database URL in `.env.local`.
+- Data lives in Google Firestore (Firebase Admin SDK) — no migrations; configure `FIREBASE_SERVICE_ACCOUNT_KEY` in `.env.local`.
 - `pnpm preview` / `pnpm deploy`: Use OpenNext for Cloudflare previews and deploys.
 
 ## Coding Style & Naming Conventions

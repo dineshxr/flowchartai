@@ -25,10 +25,8 @@ pnpm lint:fix              # Fix with unsafe transformations
 pnpm format                # Format code with Biome
 
 # Database
-pnpm db:generate           # Generate Drizzle schema
-pnpm db:migrate           # Run database migrations  
-pnpm db:push              # Push schema changes directly
-pnpm db:studio            # Open Drizzle Studio
+# Data is stored in Google Firestore (Firebase Admin SDK) — no migrations or
+# schema generation step. Collections/document types live in src/db/schema.ts.
 
 # Content & Email
 pnpm docs                 # Build content collections
@@ -48,9 +46,9 @@ pnpm cf-typegen          # Generate Cloudflare types
 - **Styling**: Tailwind CSS 4, Radix UI components  
 - **Canvas**: Excalidraw integration with Mermaid support
 - **AI**: OpenRouter API (multiple AI models supported)
-- **Database**: PostgreSQL with Drizzle ORM
-- **Authentication**: Better Auth (Google, GitHub OAuth)
-- **Storage**: Cloudflare R2 / AWS S3 compatible
+- **Database**: Google Firestore (Firebase Admin SDK)
+- **Authentication**: Firebase Authentication (Google sign-in)
+- **Storage**: Firebase Cloud Storage
 - **Content**: Content Collections for MDX processing
 - **Email**: React Email templates
 - **Deployment**: Vercel, Cloudflare Workers, or self-hosted
@@ -61,7 +59,7 @@ flowchartai/
 ├── src/
 │   ├── app/                 # Next.js App Router pages
 │   ├── components/          # React components (UI components in ui/)
-│   ├── db/                  # Drizzle schema and migrations
+│   ├── db/                  # Firestore client (getDb) + collections/types
 │   ├── lib/                 # Utility functions and configurations
 │   ├── mail/                # React Email templates
 │   └── config/              # Application configuration
@@ -80,10 +78,8 @@ flowchartai/
 
 ### Environment Setup
 The application requires several environment variables for full functionality:
-- Database connection (PostgreSQL)
-- OpenRouter API key for AI features
-- OAuth credentials (Google/GitHub)
-- Optional: Cloudflare R2/AWS S3 for file storage
+- Firebase: `FIREBASE_SERVICE_ACCOUNT_KEY` (Admin SDK — Firestore + Auth + Storage), plus the `NEXT_PUBLIC_FIREBASE_*` client config; optional `FIREBASE_STORAGE_BUCKET`
+- OpenRouter / Google AI credentials for AI features
 - Optional: Resend API for email notifications
 
 ### AI Models
@@ -101,7 +97,7 @@ AI generation limits are configurable in `src/lib/ai-usage.ts`:
 
 - Uses Biome for linting and formatting (not ESLint/Prettier)
 - Content Collections for MDX processing with watch mode in development
-- Database operations use Drizzle ORM with PostgreSQL
+- Database operations use the Firestore Admin SDK via `getDb()` from `@/db`
 - Images are unoptimized for Cloudflare Workers compatibility
 - Supports both Vercel and Cloudflare Workers deployment
 - Multi-language support via next-intl
@@ -109,5 +105,5 @@ AI generation limits are configurable in `src/lib/ai-usage.ts`:
 ## Testing & Quality
 
 - Run `pnpm lint` before committing to ensure code quality
-- Database schema changes require `pnpm db:generate` after modification
+- Firestore is schema-less — update document shapes/collections in `src/db/schema.ts`
 - Content changes trigger automatic rebuilds in development mode

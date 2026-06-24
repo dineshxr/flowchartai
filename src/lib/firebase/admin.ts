@@ -31,19 +31,22 @@ function getServiceAccount() {
 }
 
 let cachedApp: App | null = null;
+let cachedProjectId: string | null = null;
 
-function getAdminApp(): App {
+export function getAdminApp(): App {
   if (getApps().length) {
     return getApp();
   }
   if (!cachedApp) {
     const sa = getServiceAccount();
+    cachedProjectId = sa.project_id;
     cachedApp = initializeApp({
       credential: cert({
         projectId: sa.project_id,
         clientEmail: sa.client_email,
         privateKey: sa.private_key,
       }),
+      storageBucket: getStorageBucket(sa.project_id),
     });
   }
   return cachedApp;
@@ -51,4 +54,22 @@ function getAdminApp(): App {
 
 export function getAdminAuth(): Auth {
   return getAuth(getAdminApp());
+}
+
+/** The Firebase project id backing the Admin SDK. */
+export function getAdminProjectId(): string {
+  if (cachedProjectId) return cachedProjectId;
+  cachedProjectId = getServiceAccount().project_id;
+  return cachedProjectId;
+}
+
+/**
+ * Default Cloud Storage bucket. Override with FIREBASE_STORAGE_BUCKET; otherwise
+ * fall back to the project's default bucket.
+ */
+export function getStorageBucket(projectId?: string): string {
+  return (
+    process.env.FIREBASE_STORAGE_BUCKET ||
+    `${projectId || getAdminProjectId()}.appspot.com`
+  );
 }

@@ -1,4 +1,4 @@
-import { canUserUseAI, getUserAIUsageStats } from '@/lib/ai-usage-supabase';
+import { canUserUseAI, getUserAIUsageStats } from '@/lib/ai-usage';
 import { getSession } from '@/lib/server';
 
 export async function GET() {

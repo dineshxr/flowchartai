@@ -13,7 +13,7 @@ import {
 } from '@/components/ui/card';
 import { authClient } from '@/lib/auth-client';
 import { cn } from '@/lib/utils';
-import { uploadFileFromBrowser } from '@/storage';
+import { uploadFileFromBrowser } from '@/storage/upload-client';
 import { User2Icon } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { useEffect, useState } from 'react';

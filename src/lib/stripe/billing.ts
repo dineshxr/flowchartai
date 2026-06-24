@@ -2,8 +2,12 @@ import 'server-only';
 
 import type { PlanId } from '@/config/plans';
 import { getDb } from '@/db';
-import { payment, user } from '@/db/schema';
-import { and, desc, eq, gte } from 'drizzle-orm';
+import {
+  COLLECTIONS,
+  type PaymentDoc,
+  type UserDoc,
+  tsToDate,
+} from '@/db/schema';
 import type Stripe from 'stripe';
 import { getStripe, isStripeConfigured } from './client';
 import { type Interval, planForPriceId, priceIdFor } from './prices';
@@ -26,12 +30,10 @@ export async function getInvoices(
 ): Promise<InvoiceSummary[]> {
   if (!isStripeConfigured()) return [];
   const db = await getDb();
-  const rows = await db
-    .select({ customerId: user.customerId })
-    .from(user)
-    .where(eq(user.id, userId))
-    .limit(1);
-  const customerId = rows[0]?.customerId;
+  const snap = await db.collection(COLLECTIONS.user).doc(userId).get();
+  const customerId = snap.exists
+    ? (snap.data() as UserDoc).customerId
+    : undefined;
   if (!customerId) return [];
   try {
     const list = await getStripe().invoices.list({
@@ -65,34 +67,44 @@ export async function getOrCreateStripeCustomer(
   email?: string | null
 ): Promise<string> {
   const db = await getDb();
-  const rows = await db
-    .select({ customerId: user.customerId, email: user.email })
-    .from(user)
-    .where(eq(user.id, userId))
-    .limit(1);
-  const existing = rows[0]?.customerId;
+  const userRef = db.collection(COLLECTIONS.user).doc(userId);
+  const snap = await userRef.get();
+  const userData = snap.exists ? (snap.data() as UserDoc) : undefined;
+  const existing = userData?.customerId;
   if (existing) return existing;
 
   const stripe = getStripe();
   const customer = await stripe.customers.create({
-    email: email || rows[0]?.email || undefined,
+    email: email || userData?.email || undefined,
     metadata: { userId },
   });
-  await db
-    .update(user)
-    .set({ customerId: customer.id })
-    .where(eq(user.id, userId));
+  await userRef.set({ customerId: customer.id }, { merge: true });
   return customer.id;
 }
 
 /** Active (or grace-period) subscription row for a user, if any. */
 export async function getActiveSubscription(userId: string) {
   const db = await getDb();
-  const rows = await db
-    .select()
-    .from(payment)
-    .where(and(eq(payment.userId, userId), gte(payment.periodEnd, new Date())))
-    .orderBy(desc(payment.createdAt));
+  const now = new Date();
+  const qs = await db
+    .collection(COLLECTIONS.payment)
+    .where('userId', '==', userId)
+    .get();
+  const rows = qs.docs
+    .map((d) => {
+      const data = d.data() as PaymentDoc;
+      return {
+        ...data,
+        periodEnd: tsToDate(data.periodEnd),
+        createdAt: tsToDate(data.createdAt),
+      };
+    })
+    .filter((p) => p.periodEnd && p.periodEnd >= now)
+    .sort((a, b) => {
+      const at = a.createdAt ? a.createdAt.getTime() : 0;
+      const bt = b.createdAt ? b.createdAt.getTime() : 0;
+      return bt - at;
+    });
   return (
     rows.find(
       (p) =>
@@ -101,7 +113,7 @@ export async function getActiveSubscription(userId: string) {
         (p.status === 'canceled' &&
           p.cancelAtPeriodEnd &&
           p.periodEnd &&
-          p.periodEnd > new Date())
+          p.periodEnd > now)
     ) ?? null
   );
 }
@@ -114,7 +126,7 @@ export async function getUserPlan(userId: string): Promise<PlanId> {
 }
 
 /**
- * Upsert a Stripe subscription into the `payment` table. Called from the
+ * Upsert a Stripe subscription into the `payment` collection. Called from the
  * webhook so plan detection always reflects Stripe.
  */
 export async function syncSubscription(
@@ -157,17 +169,16 @@ export async function syncSubscription(
   };
 
   await db
-    .insert(payment)
-    .values({ ...values, createdAt: new Date() })
-    .onConflictDoUpdate({ target: payment.id, set: values });
+    .collection(COLLECTIONS.payment)
+    .doc(sub.id)
+    .set({ ...values, createdAt: new Date() }, { merge: true });
 }
 
 async function userIdForCustomer(customerId: string): Promise<string | null> {
   const db = await getDb();
-  const rows = await db
-    .select({ id: user.id })
-    .from(user)
-    .where(eq(user.customerId, customerId))
-    .limit(1);
-  return rows[0]?.id ?? null;
+  const qs = await db
+    .collection(COLLECTIONS.user)
+    .where('customerId', '==', customerId)
+    .get();
+  return qs.docs[0]?.id ?? null;
 }

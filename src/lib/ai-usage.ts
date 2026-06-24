@@ -1,7 +1,11 @@
 import { getDb } from '@/db';
-import { aiUsage, payment } from '@/db/schema';
+import {
+  type AiUsageDoc,
+  COLLECTIONS,
+  type PaymentDoc,
+  tsToDate,
+} from '@/db/schema';
 import { planForPriceId } from '@/lib/stripe/prices';
-import { and, eq, gte, sql } from 'drizzle-orm';
 
 // AI usage limits. Free users get a one-time lifetime grant; paid plans reset
 // monthly. (Keep in sync with src/config/plans.ts.)
@@ -40,25 +44,35 @@ export async function getUserSubscriptionStatus(userId: string) {
   const db = await getDb();
 
   // 查询用户的订阅记录（不限制status，但要求在有效期内）
-  const payments = await db
-    .select({
-      type: payment.type,
-      interval: payment.interval,
-      status: payment.status,
-      priceId: payment.priceId,
-      periodEnd: payment.periodEnd,
-      cancelAtPeriodEnd: payment.cancelAtPeriodEnd,
-      canceledAt: payment.canceledAt,
+  // Firestore: single-equality filter by userId, then filter/sort in memory.
+  const now = new Date();
+  const qs = await db
+    .collection(COLLECTIONS.payment)
+    .where('userId', '==', userId)
+    .get();
+
+  const payments = qs.docs
+    .map((d) => {
+      const data = d.data() as PaymentDoc;
+      return {
+        type: data.type,
+        interval: data.interval ?? null,
+        status: data.status,
+        priceId: data.priceId,
+        periodEnd: tsToDate(data.periodEnd),
+        cancelAtPeriodEnd: data.cancelAtPeriodEnd ?? null,
+        canceledAt: tsToDate(data.canceledAt),
+        createdAt: tsToDate(data.createdAt),
+      };
     })
-    .from(payment)
-    .where(
-      and(
-        eq(payment.userId, userId),
-        // 检查订阅是否还在有效期内
-        gte(payment.periodEnd, new Date())
-      )
-    )
-    .orderBy(sql`${payment.createdAt} DESC`);
+    // 检查订阅是否还在有效期内
+    .filter((p) => p.periodEnd != null && p.periodEnd >= now)
+    // createdAt DESC
+    .sort(
+      (a, b) =>
+        (b.createdAt ? b.createdAt.getTime() : 0) -
+        (a.createdAt ? a.createdAt.getTime() : 0)
+    );
 
   if (payments.length === 0) {
     return {
@@ -171,18 +185,22 @@ export async function canUserUseAI(userId: string): Promise<{
   }
 
   // 查询用户在时间范围内的使用次数
-  const usageCount = await db
-    .select({ count: sql<number>`count(*)` })
-    .from(aiUsage)
-    .where(
-      and(
-        eq(aiUsage.userId, userId),
-        eq(aiUsage.success, true), // 只计算成功的调用
-        gte(aiUsage.createdAt, timeFrame)
-      )
-    );
+  // Firestore: single-equality filter by userId, then count successful
+  // generations within the time frame in memory.
+  const usageSnap = await db
+    .collection(COLLECTIONS.aiUsage)
+    .where('userId', '==', userId)
+    .get();
 
-  const currentUsage = Number(usageCount[0]?.count || 0);
+  const currentUsage = usageSnap.docs.reduce((count, d) => {
+    const data = d.data() as AiUsageDoc;
+    const createdAt = tsToDate(data.createdAt);
+    // 只计算成功的调用，且在时间范围内
+    if (data.success === true && createdAt != null && createdAt >= timeFrame) {
+      return count + 1;
+    }
+    return count;
+  }, 0);
   const remainingUsage = Math.max(0, limit - currentUsage);
 
   if (currentUsage >= limit) {
@@ -226,16 +244,20 @@ export async function recordAIUsage(
 
   const usageId = `ai_usage_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
 
-  await db.insert(aiUsage).values({
+  // Firestore: no `undefined` allowed — coerce optional fields to null / {}.
+  const doc: AiUsageDoc = {
     id: usageId,
     userId,
     type,
     tokensUsed: options.tokensUsed || 0,
-    model: options.model,
+    model: options.model ?? null,
     success: options.success ?? true,
-    errorMessage: options.errorMessage,
+    errorMessage: options.errorMessage ?? null,
     metadata: options.metadata || {},
-  });
+    createdAt: new Date(),
+  };
+
+  await db.collection(COLLECTIONS.aiUsage).doc(usageId).set(doc);
 
   return usageId;
 }
@@ -248,42 +270,37 @@ export async function getUserAIUsageStats(userId: string) {
   const todayStart = new Date();
   todayStart.setHours(0, 0, 0, 0);
 
-  const todayUsage = await db
-    .select({ count: sql<number>`count(*)` })
-    .from(aiUsage)
-    .where(
-      and(
-        eq(aiUsage.userId, userId),
-        eq(aiUsage.success, true),
-        gte(aiUsage.createdAt, todayStart)
-      )
-    );
-
   // 本月使用量
   const monthStart = new Date();
   monthStart.setDate(1);
   monthStart.setHours(0, 0, 0, 0);
 
-  const monthUsage = await db
-    .select({ count: sql<number>`count(*)` })
-    .from(aiUsage)
-    .where(
-      and(
-        eq(aiUsage.userId, userId),
-        eq(aiUsage.success, true),
-        gte(aiUsage.createdAt, monthStart)
-      )
-    );
+  // Firestore: single-equality filter by userId, then count successful calls
+  // for today / this month / total in memory.
+  const usageSnap = await db
+    .collection(COLLECTIONS.aiUsage)
+    .where('userId', '==', userId)
+    .get();
 
-  // 总使用量
-  const totalUsage = await db
-    .select({ count: sql<number>`count(*)` })
-    .from(aiUsage)
-    .where(and(eq(aiUsage.userId, userId), eq(aiUsage.success, true)));
+  let today = 0;
+  let thisMonth = 0;
+  let total = 0;
+
+  for (const d of usageSnap.docs) {
+    const data = d.data() as AiUsageDoc;
+    if (data.success !== true) continue; // 只计算成功的调用
+
+    total += 1;
+
+    const createdAt = tsToDate(data.createdAt);
+    if (createdAt == null) continue;
+    if (createdAt >= monthStart) thisMonth += 1;
+    if (createdAt >= todayStart) today += 1;
+  }
 
   return {
-    today: Number(todayUsage[0]?.count || 0),
-    thisMonth: Number(monthUsage[0]?.count || 0),
-    total: Number(totalUsage[0]?.count || 0),
+    today,
+    thisMonth,
+    total,
   };
 }

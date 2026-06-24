@@ -1,11 +1,11 @@
 import 'server-only';
 
 import { getDb } from '@/db';
-import { user } from '@/db/schema';
+import { COLLECTIONS, type UserDoc } from '@/db/schema';
 
 /**
- * Mirror a Firebase user into the `user` table. Everything that references
- * `user.id` (payments, credits, AI usage, saved flowcharts) needs this row to
+ * Mirror a Firebase user into the `user` collection. Everything that references
+ * `user.id` (payments, credits, AI usage, saved flowcharts) needs this doc to
  * exist — Firebase auth alone never creates it. Called on session creation.
  */
 export async function ensureUser(u: {
@@ -16,10 +16,13 @@ export async function ensureUser(u: {
 }): Promise<void> {
   const db = await getDb();
   const now = new Date();
-  const email = u.email || `${u.id}@users.infogiph.com`;
-  await db
-    .insert(user)
-    .values({
+  const ref = db.collection(COLLECTIONS.user).doc(u.id);
+  const snap = await ref.get();
+
+  if (!snap.exists) {
+    // First create: write the full doc, set createdAt + updatedAt.
+    const email = u.email || `${u.id}@users.infogiph.com`;
+    const doc: UserDoc = {
       id: u.id,
       email,
       name: u.name ?? null,
@@ -27,15 +30,22 @@ export async function ensureUser(u: {
       emailVerified: true,
       createdAt: now,
       updatedAt: now,
-    })
-    .onConflictDoUpdate({
-      target: user.id,
-      set: {
-        // Don't clobber a stored email with the fallback.
-        ...(u.email ? { email: u.email } : {}),
-        ...(u.name != null ? { name: u.name } : {}),
-        ...(u.image != null ? { image: u.image } : {}),
-        updatedAt: now,
-      },
-    });
+    };
+    await ref.set(doc);
+    return;
+  }
+
+  // Existing doc: update only provided fields (never clobber a stored email
+  // with the fallback) + always bump updatedAt. No undefined values.
+  const update: Partial<UserDoc> = { updatedAt: now };
+  if (u.email) {
+    update.email = u.email;
+  }
+  if (u.name != null) {
+    update.name = u.name;
+  }
+  if (u.image != null) {
+    update.image = u.image;
+  }
+  await ref.update(update);
 }

@@ -23,7 +23,6 @@ import { useLocalePathname, useLocaleRouter } from '@/i18n/navigation';
 import { LOCALES, routing } from '@/i18n/routing';
 import { authClient } from '@/lib/auth-client';
 import { useLocaleStore } from '@/stores/locale-store';
-import { usePaymentStore } from '@/stores/payment-store';
 
 // Minimal user shape returned by the auth client.
 interface User {
@@ -64,7 +63,6 @@ export function SidebarUser({ user, className }: SidebarUserProps) {
   const pathname = useLocalePathname();
   const params = useParams();
   const { currentLocale, setCurrentLocale } = useLocaleStore();
-  const { resetState } = usePaymentStore();
   const [, startTransition] = useTransition();
   const t = useTranslations();
 
@@ -89,8 +87,6 @@ export function SidebarUser({ user, className }: SidebarUserProps) {
     try {
       await authClient.signOut();
       console.log('sign out success');
-      // Reset payment state on sign out
-      resetState();
       router.replace('/');
     } catch (error) {
       console.error('sign out error:', error);

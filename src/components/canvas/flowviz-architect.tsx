@@ -8,6 +8,7 @@ import {
   type PreviewMode,
   type PreviewSpec,
 } from '@/components/blocks/infogiph-home/animated-preview';
+import { ElementInspector } from '@/components/canvas/element-inspector';
 import { ProcessingOverlay } from '@/components/canvas/processing-overlay';
 import { UserButton } from '@/components/layout/user-button';
 import { UpgradeDialog } from '@/components/pricing/upgrade-dialog';
@@ -205,6 +206,108 @@ const buildPreviewFromAI = (
     }
   }
 };
+
+// ---- In-canvas element editing ---------------------------------------------
+// A node's icon can be swapped to another registry key, or replaced with an
+// uploaded custom logo (an image URL).
+type IconOverride =
+  | { kind: 'key'; key: string }
+  | { kind: 'image'; url: string };
+
+const overrideIcon = (node: any, ov: IconOverride | undefined) => {
+  if (!ov) return node;
+  if (ov.kind === 'image') {
+    return {
+      ...node,
+      icon: (
+        <img src={ov.url} alt="" className="h-full w-full object-contain" />
+      ),
+      flush: false,
+    };
+  }
+  const isCenter = node.key === 'center';
+  // Resolve the EXPLICIT picked key only — pass no label, so resolveIcon's
+  // label→brand inference can't override the user's choice (e.g. picking the
+  // "database" concept for a node still labelled "WhatsApp").
+  const r = resolveIcon(ov.key, undefined, isCenter);
+  return {
+    ...node,
+    icon: r.node,
+    flush: isCenter ? r.flush || r.kind === 'brand' : r.flush,
+  };
+};
+
+// Apply the user's element edits (deletions + icon swaps) to the spec before it
+// renders. Node keys are stable (center, sat-N) so edits survive layout changes.
+function applyElementEdits(
+  spec: PreviewSpec | null,
+  deleted: Set<string>,
+  iconOverrides: Record<string, IconOverride>
+): PreviewSpec | null {
+  if (!spec) return spec;
+  const keep = (n: any) => !deleted.has(n.key);
+  const tn = (n: any) => overrideIcon(n, iconOverrides[n.key]);
+  switch (spec.layout) {
+    case 'hub-lr':
+      return {
+        ...spec,
+        left: spec.left.filter(keep).map(tn),
+        right: spec.right.filter(keep).map(tn),
+        center: tn(spec.center),
+      };
+    case 'radial':
+      return {
+        ...spec,
+        satellites: spec.satellites.filter(keep).map(tn),
+        center: tn(spec.center),
+      };
+    case 'pipeline':
+      return { ...spec, nodes: spec.nodes.filter(keep).map(tn) };
+    case 'tree': {
+      const root = spec.root;
+      const children = (root.children || []).filter(keep).map((c: any) => ({
+        ...tn(c),
+        children: (c.children || []).filter(keep).map(tn),
+      }));
+      return { ...spec, root: { ...tn(root), children } };
+    }
+  }
+  return spec;
+}
+
+// Flatten the spec into a key -> { label, isCenter } index so the inspector can
+// describe the selected node regardless of layout.
+function indexSpecNodes(
+  spec: PreviewSpec | null
+): Record<string, { label: string; isCenter: boolean }> {
+  const out: Record<string, { label: string; isCenter: boolean }> = {};
+  if (!spec) return out;
+  const add = (n: any, isCenter = false) => {
+    if (n) out[n.key] = { label: n.label ?? '', isCenter };
+  };
+  switch (spec.layout) {
+    case 'hub-lr':
+      spec.left.forEach((n: any) => add(n));
+      spec.right.forEach((n: any) => add(n));
+      add(spec.center, true);
+      break;
+    case 'radial':
+      spec.satellites.forEach((n: any) => add(n));
+      add(spec.center, true);
+      break;
+    case 'pipeline':
+      spec.nodes.forEach((n: any) => add(n, n.key === 'center'));
+      break;
+    case 'tree':
+      add(spec.root, true);
+      (spec.root.children || []).forEach((c: any) => {
+        add(c);
+        (c.children || []).forEach((gc: any) => add(gc));
+      });
+      break;
+  }
+  return out;
+}
 
 // Build aspect-aware canvas dims from the measured frame so AnimatedPreview's
 // layout recomputes for the current orientation. Without this it always lays
@@ -863,6 +966,13 @@ export default function FlowVizArchitect({
   const [labelOverrides, setLabelOverrides] = useState<Record<string, string>>(
     {}
   );
+  // In-canvas element editor: selection + icon/logo swaps + deletions.
+  const [selectedKey, setSelectedKey] = useState<string | null>(null);
+  const [iconOverrides, setIconOverrides] = useState<
+    Record<string, IconOverride>
+  >({});
+  const [deletedKeys, setDeletedKeys] = useState<string[]>([]);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
   const [animationSpeed, setAnimationSpeed] = useState(1);
   const [exportPreset, setExportPreset] = useState<ExportPreset>('original');
   const [resolution, setResolution] = useState<ResolutionTier>('1080p');
@@ -909,6 +1019,38 @@ export default function FlowVizArchitect({
     () => adaptSpecToAspect(activePreview, canvasDims),
     [activePreview, canvasDims]
   );
+  // Element edits (icon/logo swaps + deletions) layer on top of the rendered
+  // spec; the inspector reads node info from the same edited spec.
+  const editedSpec = useMemo(
+    () => applyElementEdits(renderSpec, new Set(deletedKeys), iconOverrides),
+    [renderSpec, deletedKeys, iconOverrides]
+  );
+  const nodeIndex = useMemo(() => indexSpecNodes(editedSpec), [editedSpec]);
+  const selectedNode = useMemo(() => {
+    if (!selectedKey) return null;
+    const info = nodeIndex[selectedKey];
+    if (!info) return null;
+    return {
+      key: selectedKey,
+      label: labelOverrides[selectedKey] ?? info.label,
+      isCenter: info.isCenter,
+    };
+  }, [selectedKey, nodeIndex, labelOverrides]);
+
+  // When a saved flowchart is loaded we restore element edits, then set this so
+  // the effect below doesn't immediately wipe them on the activePreview swap.
+  const skipEditResetRef = useRef(false);
+
+  // A new diagram (generate / template / load) clears element selection + edits.
+  useEffect(() => {
+    setSelectedKey(null);
+    if (skipEditResetRef.current) {
+      skipEditResetRef.current = false;
+      return;
+    }
+    setIconOverrides({});
+    setDeletedKeys([]);
+  }, [activePreview]);
 
   // Export is gated behind sign-in. These drive the "progress saved" dialog and
   // the resume-after-login flow.
@@ -919,42 +1061,54 @@ export default function FlowVizArchitect({
   const exportResumeTriggered = useRef(false);
 
   useEffect(() => {
-    if (flowchart) {
-      setCurrentTitle(flowchart.title || 'Untitled');
-      setTempTitle(flowchart.title || 'Untitled');
-      if (flowchart.content) {
-        try {
-          const parsed = JSON.parse(flowchart.content);
-          const isTree = parsed?.layout === 'tree' && parsed?.root;
-          const isHub = parsed?.center && parsed?.satellites;
-          if (parsed && typeof parsed === 'object' && (isHub || isTree)) {
-            setDiagramData(parsed);
-            // Derive an animated spec so a reopened flowchart renders through
-            // AnimatedPreview + the shared icon registry (real brand/3D icons),
-            // matching how it looked when created — not the legacy fallback.
-            const spec = derivePreviewSpec(
-              {
-                slug: 'saved',
-                title: flowchart.title || 'Diagram',
-                shortDescription: '',
-                longDescription: '',
-                category: '',
-                categoryName: '',
-                tags: [],
-                keywords: [],
-                layout: isTree ? 'tree' : 'hub',
-                data: parsed,
-                faqs: [],
-                useCases: [],
-              } as Template,
-              '#6366f1'
-            );
-            setActivePreview(spec);
-          }
-        } catch (e) {
-          console.error('Failed to parse existing flowchart content');
-        }
+    if (!flowchart) return;
+    setCurrentTitle(flowchart.title || 'Untitled');
+    setTempTitle(flowchart.title || 'Untitled');
+    if (!flowchart.content) return;
+    try {
+      const parsed = JSON.parse(flowchart.content);
+      // v2 content wraps the base diagram + the user's element edits; older
+      // (v1) content is the raw diagram object itself.
+      const isV2 = parsed && parsed.v === 2 && parsed.diagram;
+      const diagram = isV2 ? parsed.diagram : parsed;
+      const isTree = diagram?.layout === 'tree' && diagram?.root;
+      const isHub = diagram?.center && diagram?.satellites;
+      if (!diagram || typeof diagram !== 'object' || !(isHub || isTree)) return;
+
+      setDiagramData(diagram);
+      if (isV2) {
+        // Restore the saved element edits and tell the edit-reset effect to skip
+        // the wipe it would otherwise run when activePreview changes below.
+        skipEditResetRef.current = true;
+        setAnimationType(parsed.mode || 'dots');
+        setPositionOverrides(parsed.positionOverrides || {});
+        setLabelOverrides(parsed.labelOverrides || {});
+        setIconOverrides(parsed.iconOverrides || {});
+        setDeletedKeys(parsed.deletedKeys || []);
       }
+      // Derive an animated spec so a reopened flowchart renders through
+      // AnimatedPreview + the shared icon registry (real brand/3D icons). Node
+      // keys are stable (center, sat-N), so the restored edits above re-apply.
+      const spec = derivePreviewSpec(
+        {
+          slug: 'saved',
+          title: flowchart.title || 'Diagram',
+          shortDescription: '',
+          longDescription: '',
+          category: '',
+          categoryName: '',
+          tags: [],
+          keywords: [],
+          layout: isTree ? 'tree' : 'hub',
+          data: diagram,
+          faqs: [],
+          useCases: [],
+        } as Template,
+        '#6366f1'
+      );
+      setActivePreview(spec);
+    } catch (e) {
+      console.error('Failed to parse existing flowchart content');
     }
   }, [flowchart]);
 
@@ -1098,11 +1252,33 @@ export default function FlowVizArchitect({
     }
   };
 
-  const saveFlowchart = async (dataToSave: any, customTitle?: string) => {
+  const saveFlowchart = async (
+    dataToSave: any,
+    customTitle?: string,
+    snapshot?: {
+      mode?: PreviewMode;
+      positionOverrides?: Record<string, { x: number; y: number }>;
+      labelOverrides?: Record<string, string>;
+      iconOverrides?: Record<string, IconOverride>;
+      deletedKeys?: string[];
+    }
+  ) => {
     if (!currentUser) return;
     setIsSaving(true);
     try {
-      const content = JSON.stringify(dataToSave);
+      // Persist the FULL editor state (base diagram + every element edit), so
+      // reopening restores exactly what the user last saw — not just the base
+      // diagram. `snapshot` lets callers pass post-update values that aren't yet
+      // reflected in this render's state (e.g. right after generate).
+      const content = JSON.stringify({
+        v: 2,
+        diagram: dataToSave,
+        mode: snapshot?.mode ?? animationType,
+        positionOverrides: snapshot?.positionOverrides ?? positionOverrides,
+        labelOverrides: snapshot?.labelOverrides ?? labelOverrides,
+        iconOverrides: snapshot?.iconOverrides ?? iconOverrides,
+        deletedKeys: snapshot?.deletedKeys ?? deletedKeys,
+      });
       const titleToSave =
         currentTitle !== 'Untitled'
           ? currentTitle
@@ -1187,7 +1363,15 @@ export default function FlowVizArchitect({
         setCurrentTitle(userPrompt);
         setTempTitle(userPrompt);
       }
-      saveFlowchart(result, userPrompt);
+      // A freshly generated diagram has no element edits yet — save with cleared
+      // overrides (this render's override state may still hold the prior diagram's).
+      saveFlowchart(result, userPrompt, {
+        mode: animationType,
+        positionOverrides: {},
+        labelOverrides: {},
+        iconOverrides: {},
+        deletedKeys: [],
+      });
     } catch (err: any) {
       setError('Failed to generate diagram.');
       toast.error(err.message || 'Failed to generate diagram');
@@ -1297,14 +1481,14 @@ export default function FlowVizArchitect({
       setTimeout(() => setShowExportAuth(true), 30);
       return;
     }
-    // Free plan: 1 export. (Soft, localStorage-based until Stripe + per-user
-    // server enforcement lands.)
+    // Free plan: limited exports (see plans.ts). Soft, localStorage-based until
+    // Stripe + per-user server enforcement lands.
     const exportsAllowed = PLAN_BY_ID[userPlan].limits.exports;
     if (typeof exportsAllowed === 'number') {
       const used = Number(localStorage.getItem('ig_free_exports') || '0');
       if (used >= exportsAllowed) {
         openUpgrade(
-          "You've used your free export. Upgrade for unlimited, watermark-free exports."
+          `You've used all ${exportsAllowed} free exports. Upgrade for unlimited, watermark-free exports.`
         );
         return;
       }
@@ -1318,7 +1502,49 @@ export default function FlowVizArchitect({
   };
 
   const handleManualSave = () => {
+    if (!currentUser) {
+      toast.error('Please sign in to save your work.');
+      return;
+    }
     saveFlowchart(diagramData);
+  };
+
+  // Use a custom logo for the selected element. Read it client-side as a data
+  // URL and embed it directly — no R2/storage upload, so it works in any
+  // environment (no "storage region not configured"), matches how the sidebar
+  // AI-vision image is handled, and stays same-origin so it doesn't taint the
+  // canvas during PNG/SVG export the way an external URL would.
+  const handleLogoUpload = async (file: File) => {
+    if (!selectedKey) return;
+    const key = selectedKey;
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error('Logo too large — please use an image under 2 MB.');
+      return;
+    }
+    setUploadingLogo(true);
+    try {
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = () => reject(new Error('Could not read the image'));
+        reader.readAsDataURL(file);
+      });
+      setIconOverrides((p) => ({
+        ...p,
+        [key]: { kind: 'image', url: dataUrl },
+      }));
+      toast.success('Logo added');
+    } catch (err: any) {
+      toast.error(err?.message || 'Could not add logo');
+    } finally {
+      setUploadingLogo(false);
+    }
+  };
+
+  const handleDeleteSelected = () => {
+    if (!selectedKey) return;
+    setDeletedKeys((d) => [...d, selectedKey]);
+    setSelectedKey(null);
   };
 
   if (flowchartId && flowchartLoading) {
@@ -1605,13 +1831,20 @@ export default function FlowVizArchitect({
             </Button>
           )}
 
-          <Button
-            size="sm"
-            className="ig-gradient text-xs gap-1.5 rounded-lg text-white shadow-[0_2px_10px_rgba(255,107,157,0.35)] hover:opacity-95"
-          >
-            <Sparkles className="h-3.5 w-3.5" />
-            Upgrade
-          </Button>
+          {userPlan !== 'max' && (
+            <Button
+              size="sm"
+              onClick={() =>
+                openUpgrade(
+                  'Unlock Pro — unlimited generations, watermark-free exports, and 2K/4K downloads.'
+                )
+              }
+              className="ig-gradient text-xs gap-1.5 rounded-lg text-white shadow-[0_2px_10px_rgba(255,107,157,0.35)] hover:opacity-95"
+            >
+              <Sparkles className="h-3.5 w-3.5" />
+              Upgrade
+            </Button>
+          )}
 
           {currentUser ? (
             <UserButton user={currentUser} />
@@ -1859,6 +2092,24 @@ export default function FlowVizArchitect({
 
         {/* Canvas Area */}
         <div className="flex-1 relative overflow-hidden bg-white">
+          <ElementInspector
+            node={selectedNode}
+            uploading={uploadingLogo}
+            onClose={() => setSelectedKey(null)}
+            onLabelChange={(label) =>
+              selectedKey &&
+              setLabelOverrides((p) => ({ ...p, [selectedKey]: label }))
+            }
+            onIconChange={(iconKey) =>
+              selectedKey &&
+              setIconOverrides((p) => ({
+                ...p,
+                [selectedKey]: { kind: 'key', key: iconKey },
+              }))
+            }
+            onUploadLogo={handleLogoUpload}
+            onDelete={handleDeleteSelected}
+          />
           {/* On-canvas brand watermark. Exports get their own watermark baked
               in by finaliseCanvas(), so this stays outside exportContainerRef
               to avoid doubling up in downloads. */}
@@ -1893,9 +2144,9 @@ export default function FlowVizArchitect({
                 className="w-full h-full flex items-center justify-center p-8"
               >
                 <div ref={canvasFrameRef} className="relative h-full w-full">
-                  {renderSpec ? (
+                  {editedSpec ? (
                     <AnimatedPreview
-                      {...(renderSpec as any)}
+                      {...(editedSpec as any)}
                       variant="canvas"
                       dims={canvasDims}
                       modeOverride={animationType}
@@ -1904,6 +2155,8 @@ export default function FlowVizArchitect({
                       speed={animationSpeed}
                       positionOverrides={positionOverrides}
                       labelOverrides={labelOverrides}
+                      selectedKey={selectedKey}
+                      onSelect={setSelectedKey}
                       onPositionChange={(key, x, y) =>
                         setPositionOverrides((p) => ({ ...p, [key]: { x, y } }))
                       }

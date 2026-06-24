@@ -179,8 +179,13 @@ const withNextIntl = createNextIntlPlugin();
  */
 export default withContentCollections(withNextIntl(nextConfig));
 
-// Add OpenNext Cloudflare development support
-if (process.env.NODE_ENV === 'development') {
+// OpenNext Cloudflare development support.
+// DISABLED: this project deploys to Vercel, not Cloudflare. Running the
+// Cloudflare dev proxy on every `next dev` boot broke client module loading in
+// dev (RSC "Cannot read properties of undefined (reading 'call')" on every
+// route). Re-enable only if you actually run the Workers/OpenNext dev runtime.
+const ENABLE_CLOUDFLARE_DEV = false;
+if (ENABLE_CLOUDFLARE_DEV && process.env.NODE_ENV === 'development') {
   import('@opennextjs/cloudflare')
     .then(({ initOpenNextCloudflareForDev }) => {
       initOpenNextCloudflareForDev();

@@ -52,10 +52,10 @@ FlowChart AI is built with modern, production-ready technologies:
 - **Styling**: Tailwind CSS 4, Radix UI components
 - **Canvas**: Excalidraw integration with Mermaid support
 - **AI**: OpenRouter API (supports multiple AI models)
-- **Database**: PostgreSQL with Drizzle ORM
-- **Authentication**: Better Auth (Google, GitHub OAuth)
-- **Payments**: Creem integration for subscriptions
-- **Storage**: Cloudflare R2 / AWS S3 compatible
+- **Database**: Google Firestore (Firebase Admin SDK)
+- **Authentication**: Firebase Authentication (Google sign-in)
+- **Payments**: Stripe integration for subscriptions
+- **Storage**: Firebase Cloud Storage
 - **Deployment**: Vercel, Cloudflare Workers, or self-hosted
 
 ## 🎯 Use Cases
@@ -76,10 +76,9 @@ FlowChart AI is perfect for:
 Before you begin, ensure you have:
 
 - **Node.js 18+** and **pnpm** installed
-- **PostgreSQL database** (local or cloud)
+- **Firebase project** with Firestore, Authentication (Google sign-in), and Cloud Storage enabled
 - **OpenRouter API key** for AI functionality
-- **Google/GitHub OAuth apps** for authentication
-- **Cloudflare R2** or **AWS S3** for file storage (optional)
+- **Firebase service account key** (Admin SDK) for server-side access
 
 ### 1. Clone and Install
 
@@ -102,24 +101,21 @@ cp .env.local.example .env.local
 Edit `.env.local` with your configuration:
 
 ```env
-# Database (Required)
-DATABASE_URL="postgresql://username:password@localhost:5432/flowchartai"
+# Firebase Admin SDK (Required) — Firestore + Auth + Storage.
+# Raw JSON or base64-encoded service-account key from Firebase Console
+# → Project settings → Service accounts.
+FIREBASE_SERVICE_ACCOUNT_KEY="<service-account-json-or-base64>"
+# Optional: defaults to <project-id>.appspot.com
+FIREBASE_STORAGE_BUCKET="your-project.appspot.com"
 
-# Authentication (Required)
-BETTER_AUTH_SECRET="your-random-secret-key"
-GOOGLE_CLIENT_ID="your-google-oauth-client-id"
-GOOGLE_CLIENT_SECRET="your-google-oauth-client-secret"
+# Firebase Web SDK (Required) — client config for Google sign-in
+NEXT_PUBLIC_FIREBASE_API_KEY="your-firebase-web-api-key"
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN="your-project.firebaseapp.com"
+NEXT_PUBLIC_FIREBASE_PROJECT_ID="your-project-id"
+NEXT_PUBLIC_FIREBASE_APP_ID="your-firebase-app-id"
 
 # AI Service (Required)
 OPENROUTER_API_KEY="your-openrouter-api-key"
-
-# Storage (Optional - for file uploads)
-STORAGE_REGION="auto"
-STORAGE_ENDPOINT="https://your-account.r2.cloudflarestorage.com"
-STORAGE_ACCESS_KEY_ID="your-r2-access-key"
-STORAGE_SECRET_ACCESS_KEY="your-r2-secret-key"
-STORAGE_BUCKET_NAME="flowchart-ai"
-STORAGE_PUBLIC_URL="https://cdn.yourdomain.com"
 
 # Email (Optional - for notifications)
 RESEND_API_KEY="your-resend-api-key"
@@ -130,16 +126,10 @@ NEXT_PUBLIC_BASE_URL="http://localhost:3000"
 
 ### 3. Database Setup
 
-```bash
-# Generate database schema
-pnpm db:generate
-
-# Run migrations
-pnpm db:migrate
-
-# (Optional) Open database studio
-pnpm db:studio
-```
+No migrations are needed — data is stored in Google Firestore, which is
+schema-less. Collections and document types are defined in `src/db/schema.ts`.
+Firestore is accessed server-side via the Firebase Admin SDK (`getDb()` in
+`src/db`); the deny-all `firestore.rules` blocks all direct client access.
 
 ### 4. Configure Services
 
@@ -319,13 +309,12 @@ git push origin feature/your-feature-name
 
 ### Common Issues
 
-#### Database Connection Issues
+#### Database / Firebase Issues
 ```bash
-# Check if PostgreSQL is running
-pg_isready
-
-# Verify connection string format
-DATABASE_URL="postgresql://username:password@host:port/database"
+# Most "database" errors are a bad FIREBASE_SERVICE_ACCOUNT_KEY.
+# It must be the full service-account JSON (raw or base64). Verify it parses:
+node -e "JSON.parse(Buffer.from(process.env.FIREBASE_SERVICE_ACCOUNT_KEY,'base64').toString()||process.env.FIREBASE_SERVICE_ACCOUNT_KEY)"
+# Also confirm Firestore is enabled for the project in the Firebase console.
 ```
 
 #### AI Generation Not Working
@@ -408,8 +397,7 @@ FlowChart AI is built on the shoulders of amazing open source projects:
 - **[Next.js](https://nextjs.org/)** - The React framework for production
 - **[Tailwind CSS](https://tailwindcss.com/)** - The utility-first CSS framework
 - **[Radix UI](https://www.radix-ui.com/)** - Low-level UI primitives
-- **[Drizzle ORM](https://orm.drizzle.team/)** - TypeScript ORM for SQL databases
-- **[Better Auth](https://www.better-auth.com/)** - Modern authentication library
+- **[Firebase](https://firebase.google.com/)** - Firestore database, Authentication, and Cloud Storage
 
 Special thanks to the [MkSaaS](https://mksaas.com) template that provided the foundation for this project.
 
