@@ -69,3 +69,7 @@ next-env.d.ts
 # Firebase service account keys (never commit)
 *firebase-adminsdk*.json
 serviceAccount*.json
+
+# logs
+*.log
+.env.local.bak

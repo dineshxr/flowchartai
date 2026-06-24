@@ -2,10 +2,10 @@
 
 import { LoginForm } from '@/components/auth/login-form';
 import { LoginWrapper } from '@/components/auth/login-wrapper';
+import { UpgradeDialog } from '@/components/pricing/upgrade-dialog';
 import { AIUsageLimitCard } from '@/components/shared/ai-usage-limit-card';
 import { GuestUsageIndicator } from '@/components/shared/guest-usage-indicator';
 import MarkdownRenderer from '@/components/shared/markdown-renderer';
-import { PricingModal } from '@/components/shared/pricing-modal';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -1654,25 +1654,17 @@ const AiChatSidebar: React.FC<AiChatSidebarProps> = ({
         </div>
       )}
 
-      {/* Pricing Modal */}
-      <PricingModal
-        isOpen={showPricingModal}
-        onClose={() => {
-          setShowPricingModal(false);
-          setDailyLimitUsageInfo(null); // Clear limit context
-          refreshUsageData(); // Refresh usage data when modal closes
+      {/* Upgrade prompt */}
+      <UpgradeDialog
+        open={showPricingModal}
+        onOpenChange={(o) => {
+          setShowPricingModal(o);
+          if (!o) {
+            setDailyLimitUsageInfo(null); // Clear limit context
+            refreshUsageData(); // Refresh usage data when dialog closes
+          }
         }}
-        limitContext={
-          dailyLimitUsageInfo
-            ? {
-                type: 'daily',
-                nextResetTime: dailyLimitUsageInfo.nextResetTime
-                  ? new Date(dailyLimitUsageInfo.nextResetTime)
-                  : undefined,
-                message: "You've used your free AI request for today",
-              }
-            : undefined
-        }
+        reason="You've used your free AI generations. Upgrade for more."
       />
     </div>
   );

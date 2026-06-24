@@ -14,8 +14,6 @@ export type WebsiteConfig = {
   mail: MailConfig;
   newsletter: NewsletterConfig;
   storage: StorageConfig;
-  payment: PaymentConfig;
-  price: PriceConfig;
 };
 
 /**
@@ -131,21 +129,7 @@ export interface NewsletterConfig {
  * Storage configuration
  */
 export interface StorageConfig {
-  provider: 's3';                    // The storage provider, only s3 is supported for now
-}
-
-/**
- * Payment configuration
- */
-export interface PaymentConfig {
-  provider: 'stripe' | 'creem';      // The payment provider, stripe and creem are supported
-}
-
-/**
- * Price configuration
- */
-export interface PriceConfig {
-  plans: Record<string, PricePlan>;  // Plans indexed by ID
+  provider: 's3' | 'firebase';       // The storage provider (Firebase Cloud Storage by default)
 }
 
 /**

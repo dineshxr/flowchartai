@@ -149,8 +149,61 @@ const SMIL_BAKE_PROPS = [
  * dots/arrows) — which getComputedStyle alone does NOT expose. Returns a
  * function that restores the original DOM.
  */
+const SVG_NS = 'http://www.w3.org/2000/svg';
+
+/** Parse a SMIL clock value ("2.6s", "300ms", "0.35s", "1.5") to seconds. */
+function parseClock(v: string | null): number {
+  if (!v) return 0;
+  const s = v.trim();
+  if (s.endsWith('ms')) return Number.parseFloat(s) / 1000;
+  if (s.endsWith('s')) return Number.parseFloat(s);
+  const n = Number.parseFloat(s);
+  return Number.isNaN(n) ? 0 : n;
+}
+
+/** Resolve the path data an <animateMotion> follows (its `path` attr or <mpath>). */
+function motionPathData(motion: Element, svg: SVGSVGElement): string | null {
+  const direct = motion.getAttribute('path');
+  if (direct) return direct;
+  const mpath = motion.querySelector('mpath');
+  const href =
+    mpath?.getAttribute('href') || mpath?.getAttribute('xlink:href') || '';
+  if (href.startsWith('#')) {
+    const ref = svg.querySelector(href);
+    return ref?.getAttribute('d') ?? null;
+  }
+  return null;
+}
+
+// Motion-path geometry is constant across frames (only the time changes), so
+// cache the measuring <path> + its length per `d` string. This avoids creating
+// + measuring a path for every animated element on every captured frame (dots =
+// 3 circles × N edges × ~51 GIF / ~82 MP4 frames), which would stall the export.
+// getTotalLength()/getPointAtLength() work on a detached path in Blink (the
+// export target), so the cached paths never touch the DOM.
+const motionGeoCache = new Map<string, { path: SVGPathElement; len: number }>();
+function motionGeometry(
+  d: string
+): { path: SVGPathElement; len: number } | null {
+  const cached = motionGeoCache.get(d);
+  if (cached) return cached;
+  try {
+    const path = document.createElementNS(SVG_NS, 'path');
+    path.setAttribute('d', d);
+    const len = path.getTotalLength();
+    if (!(len > 0)) return null;
+    const geo = { path, len };
+    motionGeoCache.set(d, geo);
+    return geo;
+  } catch {
+    return null;
+  }
+}
+
 function bakeSmilFrame(svg: SVGSVGElement): () => void {
   const restores: Array<() => void> = [];
+  const now =
+    typeof svg.getCurrentTime === 'function' ? svg.getCurrentTime() : 0;
   const targets = new Set<Element>();
   for (const a of svg.querySelectorAll(
     'animate, animateMotion, animateTransform'
@@ -159,29 +212,69 @@ function bakeSmilFrame(svg: SVGSVGElement): () => void {
   }
 
   for (const el of targets) {
-    // 1) Consolidated transform — captures animateMotion + animateTransform.
-    try {
-      const consolidated = (
-        el as SVGGraphicsElement
-      ).transform?.animVal?.consolidate?.();
-      if (consolidated) {
-        const m = consolidated.matrix;
-        const prev = el.getAttribute('transform');
-        el.setAttribute(
-          'transform',
-          `matrix(${m.a} ${m.b} ${m.c} ${m.d} ${m.e} ${m.f})`
-        );
-        restores.push(() =>
-          prev === null
-            ? el.removeAttribute('transform')
-            : el.setAttribute('transform', prev)
-        );
+    const motion = el.querySelector(':scope > animateMotion');
+    if (motion) {
+      // 1a) <animateMotion> — Chrome does NOT surface motion-path movement
+      // through transform.animVal.consolidate(), so compute the point on the
+      // path at the current SMIL time and bake a translate (+rotate). This is
+      // what makes the traveling dots/arrows/pulses actually move in exports.
+      const d = motionPathData(motion, svg);
+      const dur = parseClock(motion.getAttribute('dur'));
+      const begin = parseClock(motion.getAttribute('begin'));
+      const geo = d ? motionGeometry(d) : null;
+      // Bake only once the motion has begun; before `begin`, SMIL applies no
+      // motion transform (fill="remove"), so leaving the element at its base
+      // position matches the live preview exactly.
+      if (geo && dur > 0 && now >= begin) {
+        try {
+          const { path, len } = geo;
+          const frac = ((now - begin) % dur) / dur;
+          const at = frac * len;
+          const p = path.getPointAtLength(at);
+          let transform = `translate(${p.x},${p.y})`;
+          if (motion.getAttribute('rotate') === 'auto') {
+            const ahead = path.getPointAtLength(Math.min(len, at + 1));
+            const angle =
+              (Math.atan2(ahead.y - p.y, ahead.x - p.x) * 180) / Math.PI;
+            transform += ` rotate(${angle})`;
+          }
+          const prev = el.getAttribute('transform');
+          el.setAttribute('transform', transform);
+          restores.push(() =>
+            prev === null
+              ? el.removeAttribute('transform')
+              : el.setAttribute('transform', prev)
+          );
+        } catch {
+          // path math failed — skip motion baking for this element
+        }
       }
-    } catch {
-      // element has no transform interface — skip
+    } else {
+      // 1b) Consolidated transform — captures <animateTransform>.
+      try {
+        const consolidated = (
+          el as SVGGraphicsElement
+        ).transform?.animVal?.consolidate?.();
+        if (consolidated) {
+          const m = consolidated.matrix;
+          const prev = el.getAttribute('transform');
+          el.setAttribute(
+            'transform',
+            `matrix(${m.a} ${m.b} ${m.c} ${m.d} ${m.e} ${m.f})`
+          );
+          restores.push(() =>
+            prev === null
+              ? el.removeAttribute('transform')
+              : el.setAttribute('transform', prev)
+          );
+        }
+      } catch {
+        // element has no transform interface — skip
+      }
     }
 
-    // 2) Animated geometry / opacity / dash presentation values.
+    // 2) Animated geometry / opacity / dash presentation values (covers beams'
+    // dash-offset and pulses' r/opacity, which DO surface via computed style).
     const cs = getComputedStyle(el);
     const style = (el as HTMLElement).style;
     for (const prop of SMIL_BAKE_PROPS) {

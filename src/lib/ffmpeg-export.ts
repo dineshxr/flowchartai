@@ -63,11 +63,15 @@ export async function getFFmpeg(): Promise<FFmpeg> {
     loadPromise = (async () => {
       const FFmpegClass = await loadFFmpegClass();
       const instance = new FFmpegClass();
+      // IMPORTANT: do NOT pass `classWorkerURL`. The self-hosted ffmpeg.js spawns
+      // the worker as a *module* worker when classWorkerURL is set, but the UMD
+      // worker (public/ffmpeg/814.ffmpeg.js) loads the core via importScripts(),
+      // which doesn't exist in a module worker — it then falls back to a webpack
+      // stub and throws "Cannot find module 'blob:…'". Omitting classWorkerURL
+      // lets ffmpeg.js load 814.ffmpeg.js from its publicPath (/ffmpeg/) as a
+      // CLASSIC worker, where importScripts(coreURL) works. (publicPath is taken
+      // from the <script src="/ffmpeg/ffmpeg.js"> tag injected in loadFFmpegClass.)
       await instance.load({
-        classWorkerURL: await toBlobURL(
-          `${FFMPEG_BASE}/814.ffmpeg.js`,
-          'text/javascript'
-        ),
         coreURL: await toBlobURL(
           `${CORE_BASE}/ffmpeg-core.js`,
           'text/javascript'

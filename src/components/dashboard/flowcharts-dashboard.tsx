@@ -1,8 +1,8 @@
 'use client';
 
+import { UpgradeDialog } from '@/components/pricing/upgrade-dialog';
 import { AIUsageLimitCard } from '@/components/shared/ai-usage-limit-card';
 import { GuestUsageIndicator } from '@/components/shared/guest-usage-indicator';
-import { PricingModal } from '@/components/shared/pricing-modal';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -316,12 +316,12 @@ export function FlowchartsDashboard() {
         </div>
       )}
 
-      {/* Pricing Modal */}
-      <PricingModal
-        isOpen={showPricingModal}
-        onClose={() => {
-          setShowPricingModal(false);
-          refreshUsageData(); // Refresh usage data when modal closes
+      {/* Upgrade prompt */}
+      <UpgradeDialog
+        open={showPricingModal}
+        onOpenChange={(o) => {
+          setShowPricingModal(o);
+          if (!o) refreshUsageData(); // Refresh usage data when dialog closes
         }}
       />
     </div>

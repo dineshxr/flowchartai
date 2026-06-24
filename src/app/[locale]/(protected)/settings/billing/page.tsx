@@ -1,5 +1,7 @@
-import BillingCard from '@/components/settings/billing/billing-card';
+import { redirect } from 'next/navigation';
 
-export default function BillingPage() {
-  return <BillingCard />;
+// Billing lives on the dashboard now (Stripe-backed). Keep this legacy route
+// working by redirecting to it.
+export default function SettingsBillingPage() {
+  redirect('/dashboard/billing');
 }

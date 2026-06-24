@@ -11,7 +11,6 @@ import {
 import { getAvatarLinks } from '@/config/avatar-config';
 import { useLocaleRouter } from '@/i18n/navigation';
 import { authClient } from '@/lib/auth-client';
-import { usePaymentStore } from '@/stores/payment-store';
 
 // Minimal user shape returned by the auth client.
 interface User {
@@ -34,14 +33,11 @@ export function UserButton({ user }: UserButtonProps) {
   const avatarLinks = getAvatarLinks();
   const localeRouter = useLocaleRouter();
   const [open, setOpen] = useState(false);
-  const { resetState } = usePaymentStore();
 
   const handleSignOut = async () => {
     try {
       await authClient.signOut();
       console.log('sign out success');
-      // Reset payment state on sign out
-      resetState();
       localeRouter.replace('/');
     } catch (error: any) {
       console.error('sign out error:', error);

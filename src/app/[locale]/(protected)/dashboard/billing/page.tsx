@@ -34,12 +34,47 @@ export default async function BillingPage() {
   }
   const userId = session.user.id;
 
-  const [plan, sub, usage, invoices] = await Promise.all([
-    getUserPlan(userId),
-    getActiveSubscription(userId),
-    canUserUseAI(userId),
-    getInvoices(userId),
-  ]);
+  // These reads hit Postgres (and, for invoices, Stripe). A transient
+  // connection refusal here used to throw straight out of this force-dynamic
+  // server component, which surfaces in production as the opaque
+  // "An error occurred in the Server Components render … digest" error. Degrade
+  // gracefully instead so a one-off DB/upstream hiccup never crashes the route.
+  let plan: Awaited<ReturnType<typeof getUserPlan>>;
+  let sub: Awaited<ReturnType<typeof getActiveSubscription>>;
+  let usage: Awaited<ReturnType<typeof canUserUseAI>>;
+  let invoices: Awaited<ReturnType<typeof getInvoices>>;
+  try {
+    [plan, sub, usage, invoices] = await Promise.all([
+      getUserPlan(userId),
+      getActiveSubscription(userId),
+      canUserUseAI(userId),
+      getInvoices(userId),
+    ]);
+  } catch (err) {
+    console.error('[billing] failed to load billing data:', err);
+    return (
+      <div className="mx-auto w-full max-w-3xl px-4 py-8 md:px-6">
+        <h1 className="text-2xl font-bold tracking-tight">
+          Billing &amp; plan
+        </h1>
+        <div className="mt-6 rounded-2xl border border-border bg-card p-6">
+          <p className="text-sm font-semibold text-foreground">
+            Billing is temporarily unavailable
+          </p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            We couldn&apos;t load your plan and invoices right now. This is
+            usually a brief hiccup — please refresh in a moment.
+          </p>
+          <a
+            href="/dashboard/billing"
+            className="mt-4 inline-flex items-center rounded-xl bg-foreground px-4 py-2 text-sm font-medium text-background hover:bg-neutral-800"
+          >
+            Try again
+          </a>
+        </div>
+      </div>
+    );
+  }
 
   const meta = PLAN_BY_ID[plan];
   const isPaid = plan !== 'free';

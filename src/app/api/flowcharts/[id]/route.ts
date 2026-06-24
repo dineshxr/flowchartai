@@ -1,7 +1,6 @@
 import { getDb } from '@/db';
-import { flowcharts } from '@/db/schema';
+import { COLLECTIONS, type FlowchartDoc, tsToDate } from '@/db/schema';
 import { getSession } from '@/lib/server';
-import { and, eq } from 'drizzle-orm';
 import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 
@@ -27,14 +26,11 @@ export async function GET(
 
     try {
       const db = await getDb();
-      const [flowchart] = await db
-        .select()
-        .from(flowcharts)
-        .where(
-          and(eq(flowcharts.id, id), eq(flowcharts.userId, session.user.id))
-        );
+      const snap = await db.collection(COLLECTIONS.flowcharts).doc(id).get();
 
-      if (!flowchart) {
+      const flowchart = snap.exists ? (snap.data() as FlowchartDoc) : null;
+
+      if (!flowchart || flowchart.userId !== session.user.id) {
         return NextResponse.json(
           { error: 'Flowchart not found' },
           { status: 404 }
@@ -45,9 +41,9 @@ export async function GET(
         id: flowchart.id,
         title: flowchart.title,
         content: flowchart.content,
-        thumbnail: flowchart.thumbnail,
-        createdAt: flowchart.createdAt,
-        updatedAt: flowchart.updatedAt,
+        thumbnail: flowchart.thumbnail ?? null,
+        createdAt: tsToDate(flowchart.createdAt),
+        updatedAt: tsToDate(flowchart.updatedAt),
       });
     } catch (dbError) {
       console.warn(
@@ -92,16 +88,15 @@ export async function PUT(
 
     try {
       const db = await getDb();
+      const ref = db.collection(COLLECTIONS.flowcharts).doc(id);
 
       // Check if flowchart exists and belongs to user
-      const [existingFlowchart] = await db
-        .select({ id: flowcharts.id })
-        .from(flowcharts)
-        .where(
-          and(eq(flowcharts.id, id), eq(flowcharts.userId, session.user.id))
-        );
+      const snap = await ref.get();
+      const existingFlowchart = snap.exists
+        ? (snap.data() as FlowchartDoc)
+        : null;
 
-      if (!existingFlowchart) {
+      if (!existingFlowchart || existingFlowchart.userId !== session.user.id) {
         return NextResponse.json(
           { error: 'Flowchart not found' },
           { status: 404 }
@@ -109,7 +104,7 @@ export async function PUT(
       }
 
       // Update only provided fields
-      const updateData: any = {};
+      const updateData: Record<string, any> = {};
       if (validatedData.title !== undefined) {
         updateData.title = validatedData.title;
       }
@@ -121,7 +116,7 @@ export async function PUT(
       }
       updateData.updatedAt = new Date();
 
-      await db.update(flowcharts).set(updateData).where(eq(flowcharts.id, id));
+      await ref.update(updateData);
 
       return NextResponse.json({
         success: true,
@@ -170,23 +165,22 @@ export async function DELETE(
 
     try {
       const db = await getDb();
+      const ref = db.collection(COLLECTIONS.flowcharts).doc(id);
 
       // Check if flowchart exists and belongs to user
-      const [existingFlowchart] = await db
-        .select({ id: flowcharts.id })
-        .from(flowcharts)
-        .where(
-          and(eq(flowcharts.id, id), eq(flowcharts.userId, session.user.id))
-        );
+      const snap = await ref.get();
+      const existingFlowchart = snap.exists
+        ? (snap.data() as FlowchartDoc)
+        : null;
 
-      if (!existingFlowchart) {
+      if (!existingFlowchart || existingFlowchart.userId !== session.user.id) {
         return NextResponse.json(
           { error: 'Flowchart not found' },
           { status: 404 }
         );
       }
 
-      await db.delete(flowcharts).where(eq(flowcharts.id, id));
+      await ref.delete();
 
       return NextResponse.json({
         success: true,

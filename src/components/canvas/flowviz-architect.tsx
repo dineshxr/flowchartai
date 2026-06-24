@@ -1037,9 +1037,17 @@ export default function FlowVizArchitect({
     };
   }, [selectedKey, nodeIndex, labelOverrides]);
 
+  // When a saved flowchart is loaded we restore element edits, then set this so
+  // the effect below doesn't immediately wipe them on the activePreview swap.
+  const skipEditResetRef = useRef(false);
+
   // A new diagram (generate / template / load) clears element selection + edits.
   useEffect(() => {
     setSelectedKey(null);
+    if (skipEditResetRef.current) {
+      skipEditResetRef.current = false;
+      return;
+    }
     setIconOverrides({});
     setDeletedKeys([]);
   }, [activePreview]);
@@ -1053,42 +1061,54 @@ export default function FlowVizArchitect({
   const exportResumeTriggered = useRef(false);
 
   useEffect(() => {
-    if (flowchart) {
-      setCurrentTitle(flowchart.title || 'Untitled');
-      setTempTitle(flowchart.title || 'Untitled');
-      if (flowchart.content) {
-        try {
-          const parsed = JSON.parse(flowchart.content);
-          const isTree = parsed?.layout === 'tree' && parsed?.root;
-          const isHub = parsed?.center && parsed?.satellites;
-          if (parsed && typeof parsed === 'object' && (isHub || isTree)) {
-            setDiagramData(parsed);
-            // Derive an animated spec so a reopened flowchart renders through
-            // AnimatedPreview + the shared icon registry (real brand/3D icons),
-            // matching how it looked when created — not the legacy fallback.
-            const spec = derivePreviewSpec(
-              {
-                slug: 'saved',
-                title: flowchart.title || 'Diagram',
-                shortDescription: '',
-                longDescription: '',
-                category: '',
-                categoryName: '',
-                tags: [],
-                keywords: [],
-                layout: isTree ? 'tree' : 'hub',
-                data: parsed,
-                faqs: [],
-                useCases: [],
-              } as Template,
-              '#6366f1'
-            );
-            setActivePreview(spec);
-          }
-        } catch (e) {
-          console.error('Failed to parse existing flowchart content');
-        }
+    if (!flowchart) return;
+    setCurrentTitle(flowchart.title || 'Untitled');
+    setTempTitle(flowchart.title || 'Untitled');
+    if (!flowchart.content) return;
+    try {
+      const parsed = JSON.parse(flowchart.content);
+      // v2 content wraps the base diagram + the user's element edits; older
+      // (v1) content is the raw diagram object itself.
+      const isV2 = parsed && parsed.v === 2 && parsed.diagram;
+      const diagram = isV2 ? parsed.diagram : parsed;
+      const isTree = diagram?.layout === 'tree' && diagram?.root;
+      const isHub = diagram?.center && diagram?.satellites;
+      if (!diagram || typeof diagram !== 'object' || !(isHub || isTree)) return;
+
+      setDiagramData(diagram);
+      if (isV2) {
+        // Restore the saved element edits and tell the edit-reset effect to skip
+        // the wipe it would otherwise run when activePreview changes below.
+        skipEditResetRef.current = true;
+        setAnimationType(parsed.mode || 'dots');
+        setPositionOverrides(parsed.positionOverrides || {});
+        setLabelOverrides(parsed.labelOverrides || {});
+        setIconOverrides(parsed.iconOverrides || {});
+        setDeletedKeys(parsed.deletedKeys || []);
       }
+      // Derive an animated spec so a reopened flowchart renders through
+      // AnimatedPreview + the shared icon registry (real brand/3D icons). Node
+      // keys are stable (center, sat-N), so the restored edits above re-apply.
+      const spec = derivePreviewSpec(
+        {
+          slug: 'saved',
+          title: flowchart.title || 'Diagram',
+          shortDescription: '',
+          longDescription: '',
+          category: '',
+          categoryName: '',
+          tags: [],
+          keywords: [],
+          layout: isTree ? 'tree' : 'hub',
+          data: diagram,
+          faqs: [],
+          useCases: [],
+        } as Template,
+        '#6366f1'
+      );
+      setActivePreview(spec);
+    } catch (e) {
+      console.error('Failed to parse existing flowchart content');
     }
   }, [flowchart]);
 
@@ -1232,11 +1252,33 @@ export default function FlowVizArchitect({
     }
   };
 
-  const saveFlowchart = async (dataToSave: any, customTitle?: string) => {
+  const saveFlowchart = async (
+    dataToSave: any,
+    customTitle?: string,
+    snapshot?: {
+      mode?: PreviewMode;
+      positionOverrides?: Record<string, { x: number; y: number }>;
+      labelOverrides?: Record<string, string>;
+      iconOverrides?: Record<string, IconOverride>;
+      deletedKeys?: string[];
+    }
+  ) => {
     if (!currentUser) return;
     setIsSaving(true);
     try {
-      const content = JSON.stringify(dataToSave);
+      // Persist the FULL editor state (base diagram + every element edit), so
+      // reopening restores exactly what the user last saw — not just the base
+      // diagram. `snapshot` lets callers pass post-update values that aren't yet
+      // reflected in this render's state (e.g. right after generate).
+      const content = JSON.stringify({
+        v: 2,
+        diagram: dataToSave,
+        mode: snapshot?.mode ?? animationType,
+        positionOverrides: snapshot?.positionOverrides ?? positionOverrides,
+        labelOverrides: snapshot?.labelOverrides ?? labelOverrides,
+        iconOverrides: snapshot?.iconOverrides ?? iconOverrides,
+        deletedKeys: snapshot?.deletedKeys ?? deletedKeys,
+      });
       const titleToSave =
         currentTitle !== 'Untitled'
           ? currentTitle
@@ -1321,7 +1363,15 @@ export default function FlowVizArchitect({
         setCurrentTitle(userPrompt);
         setTempTitle(userPrompt);
       }
-      saveFlowchart(result, userPrompt);
+      // A freshly generated diagram has no element edits yet — save with cleared
+      // overrides (this render's override state may still hold the prior diagram's).
+      saveFlowchart(result, userPrompt, {
+        mode: animationType,
+        positionOverrides: {},
+        labelOverrides: {},
+        iconOverrides: {},
+        deletedKeys: [],
+      });
     } catch (err: any) {
       setError('Failed to generate diagram.');
       toast.error(err.message || 'Failed to generate diagram');
@@ -1431,14 +1481,14 @@ export default function FlowVizArchitect({
       setTimeout(() => setShowExportAuth(true), 30);
       return;
     }
-    // Free plan: 1 export. (Soft, localStorage-based until Stripe + per-user
-    // server enforcement lands.)
+    // Free plan: limited exports (see plans.ts). Soft, localStorage-based until
+    // Stripe + per-user server enforcement lands.
     const exportsAllowed = PLAN_BY_ID[userPlan].limits.exports;
     if (typeof exportsAllowed === 'number') {
       const used = Number(localStorage.getItem('ig_free_exports') || '0');
       if (used >= exportsAllowed) {
         openUpgrade(
-          "You've used your free export. Upgrade for unlimited, watermark-free exports."
+          `You've used all ${exportsAllowed} free exports. Upgrade for unlimited, watermark-free exports.`
         );
         return;
       }

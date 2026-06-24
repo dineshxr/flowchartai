@@ -1,7 +1,6 @@
 'use client';
 
 import { ActiveThemeProvider } from '@/components/layout/active-theme-provider';
-import { PaymentProvider } from '@/components/layout/payment-provider';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { websiteConfig } from '@/config/website';
 import { RootProvider } from 'fumadocs-ui/provider';
@@ -17,7 +16,6 @@ import type { PropsWithChildren } from 'react';
  * - ActiveThemeProvider: Provides the active theme to the app.
  * - RootProvider: Provides the root provider for Fumadocs UI.
  * - TooltipProvider: Provides the tooltip to the app.
- * - PaymentProvider: Provides the payment state to the app.
  */
 export function Providers({ children }: PropsWithChildren) {
   const theme = useTheme();
@@ -32,9 +30,7 @@ export function Providers({ children }: PropsWithChildren) {
     >
       <ActiveThemeProvider>
         <RootProvider theme={theme}>
-          <TooltipProvider>
-            <PaymentProvider>{children}</PaymentProvider>
-          </TooltipProvider>
+          <TooltipProvider>{children}</TooltipProvider>
         </RootProvider>
       </ActiveThemeProvider>
     </ThemeProvider>

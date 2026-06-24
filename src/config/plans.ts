@@ -53,13 +53,13 @@ export const PLANS: Plan[] = [
     limits: {
       aiGenerations: 5,
       aiPeriod: 'lifetime',
-      exports: 1,
+      exports: 5,
       watermark: true,
       maxResolution: '1080p',
     },
     features: [
       '5 AI generations (lifetime)',
-      '1 export',
+      '5 exports',
       'All 98 templates & the full editor',
       'PNG, SVG, GIF & MP4 export',
       '1080p resolution',

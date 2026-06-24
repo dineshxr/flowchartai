@@ -1,7 +1,6 @@
 import { createHash } from 'crypto';
 import { getDb } from '@/db';
-import { guestUsage } from '@/db/schema';
-import { and, eq, gte, lt, sql } from 'drizzle-orm';
+import { COLLECTIONS, type GuestUsageDoc, tsToDate } from '@/db/schema';
 
 // Hash IP address for privacy and storage efficiency
 function hashIP(ip: string): string {
@@ -36,23 +35,26 @@ export async function canGuestUseAI(request: Request): Promise<{
   lastUsed?: Date;
 }> {
   try {
-    const db = await getDb();
+    const db = getDb();
     const ip = getClientIP(request);
     const ipHash = hashIP(ip);
 
     // Check for any successful usage (since records are auto-deleted after 30 days,
     // this effectively creates a monthly limit without manual reset)
-    const existingUsage = await db
-      .select()
-      .from(guestUsage)
-      .where(and(eq(guestUsage.ipHash, ipHash), eq(guestUsage.success, true)))
-      .limit(1);
+    const qs = await db
+      .collection(COLLECTIONS.guestUsage)
+      .where('ipHash', '==', ipHash)
+      .get();
+
+    const existingUsage = qs.docs
+      .map((d) => d.data() as GuestUsageDoc)
+      .filter((u) => u.success === true);
 
     if (existingUsage.length > 0) {
       return {
         canUse: false,
         reason: 'Already used free AI request this month',
-        lastUsed: existingUsage[0].createdAt,
+        lastUsed: tsToDate(existingUsage[0].createdAt) ?? undefined,
       };
     }
 
@@ -71,7 +73,7 @@ export async function recordGuestAIUsage(
   success = true
 ): Promise<void> {
   try {
-    const db = await getDb();
+    const db = getDb();
     const ip = getClientIP(request);
     const ipHash = hashIP(ip);
     const userAgent = request.headers.get('user-agent') || '';
@@ -79,19 +81,30 @@ export async function recordGuestAIUsage(
     // Generate a unique ID for this usage record
     const usageId = `guest_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
-    await db.insert(guestUsage).values({
+    const usageDoc: GuestUsageDoc = {
       id: usageId,
       ipHash,
       type,
       userAgent: userAgent.slice(0, 500), // Limit user agent length
       success,
       createdAt: new Date(),
-    });
+    };
+
+    await db.collection(COLLECTIONS.guestUsage).doc(usageId).set(usageDoc);
 
     // Clean up old records (older than 30 days) to keep database size manageable
     // This also serves as the monthly reset mechanism
     const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-    await db.delete(guestUsage).where(lt(guestUsage.createdAt, thirtyDaysAgo));
+    const staleSnap = await db
+      .collection(COLLECTIONS.guestUsage)
+      .where('createdAt', '<', thirtyDaysAgo)
+      .get();
+
+    if (!staleSnap.empty) {
+      const batch = db.batch();
+      staleSnap.docs.forEach((d) => batch.delete(d.ref));
+      await batch.commit();
+    }
   } catch (error) {
     console.error('Error recording guest AI usage:', error);
     // Don't throw error - we don't want to block the AI request if logging fails
@@ -105,24 +118,23 @@ export async function getGuestUsageStats(): Promise<{
   uniqueIPs: number;
 }> {
   try {
-    const db = await getDb();
+    const db = getDb();
     const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
 
-    const [totalResult, monthlyResult, uniqueIPsResult] = await Promise.all([
-      db.select({ count: sql<number>`count(*)` }).from(guestUsage),
-      db
-        .select({ count: sql<number>`count(*)` })
-        .from(guestUsage)
-        .where(gte(guestUsage.createdAt, thirtyDaysAgo)),
-      db
-        .select({ count: sql<number>`count(distinct ${guestUsage.ipHash})` })
-        .from(guestUsage),
-    ]);
+    const qs = await db.collection(COLLECTIONS.guestUsage).limit(5000).get();
+    const rows = qs.docs.map((d) => d.data() as GuestUsageDoc);
+
+    const totalUsage = rows.length;
+    const monthlyUsage = rows.filter((r) => {
+      const created = tsToDate(r.createdAt);
+      return created !== null && created >= thirtyDaysAgo;
+    }).length;
+    const uniqueIPs = new Set(rows.map((r) => r.ipHash)).size;
 
     return {
-      totalUsage: totalResult[0]?.count || 0,
-      monthlyUsage: monthlyResult[0]?.count || 0,
-      uniqueIPs: uniqueIPsResult[0]?.count || 0,
+      totalUsage,
+      monthlyUsage,
+      uniqueIPs,
     };
   } catch (error) {
     console.error('Error getting guest usage stats:', error);
