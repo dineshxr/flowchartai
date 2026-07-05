@@ -165,12 +165,13 @@ export const footerColumns: FooterColumn[] = [
   {
     heading: 'Product',
     links: [
+      { label: 'AI Infographics', href: '/canvas' },
+      { label: 'Text to Visuals', href: '/canvas?tab=text' },
       { label: 'Infographic Maker', href: '/infographic-maker' },
       { label: 'Free Infographic Maker', href: '/free-infographic-maker' },
       { label: 'Infographic Video Maker', href: '/infographic-video-maker' },
       { label: 'Templates', href: '/templates' },
       { label: 'Pricing', href: '/pricing' },
-      { label: 'Canvas', href: '/canvas' },
     ],
   },
   {
