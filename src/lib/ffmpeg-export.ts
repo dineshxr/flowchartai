@@ -88,20 +88,41 @@ export async function getFFmpeg(): Promise<FFmpeg> {
   return loadPromise;
 }
 
-function frameName(i: number) {
-  return `f${String(i).padStart(4, '0')}.png`;
+/**
+ * Cancel support: terminate the worker mid-encode and drop the singletons so
+ * the next export lazily boots a fresh instance.
+ */
+export function resetFFmpeg() {
+  try {
+    ffmpeg?.terminate();
+  } catch {
+    // already dead
+  }
+  ffmpeg = null;
+  loadPromise = null;
 }
 
-async function writeFrames(ff: FFmpeg, frames: Blob[]) {
+type FrameExt = 'png' | 'jpg';
+
+function frameName(i: number, ext: FrameExt = 'png') {
+  return `f${String(i).padStart(4, '0')}.${ext}`;
+}
+
+async function writeFrames(ff: FFmpeg, frames: Blob[], ext: FrameExt = 'png') {
   for (let i = 0; i < frames.length; i++) {
-    await ff.writeFile(frameName(i), await fileData(frames[i]));
+    await ff.writeFile(frameName(i, ext), await fileData(frames[i]));
   }
 }
 
-async function cleanup(ff: FFmpeg, count: number, extra: string[]) {
+async function cleanup(
+  ff: FFmpeg,
+  count: number,
+  extra: string[],
+  ext: FrameExt = 'png'
+) {
   for (let i = 0; i < count; i++) {
     try {
-      await ff.deleteFile(frameName(i));
+      await ff.deleteFile(frameName(i, ext));
     } catch {
       // ignore
     }
@@ -159,16 +180,20 @@ export async function encodeGif(frames: Blob[], fps: number): Promise<Blob> {
  * Encode PNG frames into an H.264 MP4 (yuv420p + faststart) — broadly playable
  * across browsers, players, and social platforms.
  */
-export async function encodeMp4(frames: Blob[], fps: number): Promise<Blob> {
+export async function encodeMp4(
+  frames: Blob[],
+  fps: number,
+  ext: 'png' | 'jpg' = 'png'
+): Promise<Blob> {
   const ff = await getFFmpeg();
   const f = Math.max(1, Math.round(fps));
-  await writeFrames(ff, frames);
+  await writeFrames(ff, frames, ext);
   try {
     await ff.exec([
       '-framerate',
       String(f),
       '-i',
-      'f%04d.png',
+      `f%04d.${ext}`,
       // even dimensions required by yuv420p; force a standard pixel format
       '-vf',
       'pad=ceil(iw/2)*2:ceil(ih/2)*2,format=yuv420p',
@@ -186,6 +211,6 @@ export async function encodeMp4(frames: Blob[], fps: number): Promise<Blob> {
     const data = await ff.readFile('out.mp4');
     return new Blob([data as Uint8Array], { type: 'video/mp4' });
   } finally {
-    await cleanup(ff, frames.length, ['out.mp4']);
+    await cleanup(ff, frames.length, ['out.mp4'], ext);
   }
 }
