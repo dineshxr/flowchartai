@@ -4,8 +4,21 @@
 // EXPORT_PRESETS from here — and @ffmpeg's `new Worker(new URL(...))` can't be
 // resolved by `next dev`, which crashed every route. Loading it on demand keeps
 // it out of page bundles entirely until the user actually exports a GIF/MP4.
+//
+// GIF/MP4 exports stream frames straight into the encoder from a layered
+// off-screen capture (see @/lib/export-frames): the live diagram never pauses,
+// per-frame cost is a small SVG rasterization instead of a full DOM capture,
+// memory stays flat (one reused composite + target canvas), and the frame
+// window is the animation's real SMIL loop period, so exports loop seamlessly.
+// MP4 uses hardware WebCodecs H.264 when available (@/lib/webcodecs-export)
+// and falls back to ffmpeg.wasm otherwise.
+import {
+  type SmilTiming,
+  analyzeSmilTiming,
+  createSmilFrameSource,
+} from '@/lib/export-frames';
 import { domToCanvas, domToDataUrl } from 'modern-screenshot';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { toast } from 'sonner';
 
 // ─── size presets ─────────────────────────────────────────────────────────────
@@ -82,16 +95,12 @@ const DEFAULT_EXPORT_OPTIONS: ExportOptions = {
   watermark: true,
 };
 
-function finaliseCanvas(
+/** Contain-fit `source` onto `target` on white, then stamp the watermark. */
+function finaliseInto(
+  target: HTMLCanvasElement,
   source: HTMLCanvasElement,
-  preset: ExportPreset,
-  opts: ExportOptions = DEFAULT_EXPORT_OPTIONS
-): HTMLCanvasElement {
-  const p = EXPORT_PRESETS[preset];
-  const res = Math.max(1, opts.resolutionScale || 1);
-  const target = document.createElement('canvas');
-  target.width = Math.round((p.w ?? source.width) * res);
-  target.height = Math.round((p.h ?? source.height) * res);
+  opts: ExportOptions
+) {
   const ctx = target.getContext('2d')!;
   ctx.fillStyle = '#ffffff';
   ctx.fillRect(0, 0, target.width, target.height);
@@ -111,6 +120,38 @@ function finaliseCanvas(
     dh
   );
   if (opts.watermark) drawWatermark(ctx, target.width, target.height);
+}
+
+/** Target pixel size for a preset (original = 2× the source, like before). */
+function targetSize(
+  preset: ExportPreset,
+  sourceW: number,
+  sourceH: number,
+  opts: ExportOptions,
+  evenDims = false
+): { w: number; h: number } {
+  const p = EXPORT_PRESETS[preset];
+  const res = Math.max(1, opts.resolutionScale || 1);
+  let w = Math.round((p.w ?? sourceW) * res);
+  let h = Math.round((p.h ?? sourceH) * res);
+  if (evenDims) {
+    // yuv420 (H.264) requires even dimensions.
+    w -= w % 2;
+    h -= h % 2;
+  }
+  return { w: Math.max(2, w), h: Math.max(2, h) };
+}
+
+function finaliseCanvas(
+  source: HTMLCanvasElement,
+  preset: ExportPreset,
+  opts: ExportOptions = DEFAULT_EXPORT_OPTIONS
+): HTMLCanvasElement {
+  const { w, h } = targetSize(preset, source.width, source.height, opts);
+  const target = document.createElement('canvas');
+  target.width = w;
+  target.height = h;
+  finaliseInto(target, source, opts);
   return target;
 }
 
@@ -124,183 +165,77 @@ async function capture(el: HTMLElement, scale = 2): Promise<HTMLCanvasElement> {
   });
 }
 
-// CSS/geometry presentation values driven by SMIL <animate> that we bake onto
-// the target element so the serialised DOM clone reflects the paused frame.
-const SMIL_BAKE_PROPS = [
-  'opacity',
-  'fill-opacity',
-  'stroke-opacity',
-  'stroke-dashoffset',
-  'stroke-dasharray',
-  'r',
-  'cx',
-  'cy',
-  'x',
-  'y',
-  'width',
-  'height',
-];
-
-/**
- * Bake the CURRENT SMIL presentation state of an SVG (after pauseAnimations +
- * setCurrentTime) directly onto the animated elements, so a DOM-to-canvas clone
- * renders the exact paused frame. Crucially this includes the consolidated
- * transform produced by <animateMotion>/<animateTransform> (the traveling
- * dots/arrows) — which getComputedStyle alone does NOT expose. Returns a
- * function that restores the original DOM.
- */
-const SVG_NS = 'http://www.w3.org/2000/svg';
-
-/** Parse a SMIL clock value ("2.6s", "300ms", "0.35s", "1.5") to seconds. */
-function parseClock(v: string | null): number {
-  if (!v) return 0;
-  const s = v.trim();
-  if (s.endsWith('ms')) return Number.parseFloat(s) / 1000;
-  if (s.endsWith('s')) return Number.parseFloat(s);
-  const n = Number.parseFloat(s);
-  return Number.isNaN(n) ? 0 : n;
+function canvasToBlob(
+  canvas: HTMLCanvasElement,
+  type: string,
+  quality?: number
+): Promise<Blob> {
+  return new Promise<Blob>((resolve, reject) =>
+    canvas.toBlob(
+      (b) => (b ? resolve(b) : reject(new Error('toBlob failed'))),
+      type,
+      quality
+    )
+  );
 }
 
-/** Resolve the path data an <animateMotion> follows (its `path` attr or <mpath>). */
-function motionPathData(motion: Element, svg: SVGSVGElement): string | null {
-  const direct = motion.getAttribute('path');
-  if (direct) return direct;
-  const mpath = motion.querySelector('mpath');
-  const href =
-    mpath?.getAttribute('href') || mpath?.getAttribute('xlink:href') || '';
-  if (href.startsWith('#')) {
-    const ref = svg.querySelector(href);
-    return ref?.getAttribute('d') ?? null;
-  }
-  return null;
+const abortError = () => new DOMException('Export canceled', 'AbortError');
+
+const isAbort = (err: unknown) =>
+  err instanceof DOMException && err.name === 'AbortError';
+
+// ─── frame planning ───────────────────────────────────────────────────────────
+
+// Legacy window for diagrams without a detectable SMIL loop.
+const FALLBACK_DURATION = 3.4;
+const GIF_FPS = 15;
+const MP4_FPS = 30;
+
+interface FramePlan {
+  fps: number;
+  /** Frames in one seamless loop. */
+  perLoop: number;
+  /** Total frames to emit (loop repeated so MP4s aren't too short for social). */
+  total: number;
+  /** SMIL time of frame 0. */
+  leadIn: number;
 }
 
-// Motion-path geometry is constant across frames (only the time changes), so
-// cache the measuring <path> + its length per `d` string. This avoids creating
-// + measuring a path for every animated element on every captured frame (dots =
-// 3 circles × N edges × ~51 GIF / ~82 MP4 frames), which would stall the export.
-// getTotalLength()/getPointAtLength() work on a detached path in Blink (the
-// export target), so the cached paths never touch the DOM.
-const motionGeoCache = new Map<string, { path: SVGPathElement; len: number }>();
-function motionGeometry(
-  d: string
-): { path: SVGPathElement; len: number } | null {
-  const cached = motionGeoCache.get(d);
-  if (cached) return cached;
-  try {
-    const path = document.createElementNS(SVG_NS, 'path');
-    path.setAttribute('d', d);
-    const len = path.getTotalLength();
-    if (!(len > 0)) return null;
-    const geo = { path, len };
-    motionGeoCache.set(d, geo);
-    return geo;
-  } catch {
-    return null;
-  }
-}
-
-function bakeSmilFrame(svg: SVGSVGElement): () => void {
-  const restores: Array<() => void> = [];
-  const now =
-    typeof svg.getCurrentTime === 'function' ? svg.getCurrentTime() : 0;
-  const targets = new Set<Element>();
-  for (const a of svg.querySelectorAll(
-    'animate, animateMotion, animateTransform'
-  )) {
-    if (a.parentElement) targets.add(a.parentElement);
-  }
-
-  for (const el of targets) {
-    const motion = el.querySelector(':scope > animateMotion');
-    if (motion) {
-      // 1a) <animateMotion> — Chrome does NOT surface motion-path movement
-      // through transform.animVal.consolidate(), so compute the point on the
-      // path at the current SMIL time and bake a translate (+rotate). This is
-      // what makes the traveling dots/arrows/pulses actually move in exports.
-      const d = motionPathData(motion, svg);
-      const dur = parseClock(motion.getAttribute('dur'));
-      const begin = parseClock(motion.getAttribute('begin'));
-      const geo = d ? motionGeometry(d) : null;
-      // Bake only once the motion has begun; before `begin`, SMIL applies no
-      // motion transform (fill="remove"), so leaving the element at its base
-      // position matches the live preview exactly.
-      if (geo && dur > 0 && now >= begin) {
-        try {
-          const { path, len } = geo;
-          const frac = ((now - begin) % dur) / dur;
-          const at = frac * len;
-          const p = path.getPointAtLength(at);
-          let transform = `translate(${p.x},${p.y})`;
-          if (motion.getAttribute('rotate') === 'auto') {
-            const ahead = path.getPointAtLength(Math.min(len, at + 1));
-            const angle =
-              (Math.atan2(ahead.y - p.y, ahead.x - p.x) * 180) / Math.PI;
-            transform += ` rotate(${angle})`;
-          }
-          const prev = el.getAttribute('transform');
-          el.setAttribute('transform', transform);
-          restores.push(() =>
-            prev === null
-              ? el.removeAttribute('transform')
-              : el.setAttribute('transform', prev)
-          );
-        } catch {
-          // path math failed — skip motion baking for this element
-        }
-      }
-    } else {
-      // 1b) Consolidated transform — captures <animateTransform>.
-      try {
-        const consolidated = (
-          el as SVGGraphicsElement
-        ).transform?.animVal?.consolidate?.();
-        if (consolidated) {
-          const m = consolidated.matrix;
-          const prev = el.getAttribute('transform');
-          el.setAttribute(
-            'transform',
-            `matrix(${m.a} ${m.b} ${m.c} ${m.d} ${m.e} ${m.f})`
-          );
-          restores.push(() =>
-            prev === null
-              ? el.removeAttribute('transform')
-              : el.setAttribute('transform', prev)
-          );
-        }
-      } catch {
-        // element has no transform interface — skip
-      }
-    }
-
-    // 2) Animated geometry / opacity / dash presentation values (covers beams'
-    // dash-offset and pulses' r/opacity, which DO surface via computed style).
-    const cs = getComputedStyle(el);
-    const style = (el as HTMLElement).style;
-    for (const prop of SMIL_BAKE_PROPS) {
-      const val = cs.getPropertyValue(prop);
-      if (val && val !== '' && val !== 'none') {
-        const prev = style.getPropertyValue(prop);
-        style.setProperty(prop, val);
-        restores.push(() =>
-          prev ? style.setProperty(prop, prev) : style.removeProperty(prop)
-        );
-      }
-    }
-  }
-
-  return () => {
-    for (const r of restores) r();
-  };
+function planFrames(timing: SmilTiming, format: 'gif' | 'mp4'): FramePlan {
+  const fps = format === 'gif' ? GIF_FPS : MP4_FPS;
+  // Clamp so extreme speed-slider values can't produce absurd captures.
+  const period = Math.min(8, Math.max(0.8, timing.period));
+  const perLoop = Math.max(2, Math.round(period * fps));
+  // Social platforms treat sub-3s videos poorly — repeat the seamless loop.
+  // GIFs loop natively, so one cycle is enough (and keeps files small).
+  const cycles =
+    format === 'mp4' ? Math.min(4, Math.max(1, Math.ceil(3 / period))) : 1;
+  return { fps, perLoop, total: perLoop * cycles, leadIn: timing.leadIn };
 }
 
 // ─── hook ────────────────────────────────────────────────────────────────────
+
+export type ExportStage =
+  | 'idle'
+  | 'preparing'
+  | 'rendering'
+  | 'encoding'
+  | 'finalizing';
 
 export function useFlowchartExport(
   containerRef: React.RefObject<HTMLDivElement | null>
 ) {
   const [isExporting, setIsExporting] = useState(false);
   const [exportProgress, setExportProgress] = useState(0);
+  const [exportStage, setExportStage] = useState<ExportStage>('idle');
+  const abortRef = useRef<AbortController | null>(null);
+  const busyRef = useRef(false);
+
+  const cancelExport = () => abortRef.current?.abort();
+
+  const throwIfAborted = () => {
+    if (abortRef.current?.signal.aborted) throw abortError();
+  };
 
   const download = (data: string | Blob, filename: string) => {
     const a = document.createElement('a');
@@ -318,8 +253,10 @@ export function useFlowchartExport(
     preset: ExportPreset = 'original',
     opts: ExportOptions = DEFAULT_EXPORT_OPTIONS
   ) => {
-    if (!containerRef.current) return;
+    if (!containerRef.current || busyRef.current) return;
+    busyRef.current = true;
     setIsExporting(true);
+    setExportStage('rendering');
     setExportProgress(20);
     try {
       const raw = await capture(
@@ -334,7 +271,9 @@ export function useFlowchartExport(
       console.error('[export:png]', err);
       toast.error('Failed to export PNG');
     } finally {
+      busyRef.current = false;
       setIsExporting(false);
+      setExportStage('idle');
       setExportProgress(0);
     }
   };
@@ -346,8 +285,10 @@ export function useFlowchartExport(
     preset: ExportPreset = 'original',
     opts: ExportOptions = DEFAULT_EXPORT_OPTIONS
   ) => {
-    if (!containerRef.current) return;
+    if (!containerRef.current || busyRef.current) return;
+    busyRef.current = true;
     setIsExporting(true);
+    setExportStage('rendering');
     setExportProgress(40);
     try {
       const dataUrl = await domToDataUrl(containerRef.current, {
@@ -381,69 +322,91 @@ export function useFlowchartExport(
       console.error('[export:svg]', err);
       toast.error('Failed to export SVG');
     } finally {
+      busyRef.current = false;
       setIsExporting(false);
+      setExportStage('idle');
       setExportProgress(0);
     }
   };
 
-  // ── Frame capture ───────────────────────────────────────────────────────────
-  // Returns the animation as an array of canvases plus the fps to play them
-  // back at. SMIL animations are seeked deterministically (exact, smooth);
-  // framer-motion / CSS animations are grabbed in real time (their values live
-  // on inline styles, so a plain capture reflects the current frame).
+  // ── Streaming animated export (GIF / MP4) ───────────────────────────────────
+  //
+  // One pipeline for both formats:
+  //   frame source (layered SMIL capture, or realtime fallback)
+  //     → finalise into a single reused target canvas (preset + watermark)
+  //       → sink (WebCodecs encoder, or PNG/JPEG blobs for ffmpeg.wasm)
+  //
+  // `onFrame` receives the finalised target canvas for every frame, in order.
 
-  const captureFrames = async (
-    fps: number,
-    durationSecs: number
-  ): Promise<{ frames: HTMLCanvasElement[]; fps: number }> => {
-    if (!containerRef.current) return { frames: [], fps };
-    const container = containerRef.current;
-    const svg = container.querySelector('svg') as SVGSVGElement | null;
+  const streamFrames = async (
+    format: 'gif' | 'mp4',
+    preset: ExportPreset,
+    opts: ExportOptions,
+    renderProgressEnd: number,
+    onFrame: (
+      target: HTMLCanvasElement,
+      index: number,
+      total: number
+    ) => Promise<void>
+  ): Promise<{ fps: number }> => {
+    const container = containerRef.current!;
+    const timing = analyzeSmilTiming(container);
 
-    const hasSmil =
-      !!svg &&
-      svg.querySelectorAll('animate, animateMotion, animateTransform').length >
-        0;
-    const canSeek =
-      hasSmil &&
-      typeof svg!.pauseAnimations === 'function' &&
-      typeof svg!.setCurrentTime === 'function' &&
-      typeof svg!.unpauseAnimations === 'function';
-
-    const total = Math.max(1, Math.round(fps * durationSecs));
-    const frames: HTMLCanvasElement[] = [];
-
-    if (canSeek) {
-      svg!.pauseAnimations();
+    if (timing.seekable) {
+      const plan = planFrames(timing, format);
+      const rect = container.getBoundingClientRect();
+      const { w, h } = targetSize(
+        preset,
+        rect.width * 2,
+        rect.height * 2,
+        opts,
+        format === 'mp4'
+      );
+      // Rasterize the composite at exactly the scale the target needs — the
+      // SVG layer is vector, so high-res exports stay crisp.
+      const fitScale = Math.min(w / rect.width, h / rect.height);
+      const source = await createSmilFrameSource(container, fitScale);
       try {
-        for (let i = 0; i < total; i++) {
-          svg!.setCurrentTime(i / fps);
-          await raf();
-          await raf();
-          const restore = bakeSmilFrame(svg!);
-          try {
-            frames.push(await capture(container, 2));
-          } finally {
-            restore();
-          }
-          setExportProgress(Math.round(((i + 1) / total) * 45));
+        const composite = document.createElement('canvas');
+        composite.width = source.width;
+        composite.height = source.height;
+        const compCtx = composite.getContext('2d')!;
+        const target = document.createElement('canvas');
+        target.width = w;
+        target.height = h;
+
+        setExportStage('rendering');
+        for (let i = 0; i < plan.total; i++) {
+          throwIfAborted();
+          // Sample one seamless loop; later cycles reuse the same times.
+          const t = plan.leadIn + (i % plan.perLoop) / plan.fps;
+          await source.drawFrameAt(t, compCtx);
+          finaliseInto(target, composite, opts);
+          await onFrame(target, i, plan.total);
+          setExportProgress(
+            2 + Math.round(((i + 1) / plan.total) * (renderProgressEnd - 2))
+          );
         }
+        return { fps: plan.fps };
       } finally {
-        try {
-          svg!.unpauseAnimations();
-        } catch {
-          // ignore
-        }
+        source.dispose();
       }
-      return { frames, fps };
     }
 
-    // Real-time capture (framer-motion / CSS). Grab as fast as possible and
-    // measure the true fps so playback speed matches the live animation.
+    // Realtime fallback (no seekable SMIL — CSS/framer-motion diagrams): grab
+    // live captures as fast as possible and measure the true fps so playback
+    // speed matches the live animation.
+    const fps = format === 'gif' ? GIF_FPS : 24;
+    const total = Math.max(1, Math.round(fps * FALLBACK_DURATION));
+    setExportStage('rendering');
     const start = performance.now();
+    const raws: HTMLCanvasElement[] = [];
     for (let i = 0; i < total; i++) {
-      frames.push(await capture(container, 2));
-      setExportProgress(Math.round(((i + 1) / total) * 45));
+      throwIfAborted();
+      raws.push(await capture(container, 2));
+      setExportProgress(
+        2 + Math.round(((i + 1) / total) * (renderProgressEnd - 2) * 0.8)
+      );
       const elapsed = performance.now() - start;
       const expected = (i + 1) * (1000 / fps);
       if (elapsed < expected) await delay(expected - elapsed);
@@ -451,111 +414,174 @@ export function useFlowchartExport(
     const seconds = (performance.now() - start) / 1000 || 1;
     const realFps = Math.max(
       1,
-      Math.min(fps, Math.round(frames.length / seconds))
+      Math.min(fps, Math.round(raws.length / seconds))
     );
-    return { frames, fps: realFps };
+    for (let i = 0; i < raws.length; i++) {
+      throwIfAborted();
+      const out = finaliseCanvas(raws[i], preset, opts);
+      await onFrame(out, i, raws.length);
+    }
+    return { fps: realFps };
   };
 
-  // Apply preset sizing + watermark to every frame, then encode to PNG blobs.
-  const framesToPngBlobs = async (
-    rawFrames: HTMLCanvasElement[],
+  const runAnimatedExport = async (
+    format: 'gif' | 'mp4',
+    title: string,
     preset: ExportPreset,
     opts: ExportOptions
-  ): Promise<Blob[]> => {
-    const blobs: Blob[] = [];
-    for (let i = 0; i < rawFrames.length; i++) {
-      const out = finaliseCanvas(rawFrames[i], preset, opts);
-      const blob = await new Promise<Blob>((resolve, reject) =>
-        out.toBlob(
-          (b) => (b ? resolve(b) : reject(new Error('toBlob failed'))),
-          'image/png'
-        )
+  ) => {
+    if (!containerRef.current || busyRef.current) return;
+    busyRef.current = true;
+    const abort = new AbortController();
+    abortRef.current = abort;
+    setIsExporting(true);
+    setExportStage('preparing');
+    setExportProgress(2);
+    let usingFfmpeg = false;
+    // Cancel must actively kill an in-flight ffmpeg exec — the frame loop's
+    // abort checks can't reach inside `await ff.exec(...)`. Terminating the
+    // worker rejects the pending exec; the catch below reads signal.aborted
+    // and reports it as a cancel, and the next export boots a fresh instance.
+    abort.signal.addEventListener('abort', () => {
+      if (!usingFfmpeg) return;
+      import('@/lib/ffmpeg-export')
+        .then(({ resetFFmpeg }) => resetFFmpeg())
+        .catch(() => {});
+    });
+    try {
+      let result: Blob;
+
+      if (format === 'mp4') {
+        // Probe the fast path with the real target dimensions. WebCodecs
+        // requires the deterministic SMIL capture: the realtime fallback only
+        // learns its true fps AFTER capturing, but the encoder's timestamps
+        // are fixed up front — mismatched fps would speed the video up.
+        const seekable = analyzeSmilTiming(containerRef.current).seekable;
+        const rect = containerRef.current.getBoundingClientRect();
+        const { w, h } = targetSize(
+          preset,
+          rect.width * 2,
+          rect.height * 2,
+          opts,
+          true
+        );
+        const { canEncodeMp4, createMp4Encoder } = await import(
+          '@/lib/webcodecs-export'
+        );
+        if (
+          seekable &&
+          (await canEncodeMp4({ width: w, height: h, fps: MP4_FPS }))
+        ) {
+          // Hardware path: frames stream straight into the encoder.
+          const encoder = await createMp4Encoder({
+            width: w,
+            height: h,
+            fps: MP4_FPS,
+          });
+          try {
+            await streamFrames(format, preset, opts, 90, (target, i) =>
+              encoder.addFrame(target, i)
+            );
+            throwIfAborted();
+            setExportStage('finalizing');
+            setExportProgress(94);
+            result = await encoder.finalize();
+          } catch (err) {
+            encoder.abort();
+            throw err;
+          }
+        } else {
+          // ffmpeg.wasm fallback: collect JPEG frames (H.264 is lossy anyway;
+          // JPEG en/decode is far cheaper than PNG in single-thread WASM).
+          usingFfmpeg = true;
+          const blobs: Blob[] = [];
+          const { fps } = await streamFrames(
+            format,
+            preset,
+            opts,
+            55,
+            async (target) => {
+              blobs.push(await canvasToBlob(target, 'image/jpeg', 0.92));
+            }
+          );
+          throwIfAborted();
+          setExportStage('encoding');
+          const { getFFmpeg, encodeMp4 } = await import('@/lib/ffmpeg-export');
+          const ff = await getFFmpeg();
+          const onProgress = ({ progress }: { progress: number }) =>
+            setExportProgress(58 + Math.round(Math.min(progress, 1) * 40));
+          ff.on('progress', onProgress);
+          try {
+            result = await encodeMp4(blobs, fps, 'jpg');
+          } finally {
+            ff.off('progress', onProgress);
+          }
+        }
+      } else {
+        // GIF: ffmpeg's palettegen/paletteuse gives the best-looking GIFs.
+        // PNG frames keep the palette exact.
+        usingFfmpeg = true;
+        const blobs: Blob[] = [];
+        const { fps } = await streamFrames(
+          format,
+          preset,
+          opts,
+          55,
+          async (target) => {
+            blobs.push(await canvasToBlob(target, 'image/png'));
+          }
+        );
+        throwIfAborted();
+        setExportStage('encoding');
+        const { getFFmpeg, encodeGif } = await import('@/lib/ffmpeg-export');
+        const ff = await getFFmpeg();
+        const onProgress = ({ progress }: { progress: number }) =>
+          setExportProgress(58 + Math.round(Math.min(progress, 1) * 40));
+        ff.on('progress', onProgress);
+        try {
+          result = await encodeGif(blobs, fps);
+        } finally {
+          ff.off('progress', onProgress);
+        }
+      }
+
+      throwIfAborted();
+      setExportProgress(100);
+      download(result, `${title || 'infogiph'}.${format}`);
+      toast.success(
+        format === 'mp4'
+          ? 'MP4 exported — loops seamlessly, ready for socials'
+          : 'GIF exported — loops seamlessly, ready for socials'
       );
-      blobs.push(blob);
-      setExportProgress(45 + Math.round(((i + 1) / rawFrames.length) * 15));
-    }
-    return blobs;
-  };
-
-  // ── GIF (ffmpeg.wasm) ─────────────────────────────────────────────────────────
-
-  const exportGIF = async (
-    title: string,
-    preset: ExportPreset = 'original',
-    opts: ExportOptions = DEFAULT_EXPORT_OPTIONS
-  ) => {
-    if (!containerRef.current) return;
-    setIsExporting(true);
-    setExportProgress(0);
-    try {
-      toast.info('Rendering GIF — this can take a moment…');
-      const { frames: rawFrames, fps } = await captureFrames(15, 3.4);
-      if (!rawFrames.length) throw new Error('No frames captured');
-      const blobs = await framesToPngBlobs(rawFrames, preset, opts);
-
-      const { getFFmpeg, encodeGif } = await import('@/lib/ffmpeg-export');
-      const ff = await getFFmpeg();
-      const onProgress = ({ progress }: { progress: number }) =>
-        setExportProgress(60 + Math.round(Math.min(progress, 1) * 38));
-      ff.on('progress', onProgress);
-      try {
-        const gif = await encodeGif(blobs, fps);
-        download(gif, `${title || 'infogiph'}.gif`);
-      } finally {
-        ff.off('progress', onProgress);
-      }
-      setExportProgress(100);
-      toast.success('GIF exported');
     } catch (err) {
-      console.error('[export:gif]', err);
-      toast.error('Failed to export GIF', {
-        description: err instanceof Error ? err.message : undefined,
-      });
+      if (isAbort(err) || abort.signal.aborted) {
+        toast.info('Export canceled');
+      } else {
+        console.error(`[export:${format}]`, err);
+        toast.error(`Failed to export ${format.toUpperCase()}`, {
+          description: err instanceof Error ? err.message : undefined,
+        });
+      }
     } finally {
+      abortRef.current = null;
+      busyRef.current = false;
       setIsExporting(false);
+      setExportStage('idle');
       setExportProgress(0);
     }
   };
 
-  // ── MP4 (ffmpeg.wasm, H.264) ───────────────────────────────────────────────────
-
-  const exportMP4 = async (
+  const exportGIF = (
     title: string,
     preset: ExportPreset = 'original',
     opts: ExportOptions = DEFAULT_EXPORT_OPTIONS
-  ) => {
-    if (!containerRef.current) return;
-    setIsExporting(true);
-    setExportProgress(0);
-    try {
-      toast.info('Rendering MP4 — this can take a moment…');
-      const { frames: rawFrames, fps } = await captureFrames(24, 3.4);
-      if (!rawFrames.length) throw new Error('No frames captured');
-      const blobs = await framesToPngBlobs(rawFrames, preset, opts);
+  ) => runAnimatedExport('gif', title, preset, opts);
 
-      const { getFFmpeg, encodeMp4 } = await import('@/lib/ffmpeg-export');
-      const ff = await getFFmpeg();
-      const onProgress = ({ progress }: { progress: number }) =>
-        setExportProgress(60 + Math.round(Math.min(progress, 1) * 38));
-      ff.on('progress', onProgress);
-      try {
-        const mp4 = await encodeMp4(blobs, fps);
-        download(mp4, `${title || 'infogiph'}.mp4`);
-      } finally {
-        ff.off('progress', onProgress);
-      }
-      setExportProgress(100);
-      toast.success('MP4 exported');
-    } catch (err) {
-      console.error('[export:mp4]', err);
-      toast.error('Failed to export MP4', {
-        description: err instanceof Error ? err.message : undefined,
-      });
-    } finally {
-      setIsExporting(false);
-      setExportProgress(0);
-    }
-  };
+  const exportMP4 = (
+    title: string,
+    preset: ExportPreset = 'original',
+    opts: ExportOptions = DEFAULT_EXPORT_OPTIONS
+  ) => runAnimatedExport('mp4', title, preset, opts);
 
   return {
     exportPNG,
@@ -564,10 +590,11 @@ export function useFlowchartExport(
     exportMP4,
     isExporting,
     exportProgress,
+    exportStage,
+    cancelExport,
   };
 }
 
 // ─── utils ──────────────────────────────────────────────────────────────────
 
-const raf = () => new Promise<void>((r) => requestAnimationFrame(() => r()));
 const delay = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));

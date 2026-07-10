@@ -1016,6 +1016,8 @@ export default function FlowVizArchitect({
     exportMP4,
     isExporting,
     exportProgress,
+    exportStage,
+    cancelExport,
   } = useFlowchartExport(exportContainerRef);
 
   // Measure the live canvas frame so the diagram layout can be recomputed for
@@ -2241,6 +2243,46 @@ export default function FlowVizArchitect({
           <div className="pointer-events-none absolute bottom-4 right-4 z-10 select-none rounded-md bg-[rgba(15,23,42,0.72)] px-2.5 py-1 text-xs font-semibold tracking-tight text-white shadow-sm">
             infogiph.com
           </div>
+          {/* Export progress. The capture works on an off-screen clone, so the
+              canvas keeps animating — this card is the only export UI. */}
+          {isExporting && (
+            <output
+              className="absolute bottom-6 left-1/2 z-20 block -translate-x-1/2"
+              aria-live="polite"
+            >
+              <div className="flex items-center gap-3 rounded-xl border border-border bg-white/95 px-4 py-3 shadow-lg backdrop-blur">
+                <Loader2 className="h-4 w-4 animate-spin text-foreground/70" />
+                <div className="w-56">
+                  <div className="flex items-center justify-between text-xs font-medium">
+                    <span>
+                      {exportStage === 'preparing' && 'Preparing export…'}
+                      {exportStage === 'rendering' && 'Rendering frames…'}
+                      {exportStage === 'encoding' && 'Encoding…'}
+                      {exportStage === 'finalizing' && 'Finishing up…'}
+                      {exportStage === 'idle' && 'Exporting…'}
+                    </span>
+                    <span className="tabular-nums text-muted-foreground">
+                      {exportProgress}%
+                    </span>
+                  </div>
+                  <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-border">
+                    <div
+                      className="h-full rounded-full bg-foreground transition-[width] duration-200"
+                      style={{ width: `${exportProgress}%` }}
+                    />
+                  </div>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={cancelExport}
+                  className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground"
+                >
+                  Cancel
+                </Button>
+              </div>
+            </output>
+          )}
           <div className="h-full flex items-center justify-center p-6">
             <div
               className="relative rounded-xl border border-border bg-white shadow-[0_8px_30px_rgba(0,0,0,0.04)] overflow-hidden transition-all duration-300"
