@@ -175,6 +175,20 @@ export const footerColumns: FooterColumn[] = [
     ],
   },
   {
+    heading: 'AI Makers',
+    links: [
+      { label: 'Flow Chart Maker', href: '/ai-flow-chart-maker' },
+      { label: 'Mind Map Maker', href: '/ai-mind-map-maker' },
+      { label: 'Concept Map Maker', href: '/ai-concept-map-maker' },
+      { label: 'Comparison Chart Maker', href: '/ai-comparison-chart-maker' },
+      { label: 'Timeline Maker', href: '/ai-timeline-maker' },
+      { label: 'Roadmap Maker', href: '/ai-roadmap-maker' },
+      { label: 'Org Chart Maker', href: '/ai-org-chart-maker' },
+      { label: 'Venn Diagram Maker', href: '/ai-venn-diagram-maker' },
+      { label: 'Genogram Maker', href: '/ai-genogram-maker' },
+    ],
+  },
+  {
     heading: 'Templates',
     links: [
       { label: 'All Templates', href: '/templates' },
