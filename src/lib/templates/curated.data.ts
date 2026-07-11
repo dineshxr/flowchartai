@@ -101,7 +101,9 @@ export const curatedTemplates: RawTemplate[] = [
     category: 'ai-ml',
     categoryName: 'AI & Machine Learning',
     style: {
-      layout: 'radial',
+      // Orbit: the models/frameworks revolve around the LLM — the homepage's
+      // flagship hero card shows the motion off best.
+      layout: 'orbit',
       mode: 'beams',
       accent: '#6366f1',
       bg: 'linear-gradient(135deg,#eef2ff 0%,#faf5ff 100%)',
@@ -561,7 +563,8 @@ export const curatedOverrides: Record<string, CuratedOverride> = {
       { label: 'Search', icon: 'algolia' },
     ],
     style: {
-      layout: 'hub-lr',
+      // It's literally a funnel.
+      layout: 'funnel',
       mode: 'dots',
       accent: '#ec4899',
       bg: grad('#fdf2f8', '#fff1f2'),
@@ -597,7 +600,8 @@ export const curatedOverrides: Record<string, CuratedOverride> = {
       { label: 'Observe', icon: 'grafana' },
     ],
     style: {
-      layout: 'pipeline',
+      // CI/CD is a loop — commit → build → deploy → observe → commit.
+      layout: 'cycle',
       mode: 'arrows',
       accent: '#16a34a',
       bg: grad('#f0fdf4', '#f7fee7'),
@@ -733,7 +737,8 @@ export const curatedOverrides: Record<string, CuratedOverride> = {
       { label: 'Walmart', icon: 'walmart' },
     ],
     style: {
-      layout: 'radial',
+      // Factory → ERP → carriers → retail reads as milestones along a line.
+      layout: 'timeline',
       mode: 'beams',
       accent: '#f59e0b',
       bg: grad('#fff7ed', '#fffbeb'),
