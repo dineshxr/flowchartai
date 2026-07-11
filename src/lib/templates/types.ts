@@ -63,7 +63,15 @@ export type TemplateLayout =
   | 'hub-lr'
   | 'pipeline'
   | 'tree'
-  | 'orbit';
+  | 'orbit'
+  | 'cycle'
+  | 'steps'
+  | 'funnel'
+  | 'pyramid'
+  | 'quadrant'
+  | 'columns'
+  | 'timeline'
+  | 'iceberg';
 /** Animated preview motion styles (mirrors PreviewMode). */
 export type TemplateMode = 'dots' | 'beams' | 'pulses' | 'arrows';
 

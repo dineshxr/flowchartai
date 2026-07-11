@@ -35,6 +35,13 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
@@ -67,13 +74,11 @@ import { AnimatePresence, motion } from 'framer-motion';
 import {
   Activity,
   ArrowRight,
-  ArrowRightLeft,
   Bot,
   CheckCircle2,
   ChevronLeft,
   CircleDot,
   Cloud,
-  Columns2,
   Database,
   Download,
   Edit,
@@ -201,6 +206,22 @@ const buildPreviewFromAI = (
         center,
         satellites: satNodes,
       };
+    case 'cycle':
+    case 'steps':
+    case 'funnel':
+    case 'pyramid':
+    case 'quadrant':
+    case 'columns':
+    case 'timeline':
+    case 'iceberg':
+      return {
+        layout: spec.layout,
+        mode: spec.mode,
+        accent: (spec as any).accent,
+        bg: spec.bg,
+        center,
+        satellites: satNodes,
+      } as PreviewSpec;
     case 'pipeline': {
       const mid = Math.floor(satNodes.length / 2);
       const nodes = [...satNodes];
@@ -303,6 +324,24 @@ function applyElementEdits(
         satellites: spec.satellites.filter(keep).map(tn),
         center: tn(spec.center),
       };
+    case 'cycle':
+    case 'steps':
+    case 'funnel':
+    case 'pyramid':
+    case 'timeline':
+    case 'iceberg':
+      return {
+        ...spec,
+        satellites: spec.satellites.filter(keep).map(tn),
+        center: tn(spec.center),
+      };
+    case 'quadrant':
+    case 'columns':
+      return {
+        ...spec,
+        satellites: spec.satellites.filter(keep).map(tn),
+        center: spec.center ? tn(spec.center) : undefined,
+      };
     case 'pipeline':
       return { ...spec, nodes: spec.nodes.filter(keep).map(tn) };
     case 'tree': {
@@ -338,6 +377,14 @@ function indexSpecNodes(
       add(spec.center, true);
       break;
     case 'orbit':
+    case 'cycle':
+    case 'steps':
+    case 'funnel':
+    case 'pyramid':
+    case 'quadrant':
+    case 'columns':
+    case 'timeline':
+    case 'iceberg':
       spec.satellites.forEach((n: any) => add(n));
       add(spec.center, true);
       break;
@@ -613,8 +660,8 @@ const TEMPLATES: Array<{
       ],
     },
     preview: {
-      layout: 'radial',
-      mode: 'pulses',
+      layout: 'cycle',
+      mode: 'arrows',
       accent: '#f97316',
       center: {
         key: 'shop',
@@ -731,10 +778,10 @@ const TEMPLATES: Array<{
       ],
     },
     preview: {
-      layout: 'hub-lr',
-      mode: 'dots',
+      layout: 'columns',
+      mode: 'beams',
       accent: '#ec4899',
-      left: [
+      satellites: [
         {
           key: 'ig',
           label: 'Instagram',
@@ -760,8 +807,6 @@ const TEMPLATES: Array<{
             />
           ),
         },
-      ],
-      right: [
         {
           key: 'wa',
           label: 'Messaging',
@@ -807,8 +852,8 @@ const TEMPLATES: Array<{
       ],
     },
     preview: {
-      layout: 'radial',
-      mode: 'beams',
+      layout: 'steps',
+      mode: 'dots',
       accent: '#6366f1',
       center: {
         key: 'agent',
@@ -1339,6 +1384,7 @@ export default function FlowVizArchitect({
     if (!diagramData || !('center' in diagramData)) return;
     const accent =
       (activePreview as any)?.accent || savedStyle.accent || '#6366f1';
+    const bg = (activePreview as any)?.bg;
     skipEditResetRef.current = true;
     setSavedStyle((s) => ({ ...s, layout: l }));
     setPositionOverrides({});
@@ -1357,7 +1403,7 @@ export default function FlowVizArchitect({
           data: diagramData,
           faqs: [],
           useCases: [],
-          style: { layout: l, mode: animationType, accent },
+          style: { layout: l, mode: animationType, accent, bg },
         },
         accent
       )
@@ -1789,47 +1835,36 @@ export default function FlowVizArchitect({
         <div className="flex items-center gap-2">
           {diagramData && 'center' in diagramData && activePreview ? (
             <>
-              <ToggleGroup
-                type="single"
+              <Select
                 value={(activePreview as any).layout ?? 'radial'}
                 onValueChange={(v) => v && switchLayout(v as TemplateLayout)}
-                variant="outline"
-                size="sm"
-                className="rounded-lg bg-white border border-border p-0.5"
               >
-                <ToggleGroupItem
-                  value="radial"
-                  title="Radial"
-                  aria-label="Radial layout"
-                  className="gap-1.5 text-xs px-2 rounded-md data-[state=on]:bg-foreground data-[state=on]:text-background"
+                <SelectTrigger
+                  size="sm"
+                  className="h-9 w-[132px] rounded-lg bg-white text-xs font-medium"
+                  aria-label="Diagram style"
                 >
-                  <Share2 size={14} />
-                </ToggleGroupItem>
-                <ToggleGroupItem
-                  value="orbit"
-                  title="Orbit — satellites revolve around the center"
-                  aria-label="Orbit layout"
-                  className="gap-1.5 text-xs px-2 rounded-md data-[state=on]:bg-foreground data-[state=on]:text-background"
-                >
-                  <Orbit size={14} />
-                </ToggleGroupItem>
-                <ToggleGroupItem
-                  value="hub-lr"
-                  title="Hub — columns left and right"
-                  aria-label="Hub layout"
-                  className="gap-1.5 text-xs px-2 rounded-md data-[state=on]:bg-foreground data-[state=on]:text-background"
-                >
-                  <Columns2 size={14} />
-                </ToggleGroupItem>
-                <ToggleGroupItem
-                  value="pipeline"
-                  title="Pipeline — nodes in a flow"
-                  aria-label="Pipeline layout"
-                  className="gap-1.5 text-xs px-2 rounded-md data-[state=on]:bg-foreground data-[state=on]:text-background"
-                >
-                  <ArrowRightLeft size={14} />
-                </ToggleGroupItem>
-              </ToggleGroup>
+                  <span className="flex items-center gap-1.5 truncate">
+                    <Orbit size={14} className="shrink-0 opacity-70" />
+                    <SelectValue placeholder="Style" />
+                  </span>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="radial">Radial</SelectItem>
+                  <SelectItem value="orbit">Orbit</SelectItem>
+                  <SelectItem value="cycle">Cycle</SelectItem>
+                  <SelectItem value="hub-lr">Hub</SelectItem>
+                  <SelectItem value="pipeline">Pipeline</SelectItem>
+                  <SelectItem value="timeline">Timeline</SelectItem>
+                  <SelectItem value="steps">Steps</SelectItem>
+                  <SelectItem value="funnel">Funnel</SelectItem>
+                  <SelectItem value="pyramid">Pyramid</SelectItem>
+                  <SelectItem value="quadrant">Quadrant</SelectItem>
+                  <SelectItem value="columns">Columns</SelectItem>
+                  <SelectItem value="iceberg">Iceberg</SelectItem>
+                  <SelectItem value="tree">Tree</SelectItem>
+                </SelectContent>
+              </Select>
 
               <div className="mx-1 h-6 w-px bg-border" />
             </>

@@ -89,10 +89,11 @@ RULES FOR EVERY SUGGESTION
 - children only exist for the tree categories (hierarchy, business-framework); never elsewhere.
 - Ordered categories (process, timeline, narrative, cause-effect): satellites MUST be in sequence order.
 - Paired categories (comparison, problems-solutions): satellites MUST be an even count, first half side A, second half side B, in matching order.
+- shape: OPTIONAL, only for visual-metaphor — name the supported shape your metaphor maps to: one of "iceberg" | "steps" | "pyramid" | "funnel" | "cycle" (ladder/climb → steps, flywheel/engine → cycle, hidden depth → iceberg). Pick metaphors that fit these shapes; keep satellites to 5-6 for them.
 - ${iconGuidance(illustration)}
 
 Return STRICT minified JSON ONLY — no markdown, no code fences — exactly:
-{"suggestions":[{"title":"string","category":"string","center":{"label":"string","icon":"string"},"satellites":[{"label":"string","icon":"string","children":[{"label":"string","icon":"string"}]}]}]}`;
+{"suggestions":[{"title":"string","category":"string","shape":"string (optional)","center":{"label":"string","icon":"string"},"satellites":[{"label":"string","icon":"string","children":[{"label":"string","icon":"string"}]}]}]}`;
 }
 
 const tidy = (s: unknown, max = 22) =>
@@ -136,10 +137,18 @@ function sanitiseSuggestion(raw: any, index: number): VisualSuggestion | null {
 
   if (satellites.length < 3) return null;
 
+  // Optional shape hint — whitelist against the category's variant set.
+  const cat = getVisualCategory(category);
+  const rawShape = tidy(raw.shape, 12).toLowerCase();
+  const shape = cat?.variants.includes(rawShape as any)
+    ? (rawShape as VisualSuggestion['shape'])
+    : undefined;
+
   return {
     id: `sug-${index}-${category}`,
     title: tidy(raw.title, 60) || centerLabel,
     category,
+    shape,
     center: {
       label: centerLabel,
       icon: tidy(raw.center?.icon, 24).toLowerCase(),

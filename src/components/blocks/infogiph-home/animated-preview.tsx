@@ -66,6 +66,54 @@ export type PreviewSpec =
       layout: 'orbit';
       center: PreviewNode;
       satellites: PreviewNode[];
+    })
+  | (SpecBase & {
+      /** Circular process loop — ordered steps around a ring, arrows closing it. */
+      layout: 'cycle';
+      center: PreviewNode;
+      satellites: PreviewNode[];
+    })
+  | (SpecBase & {
+      /** Ascending staircase — ordered steps climbing to the goal (center). */
+      layout: 'steps';
+      center: PreviewNode;
+      satellites: PreviewNode[];
+    })
+  | (SpecBase & {
+      /** Narrowing funnel — stages top→bottom, center = the outcome below the spout. */
+      layout: 'funnel';
+      center: PreviewNode;
+      satellites: PreviewNode[];
+    })
+  | (SpecBase & {
+      /** Layered pyramid — satellites are layers BASE-FIRST, center = the capstone. */
+      layout: 'pyramid';
+      center: PreviewNode;
+      satellites: PreviewNode[];
+    })
+  | (SpecBase & {
+      /** 2×2 matrix — cells in reading order [TL, TR, BL, BR]; center optional at the crossing. */
+      layout: 'quadrant';
+      center?: PreviewNode;
+      satellites: PreviewNode[];
+    })
+  | (SpecBase & {
+      /** Comparison columns — first half vs second half, center between them. */
+      layout: 'columns';
+      center?: PreviewNode;
+      satellites: PreviewNode[];
+    })
+  | (SpecBase & {
+      /** Milestone timeline — alternating above/below a baseline; center = the subject at the start. */
+      layout: 'timeline';
+      center: PreviewNode;
+      satellites: PreviewNode[];
+    })
+  | (SpecBase & {
+      /** Iceberg — surface items above the waterline, the hidden mass below; center = the tip. */
+      layout: 'iceberg';
+      center: PreviewNode;
+      satellites: PreviewNode[];
     });
 
 interface PositionedTile {
@@ -79,13 +127,15 @@ interface PositionedTile {
   flush?: boolean;
 }
 
-type EdgeKind = 'curve-h' | 'line' | 'bracket-v' | 'cubic';
+type EdgeKind = 'curve-h' | 'line' | 'bracket-v' | 'cubic' | 'arc';
 
 interface Edge {
   key: string;
   from: string;
   to: string;
   kind: EdgeKind;
+  /** Outward bow factor for 'arc' edges (cycle layout); others ignore it. */
+  bow?: number;
 }
 
 export interface Dims {
@@ -449,6 +499,732 @@ function orbitLayout(spec: Extract<PreviewSpec, { layout: 'orbit' }>, d: Dims) {
   return { tiles, edges: [] as Edge[] };
 }
 
+// ── shape layouts (Napkin-style structural variants) ─────────────────────────
+// Shared conventions: every node is a static HTML PositionedTile (labels,
+// selection, drag and icon rendering come free); decorative shape chrome and
+// mode motion live in the SVG layer with presentation attributes only, so the
+// serialized export SVG renders identically. Chrome geometry functions are
+// pure in (spec, Dims) and get called from both computeLayout and the chrome
+// render block.
+
+/** Tile chrome padding the Tile component adds around the icon per variant. */
+const tilePad = (d: Dims) => (d.labelSize > 0 ? 22 : 16);
+/** Vertical room reserved under a tile for its HTML label (canvas only). */
+const labelRoom = (d: Dims) => (d.labelSize > 0 ? d.labelSize + 16 : 3);
+
+// ---- cycle ------------------------------------------------------------------
+function cycleLayout(spec: Extract<PreviewSpec, { layout: 'cycle' }>, d: Dims) {
+  const tiles: PositionedTile[] = [];
+  const edges: Edge[] = [];
+  const cx = d.W / 2;
+  const cy = d.H / 2;
+  const rx = d.W * 0.34;
+  const ry = d.H * 0.32;
+  const sats = spec.satellites.slice(0, 8);
+  const n = Math.max(sats.length, 1);
+  // Exact circum-ellipse sagitta so the N arcs fuse into one continuous ring.
+  const bow = Math.tan(Math.PI / (2 * n));
+  const pts = sats.map((s, i) => {
+    const a = (i / n) * Math.PI * 2 - Math.PI / 2;
+    return { ...s, x: cx + Math.cos(a) * rx, y: cy + Math.sin(a) * ry };
+  });
+  pts.forEach((p, i) => {
+    edges.push({
+      key: `cyc-${i}`,
+      from: p.key,
+      to: pts[(i + 1) % n].key,
+      kind: 'arc',
+      bow,
+    });
+    tiles.push({
+      key: p.key,
+      icon: p.icon,
+      label: p.label,
+      x: p.x,
+      y: p.y,
+      size: d.tileBase,
+      flush: p.flush,
+    });
+  });
+  tiles.push({
+    key: spec.center.key,
+    icon: spec.center.icon,
+    label: spec.center.label,
+    x: cx,
+    y: cy,
+    size: d.tileLarge,
+    center: true,
+    flush: spec.center.flush,
+  });
+  return { tiles, edges };
+}
+
+// ---- steps -------------------------------------------------------------------
+interface StepsGeo {
+  tiles: PositionedTile[];
+  edges: Edge[];
+  fillD: string;
+  profileD: string;
+  shadows: Array<{ cx: number; cy: number; rx: number; ry: number }>;
+  flag: { x: number; top: number; poleH: number } | null;
+  landingY: number;
+}
+function stepsGeo(
+  spec: Extract<PreviewSpec, { layout: 'steps' }>,
+  d: Dims
+): StepsGeo {
+  const sats = spec.satellites.slice(0, 8);
+  const N = Math.max(sats.length, 1);
+  const padEst = tilePad(d);
+  const lr = labelRoom(d);
+  const mX = d.margin * 0.5;
+  const x0 = mX;
+  const usableW = d.W - 2 * mX;
+  const yBase = d.H - d.margin * 0.42;
+  const goalVis = d.tileLarge + padEst;
+  const landingY = d.margin * 0.4 + goalVis + lr;
+  const rise = (yBase - landingY) / (N + 1);
+  const t1 = usableW / (N + 1.35);
+  const landingW = 1.35 * t1 >= goalVis + 8 ? 1.35 * t1 : goalVis + 8;
+  const treadW = (usableW - landingW) / N;
+  const xEnd = x0 + N * treadW + landingW;
+  const treadY = (k: number) => landingY + (N + 1 - k) * rise;
+  const satVisMax = Math.max(treadW, rise) - 2;
+  const satSize = Math.max(
+    Math.min(d.tileBase, satVisMax - padEst),
+    d.tileBase * 0.55
+  );
+  const satVis = satSize + padEst;
+
+  const tiles: PositionedTile[] = [];
+  const edges: Edge[] = [];
+  const shadows: StepsGeo['shadows'] = [];
+  sats.forEach((s, i) => {
+    const k = i + 1;
+    const x = x0 + (k - 0.5) * treadW;
+    const y = treadY(k) - lr - satVis / 2 - 2;
+    tiles.push({
+      key: s.key,
+      icon: s.icon,
+      label: s.label,
+      x,
+      y,
+      size: satSize,
+      flush: s.flush,
+    });
+    shadows.push({
+      cx: x,
+      cy: treadY(k) - 1.5,
+      rx: satVis * 0.3,
+      ry: d.labelSize > 0 ? 2.6 : 1.8,
+    });
+    if (i < N - 1) {
+      edges.push({
+        key: `s-${i}`,
+        from: s.key,
+        to: sats[i + 1].key,
+        kind: 'curve-h',
+      });
+    }
+  });
+  const goalX = x0 + N * treadW + landingW / 2;
+  tiles.push({
+    key: spec.center.key,
+    icon: spec.center.icon,
+    label: spec.center.label,
+    x: goalX,
+    y: landingY - lr - goalVis / 2 - 2,
+    size: d.tileLarge,
+    center: true,
+    flush: spec.center.flush,
+  });
+  shadows.push({
+    cx: goalX,
+    cy: landingY - 1.5,
+    rx: goalVis * 0.3,
+    ry: d.labelSize > 0 ? 2.6 : 1.8,
+  });
+  if (N > 0) {
+    edges.push({
+      key: 's-goal',
+      from: sats[N - 1].key,
+      to: spec.center.key,
+      kind: 'curve-h',
+    });
+  }
+
+  let profileD = `M ${x0} ${yBase}`;
+  for (let k = 1; k <= N; k++) {
+    profileD += ` L ${x0 + (k - 1) * treadW} ${treadY(k)} L ${x0 + k * treadW} ${treadY(k)}`;
+  }
+  profileD += ` L ${x0 + N * treadW} ${landingY} L ${xEnd} ${landingY}`;
+  const fillD = `${profileD} L ${xEnd} ${yBase} Z`;
+
+  const poleH = Math.min(30, Math.max(14, rise * 0.85));
+  const flagX = xEnd - Math.max(12, landingW * 0.14);
+  const flag =
+    rise >= 15 && flagX >= goalX + goalVis / 2 + 8
+      ? { x: flagX, top: landingY - poleH, poleH }
+      : null;
+
+  return { tiles, edges, fillD, profileD, shadows, flag, landingY };
+}
+
+// ---- funnel ------------------------------------------------------------------
+interface FunnelGeo {
+  tiles: PositionedTile[];
+  edges: Edge[];
+  bands: Array<{
+    points: string;
+    fillOp: number;
+    leader: string;
+  }>;
+  wallL: string;
+  wallR: string;
+  spoutDrop: string;
+  cx: number;
+  funnelTop: number;
+  spoutY: number;
+  outcomeY: number;
+}
+function funnelGeo(
+  spec: Extract<PreviewSpec, { layout: 'funnel' }>,
+  d: Dims
+): FunnelGeo {
+  const sats = spec.satellites.slice(0, 8);
+  const L = Math.max(sats.length, 1);
+  const cx = d.W / 2;
+  const padEst = tilePad(d);
+  const lr = labelRoom(d);
+  const funnelTop = d.margin * 0.5;
+  const outVis = d.tileLarge + padEst;
+  const spoutY = d.H - d.margin * 0.4 - outVis - lr - 10;
+  const range = spoutY - funnelTop;
+  const bandH = range / L;
+  const gap = Math.max(1.5, range * 0.012);
+  const halfTop = Math.min(d.W * 0.3, range * 0.75);
+  const halfBot = halfTop * 0.3;
+  const hw = (y: number) =>
+    halfTop + ((halfBot - halfTop) * (y - funnelTop)) / range;
+  const sizeF = L >= 7 ? 0.8 : L === 6 ? 0.9 : 1;
+  const satSize = d.tileBase * sizeF;
+
+  const tiles: PositionedTile[] = [];
+  const bands: FunnelGeo['bands'] = [];
+  sats.forEach((s, j) => {
+    const yTop = funnelTop + bandH * j + (j === 0 ? 0 : gap / 2);
+    const yBot = funnelTop + bandH * (j + 1) - (j === L - 1 ? 0 : gap / 2);
+    const yMid = funnelTop + bandH * (j + 0.5);
+    const side = j % 2 === 0 ? 1 : -1;
+    const lsx = cx + side * hw(yMid);
+    const lex = lsx + side * d.tileBase * 0.7;
+    bands.push({
+      points: `${cx - hw(yTop)},${yTop} ${cx + hw(yTop)},${yTop} ${cx + hw(yBot)},${yBot} ${cx - hw(yBot)},${yBot}`,
+      fillOp: 0.1 + 0.16 * (L === 1 ? 1 : j / (L - 1)),
+      leader: `M ${lsx} ${yMid} L ${lex} ${yMid}`,
+    });
+    tiles.push({
+      key: s.key,
+      icon: s.icon,
+      label: s.label,
+      x: lex + side * satSize * 0.75,
+      y: yMid,
+      size: satSize,
+      flush: s.flush,
+    });
+  });
+  const outcomeY = spoutY + 10 + outVis / 2;
+  tiles.push({
+    key: spec.center.key,
+    icon: spec.center.icon,
+    label: spec.center.label,
+    x: cx,
+    y: outcomeY,
+    size: d.tileLarge,
+    center: true,
+    flush: spec.center.flush,
+  });
+  return {
+    tiles,
+    edges: [],
+    bands,
+    wallL: `M ${cx - halfTop} ${funnelTop} L ${cx - halfBot} ${spoutY}`,
+    wallR: `M ${cx + halfTop} ${funnelTop} L ${cx + halfBot} ${spoutY}`,
+    spoutDrop: `M ${cx} ${spoutY} L ${cx} ${spoutY + 10}`,
+    cx,
+    funnelTop,
+    spoutY,
+    outcomeY,
+  };
+}
+
+// ---- pyramid -----------------------------------------------------------------
+interface PyramidGeo {
+  tiles: PositionedTile[];
+  edges: Edge[];
+  bands: Array<{ points: string; fillOp: number; leader: string }>;
+  slopeL: string;
+  slopeR: string;
+  baseLine: string;
+  cx: number;
+  topY: number;
+}
+function pyramidGeo(
+  spec: Extract<PreviewSpec, { layout: 'pyramid' }>,
+  d: Dims
+): PyramidGeo {
+  const sats = spec.satellites.slice(0, 8);
+  const L = Math.max(sats.length, 1);
+  const big = L >= 7;
+  const cx = d.W / 2;
+  const topY = d.margin * (big ? 0.42 : 0.52) + d.tileLarge * 0.22;
+  const labelReserve = d.labelSize > 0 ? d.labelSize + 14 : 4;
+  const bandTop = topY + d.tileLarge * 0.78 + labelReserve;
+  const baseY = d.H - d.margin * (big ? 0.35 : 0.55);
+  const range = baseY - bandTop;
+  const baseHalf = Math.min(d.W * 0.28, range * 0.85);
+  const hw = (y: number) => (baseHalf * (y - topY)) / (baseY - topY);
+  const bandH = range / L;
+  const gap = Math.max(1.5, range * 0.012);
+  const sizeF = L >= 7 ? 0.8 : L === 6 ? 0.9 : 1;
+  const satSize = d.tileBase * sizeF;
+
+  const tiles: PositionedTile[] = [
+    {
+      key: spec.center.key,
+      icon: spec.center.icon,
+      label: spec.center.label,
+      x: cx,
+      y: topY,
+      size: d.tileLarge,
+      center: true,
+      flush: spec.center.flush,
+    },
+  ];
+  const bands: PyramidGeo['bands'] = [];
+  // band j = 0..L-1 top→bottom; its satellite is satellites[L-1-j] (base-first)
+  for (let j = 0; j < L; j++) {
+    const si = L - 1 - j;
+    const s = sats[si];
+    const yTop = bandTop + bandH * j + (j === 0 ? 0 : gap / 2);
+    const yBot = bandTop + bandH * (j + 1) - (j === L - 1 ? 0 : gap / 2);
+    const yMid = bandTop + bandH * (j + 0.5);
+    const side = si % 2 === 0 ? 1 : -1; // bottom band anchors RIGHT
+    const lsx = cx + side * hw(yMid);
+    const lex = lsx + side * d.tileBase * 0.7;
+    bands.push({
+      points: `${cx - hw(yTop)},${yTop} ${cx + hw(yTop)},${yTop} ${cx + hw(yBot)},${yBot} ${cx - hw(yBot)},${yBot}`,
+      fillOp: 0.1 + 0.16 * (L === 1 ? 1 : j / (L - 1)),
+      leader: `M ${lsx} ${yMid} L ${lex} ${yMid}`,
+    });
+    tiles.push({
+      key: s.key,
+      icon: s.icon,
+      label: s.label,
+      x: lex + side * satSize * 0.75,
+      y: yMid,
+      size: satSize,
+      flush: s.flush,
+    });
+  }
+  return {
+    tiles,
+    edges: [],
+    bands,
+    slopeL: `M ${cx - baseHalf} ${baseY} L ${cx} ${topY}`,
+    slopeR: `M ${cx + baseHalf} ${baseY} L ${cx} ${topY}`,
+    baseLine: `M ${cx - baseHalf} ${baseY} L ${cx + baseHalf} ${baseY}`,
+    cx,
+    topY,
+  };
+}
+
+// ---- quadrant ------------------------------------------------------------------
+const CELL_TINTS = ['#10b981', '#f59e0b', '#3b82f6', '#ef4444'];
+interface QuadrantGeo {
+  tiles: PositionedTile[];
+  edges: Edge[];
+  cells: Array<{
+    x: number;
+    y: number;
+    w: number;
+    h: number;
+    cx: number;
+    cy: number;
+    tint: string;
+    ghost: boolean;
+  }>;
+  cx: number;
+  cy: number;
+  hPath: string;
+  vPath: string;
+  half: string[];
+  A: number;
+  hasCenter: boolean;
+  /** Numeric axis extents for userSpaceOnUse gradients + arrowhead tips. */
+  axis: { hx0: number; hx1: number; vy0: number; vy1: number };
+}
+function quadrantGeo(
+  spec: Extract<PreviewSpec, { layout: 'quadrant' }>,
+  d: Dims
+): QuadrantGeo {
+  const sats = spec.satellites.slice(0, 8);
+  const N = sats.length;
+  const ix = d.margin * 0.5;
+  const iy = d.margin * 0.5;
+  const QW = Math.min(d.W - 2 * ix, (d.H - 2 * iy) * 1.9);
+  const QH = Math.min(d.H - 2 * iy, (d.W - 2 * ix) * 1.3);
+  const qx = (d.W - QW) / 2;
+  const qy = (d.H - QH) / 2;
+  const cx = d.W / 2;
+  const cy = d.H / 2;
+  const G = Math.max(8, d.tileBase * 0.45);
+  const cellW = (QW - G) / 2;
+  const cellH = (QH - G) / 2;
+  const ov = G * 0.7;
+  const A = Math.max(5, G * 0.55);
+  const labelHalf = d.labelSize > 0 ? (d.labelSize + 8) / 2 : 0;
+  const dropSecondaries = Math.min(cellW, cellH) < d.tileBase * 2.8;
+
+  const cells: QuadrantGeo['cells'] = [0, 1, 2, 3].map((i) => {
+    const x = qx + (i % 2) * (cellW + G);
+    const y = qy + Math.floor(i / 2) * (cellH + G);
+    return {
+      x,
+      y,
+      w: cellW,
+      h: cellH,
+      cx: x + cellW / 2,
+      cy: y + cellH / 2,
+      // Fixed SWOT-style tints — satellite hash-tints are arbitrary and make
+      // the matrix read as random washes instead of four deliberate zones.
+      tint: CELL_TINTS[i],
+      ghost: N === 3 && i === 3,
+    };
+  });
+
+  const tiles: PositionedTile[] = [];
+  const shared = (i: number) => N > 4 && i < N - 4 && !dropSecondaries;
+  sats.slice(0, 4).forEach((s, i) => {
+    const c = cells[i];
+    tiles.push({
+      key: s.key,
+      icon: s.icon,
+      label: s.label,
+      x: shared(i) ? c.cx - cellW * 0.17 : c.cx,
+      y: shared(i) ? c.cy - cellH * 0.18 - labelHalf * 0.6 : c.cy - labelHalf,
+      size: d.tileBase,
+      flush: s.flush,
+    });
+  });
+  if (!dropSecondaries) {
+    sats.slice(4).forEach((s, k) => {
+      const c = cells[k];
+      tiles.push({
+        key: s.key,
+        icon: s.icon,
+        label: s.label,
+        x: c.cx + cellW * 0.19,
+        y: c.cy + cellH * 0.16 - labelHalf * 0.6,
+        size: d.tileBase * 0.78,
+        flush: s.flush,
+      });
+    });
+  }
+  if (spec.center) {
+    tiles.push({
+      key: spec.center.key,
+      icon: spec.center.icon,
+      label: spec.center.label,
+      x: cx,
+      y: cy,
+      size: d.tileLarge,
+      center: true,
+      flush: spec.center.flush,
+    });
+  }
+  return {
+    tiles,
+    edges: [],
+    cells,
+    cx,
+    cy,
+    hPath: `M ${qx - ov} ${cy} L ${qx + QW + ov} ${cy}`,
+    vPath: `M ${cx} ${qy - ov} L ${cx} ${qy + QH + ov}`,
+    half: [
+      `M ${cx} ${cy} L ${qx + QW + ov} ${cy}`,
+      `M ${cx} ${cy} L ${cx} ${qy + QH + ov}`,
+      `M ${cx} ${cy} L ${qx - ov} ${cy}`,
+      `M ${cx} ${cy} L ${cx} ${qy - ov}`,
+    ],
+    A,
+    hasCenter: !!spec.center,
+    axis: { hx0: qx - ov, hx1: qx + QW + ov, vy0: qy - ov, vy1: qy + QH + ov },
+  };
+}
+
+// ---- columns -------------------------------------------------------------------
+interface ColumnsGeo {
+  tiles: PositionedTile[];
+  edges: Edge[];
+  panels: Array<{
+    x: number;
+    y: number;
+    w: number;
+    h: number;
+    cx: number;
+    tint: string;
+    spine: string;
+  }>;
+  rx: number;
+  divTop: string;
+  divBottom: string;
+  toCenterL: string;
+  toCenterR: string;
+  cx: number;
+  cy: number;
+  hasCenter: boolean;
+}
+function columnsGeo(
+  spec: Extract<PreviewSpec, { layout: 'columns' }>,
+  d: Dims
+): ColumnsGeo {
+  const sats = spec.satellites.slice(0, 8);
+  const N = sats.length;
+  const ix = d.margin * 0.5;
+  const iy = d.margin * 0.5;
+  const padEst = tilePad(d);
+  const G = Math.max(d.tileLarge + padEst + 16, d.W * 0.14);
+  const colW = (d.W - 2 * ix - G) / 2;
+  const colH = d.H - 2 * iy;
+  const cx = d.W / 2;
+  const cy = d.H / 2;
+  const labelHalf = d.labelSize > 0 ? (d.labelSize + 8) / 2 : 0;
+  const mid = Math.ceil(N / 2);
+  const groups = [sats.slice(0, mid), sats.slice(mid)];
+  const rx = Math.max(6, d.tileBase * 0.3);
+
+  const panels: ColumnsGeo['panels'] = [0, 1].map((p) => {
+    const x = p === 0 ? ix : ix + colW + G;
+    return {
+      x,
+      y: iy,
+      w: colW,
+      h: colH,
+      cx: x + colW / 2,
+      tint: p === 0 ? '#10b981' : '#ef4444',
+      spine: `M ${x + colW / 2} ${iy + 16} L ${x + colW / 2} ${iy + colH - 16}`,
+    };
+  });
+
+  const tiles: PositionedTile[] = [];
+  groups.forEach((group, p) => {
+    const rowGap = colH / (group.length + 1);
+    group.forEach((s, k) => {
+      tiles.push({
+        key: s.key,
+        icon: s.icon,
+        label: s.label,
+        x: panels[p].cx,
+        y: iy + rowGap * (k + 1) - labelHalf,
+        size: d.tileBase,
+        flush: s.flush,
+      });
+    });
+  });
+  if (spec.center) {
+    tiles.push({
+      key: spec.center.key,
+      icon: spec.center.icon,
+      label: spec.center.label,
+      x: cx,
+      y: cy,
+      size: d.tileLarge,
+      center: true,
+      flush: spec.center.flush,
+    });
+  }
+  const cVis = (d.tileLarge + padEst) * 0.75;
+  return {
+    tiles,
+    edges: [],
+    panels,
+    rx,
+    divTop: `M ${cx} ${iy + 6} L ${cx} ${cy - cVis}`,
+    divBottom: `M ${cx} ${cy + cVis + labelHalf * 2} L ${cx} ${iy + colH - 6}`,
+    toCenterL: `M ${ix + colW + 4} ${cy} L ${cx} ${cy}`,
+    toCenterR: `M ${ix + colW + G - 4} ${cy} L ${cx} ${cy}`,
+    cx,
+    cy,
+    hasCenter: !!spec.center,
+  };
+}
+
+// ---- timeline ------------------------------------------------------------------
+interface TimelineGeo {
+  tiles: PositionedTile[];
+  edges: Edge[];
+  lineY: number;
+  linePath: string;
+  lineEndX: number;
+  dots: Array<{ x: number; stem: string }>;
+}
+function timelineGeo(
+  spec: Extract<PreviewSpec, { layout: 'timeline' }>,
+  d: Dims
+): TimelineGeo {
+  const sats = spec.satellites.slice(0, 8);
+  const N = Math.max(sats.length, 1);
+  const padEst = tilePad(d);
+  const unit = d.tileBase + padEst;
+  const labelSpace = d.labelSize > 0 ? d.labelSize + 10 : 4;
+  const lineY = d.H * 0.5;
+  const x0 = d.margin * 0.55;
+  const xEnd = d.W - d.margin * 0.55;
+  const startX = x0 + d.tileLarge + 12;
+  const gap = (xEnd - startX - 10) / N;
+
+  const tiles: PositionedTile[] = [];
+  const dots: TimelineGeo['dots'] = [];
+  sats.forEach((s, i) => {
+    const x = startX + gap * (i + 0.5);
+    const above = i % 2 === 0;
+    // Above the line the stack is [tile][label][8px][line]; below it is
+    // [line][10px][tile][label] — labels always render under their tile.
+    const y = above ? lineY - 8 - labelSpace - unit / 2 : lineY + 10 + unit / 2;
+    dots.push({
+      x,
+      stem: above
+        ? `M ${x} ${lineY} L ${x} ${lineY - 8}`
+        : `M ${x} ${lineY} L ${x} ${lineY + 10}`,
+    });
+    tiles.push({
+      key: s.key,
+      icon: s.icon,
+      label: s.label,
+      x,
+      y,
+      size: d.tileBase,
+      flush: s.flush,
+    });
+  });
+  tiles.push({
+    key: spec.center.key,
+    icon: spec.center.icon,
+    label: spec.center.label,
+    x: x0 + d.tileLarge * 0.5,
+    y: lineY,
+    size: d.tileLarge,
+    center: true,
+    flush: spec.center.flush,
+  });
+  return {
+    tiles,
+    edges: [],
+    lineY,
+    linePath: `M ${x0} ${lineY} L ${xEnd} ${lineY}`,
+    lineEndX: xEnd,
+    dots,
+  };
+}
+
+// ---- iceberg -------------------------------------------------------------------
+interface IcebergGeo {
+  tiles: PositionedTile[];
+  edges: Edge[];
+  waterY: number;
+  wavePath: string;
+  aboveBerg: string;
+  belowBerg: string;
+  bubbleRails: string[];
+}
+function icebergGeo(
+  spec: Extract<PreviewSpec, { layout: 'iceberg' }>,
+  d: Dims
+): IcebergGeo {
+  const sats = spec.satellites.slice(0, 8);
+  const N = sats.length;
+  const cx = d.W / 2;
+  const padEst = tilePad(d);
+  const unit = d.tileBase + padEst;
+  const labelSpace = d.labelSize > 0 ? d.labelSize + 10 : 4;
+  const waterY = d.H * 0.42;
+  const aH = (waterY - d.margin * 0.4) * 0.92;
+  const bH = d.H - waterY - d.margin * 0.45;
+
+  const aboveCount = N >= 5 ? 2 : N >= 3 ? 1 : 0;
+  const above = sats.slice(0, aboveCount);
+  const below = sats.slice(aboveCount);
+
+  const tiles: PositionedTile[] = [
+    {
+      key: spec.center.key,
+      icon: spec.center.icon,
+      label: spec.center.label,
+      x: cx,
+      y: waterY - aH + (d.tileLarge + padEst) * 0.3,
+      size: d.tileLarge,
+      center: true,
+      flush: spec.center.flush,
+    },
+  ];
+  above.forEach((s, i) => {
+    const side = i === 0 ? -1 : 1;
+    tiles.push({
+      key: s.key,
+      icon: s.icon,
+      label: s.label,
+      x: cx + side * d.W * 0.26,
+      y: waterY - unit * 0.62 - labelSpace,
+      size: d.tileBase,
+      flush: s.flush,
+    });
+  });
+  const row1 = below.slice(0, Math.ceil(below.length / 2));
+  const row2 = below.slice(Math.ceil(below.length / 2));
+  const placeRow = (row: PreviewNode[], y: number, spread: number) => {
+    row.forEach((s, k) => {
+      const t = row.length === 1 ? 0.5 : k / (row.length - 1);
+      tiles.push({
+        key: s.key,
+        icon: s.icon,
+        label: s.label,
+        x: cx - spread + t * spread * 2,
+        y,
+        size: d.tileBase,
+        flush: s.flush,
+      });
+    });
+  };
+  placeRow(row1, waterY + bH * 0.34, d.W * (row1.length > 2 ? 0.3 : 0.19));
+  placeRow(row2, waterY + bH * 0.74, d.W * (row2.length > 2 ? 0.24 : 0.14));
+
+  const wx0 = d.margin * 0.3;
+  const wx1 = d.W - d.margin * 0.3;
+  const seg = (wx1 - wx0) / 6;
+  const amp = Math.max(3, d.H * 0.008);
+  let wavePath = `M ${wx0} ${waterY}`;
+  for (let i = 0; i < 3; i++) {
+    wavePath += ` q ${seg} ${-amp} ${seg * 2} 0`;
+  }
+  const bw = d.W * 0.16;
+  const aboveBerg = `${cx - bw},${waterY} ${cx - d.W * 0.05},${waterY - aH * 0.55} ${cx},${waterY - aH} ${cx + d.W * 0.07},${waterY - aH * 0.5} ${cx + bw},${waterY}`;
+  const belowBerg = `${cx - bw},${waterY} ${cx - d.W * 0.3},${waterY + bH * 0.42} ${cx - d.W * 0.16},${waterY + bH * 0.82} ${cx},${waterY + bH * 0.96} ${cx + d.W * 0.22},${waterY + bH * 0.72} ${cx + d.W * 0.31},${waterY + bH * 0.34} ${cx + bw},${waterY}`;
+  const bubbleRails = [-0.34, 0, 0.35].map(
+    (f) =>
+      `M ${cx + f * d.W} ${waterY + bH * 0.9} L ${cx + f * d.W * 0.8} ${waterY + 4}`
+  );
+  return {
+    tiles,
+    edges: [],
+    waterY,
+    wavePath,
+    aboveBerg,
+    belowBerg,
+    bubbleRails,
+  };
+}
+
 function computeLayout(spec: PreviewSpec, d: Dims) {
   switch (spec.layout) {
     case 'hub-lr':
@@ -461,6 +1237,36 @@ function computeLayout(spec: PreviewSpec, d: Dims) {
       return treeLayout(spec, d);
     case 'orbit':
       return orbitLayout(spec, d);
+    case 'cycle':
+      return cycleLayout(spec, d);
+    case 'steps': {
+      const { tiles, edges } = stepsGeo(spec, d);
+      return { tiles, edges };
+    }
+    case 'funnel': {
+      const { tiles, edges } = funnelGeo(spec, d);
+      return { tiles, edges };
+    }
+    case 'pyramid': {
+      const { tiles, edges } = pyramidGeo(spec, d);
+      return { tiles, edges };
+    }
+    case 'quadrant': {
+      const { tiles, edges } = quadrantGeo(spec, d);
+      return { tiles, edges };
+    }
+    case 'columns': {
+      const { tiles, edges } = columnsGeo(spec, d);
+      return { tiles, edges };
+    }
+    case 'timeline': {
+      const { tiles, edges } = timelineGeo(spec, d);
+      return { tiles, edges };
+    }
+    case 'iceberg': {
+      const { tiles, edges } = icebergGeo(spec, d);
+      return { tiles, edges };
+    }
   }
 }
 
@@ -485,6 +1291,16 @@ function pathFor(
     case 'cubic': {
       const cp1x = a.x + (b.x - a.x) * 0.5;
       return `M ${a.x} ${a.y} C ${cp1x} ${a.y}, ${cp1x} ${b.y}, ${b.x} ${b.y}`;
+    }
+    case 'arc': {
+      // Outward-bowing quadratic: (dy,-dx) is 90° right of travel — away from
+      // the loop center for a clockwise cycle.
+      const k = edge.bow ?? 0.3;
+      const mx = (a.x + b.x) / 2;
+      const my = (a.y + b.y) / 2;
+      const dx = b.x - a.x;
+      const dy = b.y - a.y;
+      return `M ${a.x} ${a.y} Q ${mx + dy * k} ${my - dx * k}, ${b.x} ${b.y}`;
     }
   }
 }
@@ -531,6 +1347,14 @@ export function AnimatedPreview(props: PreviewSpec & AnimatedPreviewProps) {
   const dims = dimsOverride ?? (variant === 'canvas' ? CANVAS_DIMS : HOME_DIMS);
   const layout = computeLayout(spec, dims);
   const orbit = spec.layout === 'orbit' ? computeOrbit(spec, dims) : null;
+  // Shape chrome geometries (pure recompute; cheap relative to render)
+  const stepsG = spec.layout === 'steps' ? stepsGeo(spec, dims) : null;
+  const funnelG = spec.layout === 'funnel' ? funnelGeo(spec, dims) : null;
+  const pyramidG = spec.layout === 'pyramid' ? pyramidGeo(spec, dims) : null;
+  const quadG = spec.layout === 'quadrant' ? quadrantGeo(spec, dims) : null;
+  const colsG = spec.layout === 'columns' ? columnsGeo(spec, dims) : null;
+  const tlG = spec.layout === 'timeline' ? timelineGeo(spec, dims) : null;
+  const bergG = spec.layout === 'iceberg' ? icebergGeo(spec, dims) : null;
 
   // Apply position overrides on top of computed layout
   const tiles = layout.tiles.map((t) => {
@@ -628,6 +1452,48 @@ export function AnimatedPreview(props: PreviewSpec & AnimatedPreviewProps) {
               floodOpacity="0.16"
             />
           </filter>
+          {stepsG && (
+            <linearGradient
+              id={`${gradId}-stairfill`}
+              x1="0"
+              y1="0"
+              x2="0"
+              y2="1"
+            >
+              <stop offset="0%" stopColor="rgba(15,42,62,0.03)" />
+              <stop offset="100%" stopColor="rgba(15,42,62,0.075)" />
+            </linearGradient>
+          )}
+          {quadG && (
+            <>
+              {/* userSpaceOnUse: a vertical line has a zero-width bbox, so an
+                  objectBoundingBox gradient would be degenerate on it. */}
+              <linearGradient
+                id={`${gradId}-qh`}
+                gradientUnits="userSpaceOnUse"
+                x1={quadG.axis.hx0}
+                y1={quadG.cy}
+                x2={quadG.axis.hx1}
+                y2={quadG.cy}
+              >
+                <stop offset="0%" stopColor={accent} stopOpacity="0.35" />
+                <stop offset="50%" stopColor={accent} stopOpacity="1" />
+                <stop offset="100%" stopColor={accent} stopOpacity="0.35" />
+              </linearGradient>
+              <linearGradient
+                id={`${gradId}-qv`}
+                gradientUnits="userSpaceOnUse"
+                x1={quadG.cx}
+                y1={quadG.axis.vy0}
+                x2={quadG.cx}
+                y2={quadG.axis.vy1}
+              >
+                <stop offset="0%" stopColor={accent} stopOpacity="0.35" />
+                <stop offset="50%" stopColor={accent} stopOpacity="1" />
+                <stop offset="100%" stopColor={accent} stopOpacity="0.35" />
+              </linearGradient>
+            </>
+          )}
           <linearGradient id={gradId} x1="0%" y1="0%" x2="100%" y2="0%">
             <stop offset="0%" stopColor="rgba(255,107,157,0)" />
             <stop offset="50%" stopColor={accent} stopOpacity="0.95" />
@@ -994,6 +1860,847 @@ export function AnimatedPreview(props: PreviewSpec & AnimatedPreviewProps) {
                     );
                   })
                 )}
+              </g>
+            );
+          })()}
+
+        {/* cycle: static directional arrowheads on the arc gaps (drag-following) */}
+        {spec.layout === 'cycle' &&
+          layout.edges.map((e) => {
+            const a = byKey[e.from];
+            const b = byKey[e.to];
+            if (!a || !b) return null;
+            const k = e.bow ?? 0.3;
+            const C = {
+              x: (a.x + b.x) / 2 + (b.y - a.y) * k,
+              y: (a.y + b.y) / 2 - (b.x - a.x) * k,
+            };
+            const qp = (t: number) => ({
+              x: (1 - t) * (1 - t) * a.x + 2 * t * (1 - t) * C.x + t * t * b.x,
+              y: (1 - t) * (1 - t) * a.y + 2 * t * (1 - t) * C.y + t * t * b.y,
+            });
+            const qt = (t: number) => ({
+              x: 2 * ((1 - t) * (C.x - a.x) + t * (b.x - C.x)),
+              y: 2 * ((1 - t) * (C.y - a.y) + t * (b.y - C.y)),
+            });
+            const clear = dims.tileBase * 1.15;
+            const leg = Math.max(Math.hypot(b.x - C.x, b.y - C.y), 1);
+            const t = Math.min(0.98, Math.max(0.55, 1 - clear / (2 * leg)));
+            const p = qp(t);
+            const g2 = qt(t);
+            const ang = (Math.atan2(g2.y, g2.x) * 180) / Math.PI;
+            const Ln = Math.min(15, Math.max(4, dims.tileBase * 0.32));
+            return (
+              <path
+                key={`cyc-ah-${e.key}`}
+                transform={`translate(${p.x} ${p.y}) rotate(${ang})`}
+                d={`M ${-Ln} ${-Ln * 0.62} L 0 0 L ${-Ln} ${Ln * 0.62} Z`}
+                fill="rgba(15,42,62,0.35)"
+              />
+            );
+          })}
+
+        {/* steps: staircase silhouette + summit pennant (motion rides the edges) */}
+        {stepsG && (
+          <g>
+            <path
+              d={stepsG.fillD}
+              fill={`url(#${gradId}-stairfill)`}
+              stroke="none"
+            />
+            <path
+              d={stepsG.profileD}
+              fill="none"
+              stroke="rgba(15,42,62,0.20)"
+              strokeWidth={variant === 'canvas' ? 1.6 : 1.1}
+              strokeLinejoin="round"
+              strokeLinecap="round"
+            />
+            {stepsG.shadows.map((s, i) => (
+              <ellipse
+                key={`st-sh-${i}`}
+                cx={s.cx}
+                cy={s.cy}
+                rx={s.rx}
+                ry={s.ry}
+                fill="rgba(15,42,62,0.07)"
+              />
+            ))}
+            {stepsG.flag && (
+              <>
+                <line
+                  x1={stepsG.flag.x}
+                  y1={stepsG.landingY}
+                  x2={stepsG.flag.x}
+                  y2={stepsG.flag.top}
+                  stroke="rgba(15,42,62,0.35)"
+                  strokeWidth={variant === 'canvas' ? 1.6 : 1.1}
+                  strokeLinecap="round"
+                />
+                <path
+                  d={`M ${stepsG.flag.x} ${stepsG.flag.top} L ${stepsG.flag.x - stepsG.flag.poleH * 0.62} ${stepsG.flag.top + stepsG.flag.poleH * 0.225} L ${stepsG.flag.x} ${stepsG.flag.top + stepsG.flag.poleH * 0.45} Z`}
+                  fill={accent}
+                  fillOpacity="0.9"
+                />
+                <circle
+                  cx={stepsG.flag.x}
+                  cy={stepsG.landingY}
+                  r="1.6"
+                  fill="rgba(15,42,62,0.35)"
+                />
+              </>
+            )}
+          </g>
+        )}
+
+        {/* funnel / pyramid: banded silhouettes + leader rails + mode motion */}
+        {(funnelG || pyramidG) &&
+          (() => {
+            const g = (funnelG ?? pyramidG) as NonNullable<typeof funnelG> &
+              Partial<NonNullable<typeof pyramidG>>;
+            const bands = g.bands;
+            const L = bands.length;
+            // funnel flows top→down; pyramid rises bottom→up
+            const delay = (j: number) =>
+              funnelG ? j * 0.18 : (L - 1 - j) * 0.18;
+            const rails = funnelG
+              ? [funnelG.wallL, funnelG.wallR]
+              : [pyramidG!.slopeL, pyramidG!.slopeR];
+            const dotR = variant === 'canvas' ? 5 : 3.2;
+            const beamW = variant === 'canvas' ? 4 : 3;
+            const s = variant === 'canvas' ? 1.8 : 1;
+            const structW = variant === 'canvas' ? 1.6 : 1.1;
+            const structDash = variant === 'canvas' ? '6 6' : '3 4';
+            const haloX = funnelG ? funnelG.cx : pyramidG!.cx;
+            const haloY = funnelG ? funnelG.outcomeY : pyramidG!.topY;
+            return (
+              <g>
+                {bands.map((b, j) => (
+                  <polygon
+                    key={`bd-${j}`}
+                    points={b.points}
+                    fill={accent}
+                    fillOpacity={b.fillOp}
+                    stroke="none"
+                  >
+                    {mode === 'pulses' && (
+                      <animate
+                        attributeName="fill-opacity"
+                        values={`${b.fillOp};${Math.min(b.fillOp * 2.1, 0.6)};${b.fillOp}`}
+                        dur={sm(2.8)}
+                        begin={`${delay(j)}s`}
+                        repeatCount="indefinite"
+                      />
+                    )}
+                  </polygon>
+                ))}
+                {rails.map((r, i) => (
+                  <path
+                    key={`rail-${i}`}
+                    d={r}
+                    fill="none"
+                    stroke="rgba(15,42,62,0.14)"
+                    strokeWidth={structW}
+                    strokeDasharray={structDash}
+                  />
+                ))}
+                {pyramidG && (
+                  <path
+                    d={pyramidG.baseLine}
+                    fill="none"
+                    stroke="rgba(15,42,62,0.14)"
+                    strokeWidth={structW}
+                    strokeDasharray={structDash}
+                  />
+                )}
+                {funnelG && (
+                  <path
+                    d={funnelG.spoutDrop}
+                    fill="none"
+                    stroke="rgba(15,42,62,0.2)"
+                    strokeWidth={structW}
+                  />
+                )}
+                {bands.map((b, j) => (
+                  <path
+                    key={`ld-${j}`}
+                    d={b.leader}
+                    fill="none"
+                    stroke="rgba(15,42,62,0.14)"
+                    strokeWidth={structW}
+                    strokeDasharray={structDash}
+                  />
+                ))}
+
+                {mode === 'dots' &&
+                  bands.map((b, j) =>
+                    [0, 1.1].map((off) => (
+                      <circle key={`fd-${j}-${off}`} r={dotR} fill={accent}>
+                        <animateMotion
+                          dur={sm(2.6)}
+                          repeatCount="indefinite"
+                          path={b.leader.replace('M', 'M ').trim()}
+                          begin={`${delay(j) + off}s`}
+                        />
+                      </circle>
+                    ))
+                  )}
+                {mode === 'dots' &&
+                  rails.map((r, i) => (
+                    <circle key={`fdr-${i}`} r={dotR} fill={accent}>
+                      <animateMotion
+                        dur={sm(5.2)}
+                        repeatCount="indefinite"
+                        path={r}
+                        begin={`${i * 0.6}s`}
+                      />
+                    </circle>
+                  ))}
+
+                {mode === 'beams' &&
+                  bands.map((b, j) => (
+                    <path
+                      key={`fb-${j}`}
+                      d={b.leader}
+                      pathLength={100}
+                      stroke={`url(#${gradId}-glow)`}
+                      strokeWidth={beamW}
+                      strokeLinecap="round"
+                      strokeDasharray="45 55"
+                      fill="none"
+                    >
+                      <animate
+                        attributeName="stroke-dashoffset"
+                        from={100}
+                        to={0}
+                        dur={sm(2.4)}
+                        begin={`${delay(j)}s`}
+                        repeatCount="indefinite"
+                      />
+                    </path>
+                  ))}
+                {mode === 'beams' &&
+                  rails.map((r, i) => (
+                    <path
+                      key={`fbr-${i}`}
+                      d={r}
+                      pathLength={100}
+                      stroke={`url(#${gradId}-glow)`}
+                      strokeWidth={beamW}
+                      strokeLinecap="round"
+                      strokeDasharray="25 75"
+                      fill="none"
+                    >
+                      <animate
+                        attributeName="stroke-dashoffset"
+                        from={100}
+                        to={0}
+                        dur={sm(4.8)}
+                        begin={`${i * 0.4}s`}
+                        repeatCount="indefinite"
+                      />
+                    </path>
+                  ))}
+
+                {mode === 'pulses' &&
+                  [0, 1.4].map((off) => (
+                    <circle
+                      key={`fp-${off}`}
+                      cx={haloX}
+                      cy={haloY}
+                      r={0}
+                      fill="none"
+                      stroke={accent}
+                      strokeWidth={variant === 'canvas' ? 2 : 1.5}
+                      opacity={0}
+                    >
+                      <animate
+                        attributeName="r"
+                        values={`${dims.tileLarge * 0.55};${dims.tileLarge * 1.6}`}
+                        dur={sm(2.8)}
+                        begin={`${off + 0.2}s`}
+                        repeatCount="indefinite"
+                      />
+                      <animate
+                        attributeName="opacity"
+                        values="0;0.5;0"
+                        dur={sm(2.8)}
+                        begin={`${off + 0.2}s`}
+                        repeatCount="indefinite"
+                      />
+                    </circle>
+                  ))}
+
+                {mode === 'arrows' &&
+                  bands.map((b, j) => (
+                    <path
+                      key={`fa-${j}`}
+                      d={`M ${-5 * s},${-3 * s} L ${5 * s},0 L ${-5 * s},${3 * s} Z`}
+                      fill={accent}
+                    >
+                      <animateMotion
+                        dur={sm(2.2)}
+                        repeatCount="indefinite"
+                        path={b.leader}
+                        rotate="auto"
+                        begin={`${delay(j)}s`}
+                      />
+                    </path>
+                  ))}
+                {mode === 'arrows' &&
+                  rails.map((r, i) => (
+                    <path
+                      key={`far-${i}`}
+                      d={`M ${-5 * s},${-3 * s} L ${5 * s},0 L ${-5 * s},${3 * s} Z`}
+                      fill={accent}
+                    >
+                      <animateMotion
+                        dur={sm(4.4)}
+                        repeatCount="indefinite"
+                        path={r}
+                        rotate="auto"
+                        begin={`${i * 0.5}s`}
+                      />
+                    </path>
+                  ))}
+              </g>
+            );
+          })()}
+
+        {/* quadrant: tinted panels + bold cross axis + mode accents */}
+        {quadG &&
+          (() => {
+            const dotR = variant === 'canvas' ? 5 : 3.2;
+            const s = variant === 'canvas' ? 1.8 : 1;
+            const A = quadG.A;
+            const ax = quadG.axis;
+            return (
+              <g>
+                {quadG.cells.map((c, i) =>
+                  c.ghost ? (
+                    <rect
+                      key={`qp-${i}`}
+                      x={c.x}
+                      y={c.y}
+                      width={c.w}
+                      height={c.h}
+                      rx={Math.max(3, dims.tileBase * 0.28)}
+                      fill="rgba(15,42,62,0.03)"
+                      stroke="rgba(15,42,62,0.14)"
+                      strokeWidth={1}
+                      strokeDasharray="4 4"
+                    />
+                  ) : (
+                    <rect
+                      key={`qp-${i}`}
+                      x={c.x}
+                      y={c.y}
+                      width={c.w}
+                      height={c.h}
+                      rx={Math.max(3, dims.tileBase * 0.28)}
+                      fill={c.tint}
+                      fillOpacity={0.09}
+                      stroke={c.tint}
+                      strokeOpacity={0.18}
+                      strokeWidth={1}
+                    />
+                  )
+                )}
+                <path
+                  d={`${quadG.hPath} ${quadG.vPath}`}
+                  stroke="rgba(15,42,62,0.32)"
+                  strokeWidth={variant === 'canvas' ? 2.5 : 1.6}
+                  strokeLinecap="round"
+                  fill="none"
+                />
+                <path
+                  d={`M ${ax.hx1} ${quadG.cy} l ${-A} ${-A * 0.6} l 0 ${A * 1.2} Z`}
+                  fill="rgba(15,42,62,0.32)"
+                />
+                <path
+                  d={`M ${ax.hx0} ${quadG.cy} l ${A} ${-A * 0.6} l 0 ${A * 1.2} Z`}
+                  fill="rgba(15,42,62,0.32)"
+                />
+                <path
+                  d={`M ${quadG.cx} ${ax.vy0} l ${-A * 0.6} ${A} l ${A * 1.2} 0 Z`}
+                  fill="rgba(15,42,62,0.32)"
+                />
+                <path
+                  d={`M ${quadG.cx} ${ax.vy1} l ${-A * 0.6} ${-A} l ${A * 1.2} 0 Z`}
+                  fill="rgba(15,42,62,0.32)"
+                />
+
+                {mode === 'dots' &&
+                  [quadG.hPath, quadG.vPath].map((axisPath, a) =>
+                    [0, 1, 2].map((k) => (
+                      <circle key={`qd-${a}-${k}`} r={dotR} fill={accent}>
+                        <animateMotion
+                          dur={sm(3.2)}
+                          begin={`${k * 0.5 + a * 0.25}s`}
+                          repeatCount="indefinite"
+                          path={axisPath}
+                        />
+                      </circle>
+                    ))
+                  )}
+                {mode === 'beams' && (
+                  <>
+                    <path
+                      d={quadG.hPath}
+                      pathLength={100}
+                      stroke={`url(#${gradId}-qh)`}
+                      fill="none"
+                      strokeWidth={variant === 'canvas' ? 4 : 3}
+                      strokeLinecap="round"
+                      strokeDasharray="40 60"
+                    >
+                      <animate
+                        attributeName="stroke-dashoffset"
+                        from={100}
+                        to={0}
+                        dur={sm(2.8)}
+                        begin="0s"
+                        repeatCount="indefinite"
+                      />
+                    </path>
+                    <path
+                      d={quadG.vPath}
+                      pathLength={100}
+                      stroke={`url(#${gradId}-qv)`}
+                      fill="none"
+                      strokeWidth={variant === 'canvas' ? 4 : 3}
+                      strokeLinecap="round"
+                      strokeDasharray="40 60"
+                    >
+                      <animate
+                        attributeName="stroke-dashoffset"
+                        from={100}
+                        to={0}
+                        dur={sm(2.8)}
+                        begin="0.7s"
+                        repeatCount="indefinite"
+                      />
+                    </path>
+                  </>
+                )}
+                {mode === 'pulses' &&
+                  quadG.cells.map((c, i) =>
+                    c.ghost ? null : (
+                      <circle
+                        key={`qpls-${i}`}
+                        cx={c.cx}
+                        cy={c.cy}
+                        r={0}
+                        fill="none"
+                        stroke={accent}
+                        strokeWidth={variant === 'canvas' ? 2 : 1.5}
+                        opacity={0}
+                      >
+                        <animate
+                          attributeName="r"
+                          values={`${dims.tileBase * 0.6};${Math.min(c.w, c.h) * 0.46}`}
+                          dur={sm(2.6)}
+                          begin={`${[0, 0.35, 1.05, 0.7][i]}s`}
+                          repeatCount="indefinite"
+                        />
+                        <animate
+                          attributeName="opacity"
+                          values="0;0.6;0"
+                          dur={sm(2.6)}
+                          begin={`${[0, 0.35, 1.05, 0.7][i]}s`}
+                          repeatCount="indefinite"
+                        />
+                      </circle>
+                    )
+                  )}
+                {mode === 'arrows' &&
+                  quadG.half.map((h, k) => (
+                    <path
+                      key={`qa-${k}`}
+                      d={`M ${-5 * s},${-3 * s} L ${5 * s},0 L ${-5 * s},${3 * s} Z`}
+                      fill={accent}
+                    >
+                      <animateMotion
+                        dur={sm(2.2)}
+                        begin={`${k * 0.3}s`}
+                        repeatCount="indefinite"
+                        rotate="auto"
+                        path={h}
+                      />
+                    </path>
+                  ))}
+                {!quadG.hasCenter && (
+                  <circle
+                    cx={quadG.cx}
+                    cy={quadG.cy}
+                    r={dims.tileBase * 0.35}
+                    fill="#ffffff"
+                    stroke="rgba(15,42,62,0.32)"
+                    strokeWidth={2}
+                  />
+                )}
+              </g>
+            );
+          })()}
+
+        {/* columns: two facing panels + VS divider + mode accents */}
+        {colsG &&
+          (() => {
+            const dotR = variant === 'canvas' ? 5 : 3.2;
+            const s = variant === 'canvas' ? 1.8 : 1;
+            const structW = variant === 'canvas' ? 1.6 : 1.1;
+            return (
+              <g>
+                {colsG.panels.map((p, i) => (
+                  <rect
+                    key={`cp-${i}`}
+                    x={p.x}
+                    y={p.y}
+                    width={p.w}
+                    height={p.h}
+                    rx={colsG.rx}
+                    fill={p.tint}
+                    fillOpacity={0.07}
+                    stroke={p.tint}
+                    strokeOpacity={0.16}
+                    strokeWidth={1}
+                  >
+                    {mode === 'pulses' && (
+                      <animate
+                        attributeName="fill-opacity"
+                        values="0.07;0.16;0.07"
+                        dur={sm(2.8)}
+                        begin={`${i * 1.4}s`}
+                        repeatCount="indefinite"
+                      />
+                    )}
+                  </rect>
+                ))}
+                {[colsG.divTop, colsG.divBottom].map((dv, i) => (
+                  <path
+                    key={`cdv-${i}`}
+                    d={dv}
+                    fill="none"
+                    stroke="rgba(15,42,62,0.2)"
+                    strokeWidth={structW}
+                    strokeDasharray={variant === 'canvas' ? '6 6' : '3 4'}
+                  />
+                ))}
+                {mode === 'dots' &&
+                  colsG.panels.map((p, a) =>
+                    [0, 0.9, 1.8].map((off) => (
+                      <circle key={`cd-${a}-${off}`} r={dotR} fill={accent}>
+                        <animateMotion
+                          dur={sm(2.8)}
+                          begin={`${off + a * 0.45}s`}
+                          repeatCount="indefinite"
+                          path={p.spine}
+                        />
+                      </circle>
+                    ))
+                  )}
+                {mode === 'beams' &&
+                  colsG.panels.map((p, i) => (
+                    <path
+                      key={`cb-${i}`}
+                      d={p.spine}
+                      pathLength={100}
+                      stroke={accent}
+                      strokeOpacity={0.55}
+                      strokeWidth={variant === 'canvas' ? 4 : 3}
+                      strokeLinecap="round"
+                      strokeDasharray="35 65"
+                      fill="none"
+                    >
+                      <animate
+                        attributeName="stroke-dashoffset"
+                        from={100}
+                        to={0}
+                        dur={sm(2.6)}
+                        begin={`${i * 0.6}s`}
+                        repeatCount="indefinite"
+                      />
+                    </path>
+                  ))}
+                {mode === 'pulses' && (
+                  <circle
+                    cx={colsG.cx}
+                    cy={colsG.cy}
+                    r={0}
+                    fill="none"
+                    stroke={accent}
+                    strokeWidth={variant === 'canvas' ? 2 : 1.5}
+                    opacity={0}
+                  >
+                    <animate
+                      attributeName="r"
+                      values={`${dims.tileLarge * 0.55};${dims.tileLarge * 1.5}`}
+                      dur={sm(2.8)}
+                      begin="0.4s"
+                      repeatCount="indefinite"
+                    />
+                    <animate
+                      attributeName="opacity"
+                      values="0;0.5;0"
+                      dur={sm(2.8)}
+                      begin="0.4s"
+                      repeatCount="indefinite"
+                    />
+                  </circle>
+                )}
+                {mode === 'arrows' &&
+                  [colsG.toCenterL, colsG.toCenterR].map((pth, k) => (
+                    <path
+                      key={`ca-${k}`}
+                      d={`M ${-5 * s},${-3 * s} L ${5 * s},0 L ${-5 * s},${3 * s} Z`}
+                      fill={accent}
+                    >
+                      <animateMotion
+                        dur={sm(2.2)}
+                        begin={`${k * 1.1}s`}
+                        repeatCount="indefinite"
+                        rotate="auto"
+                        path={pth}
+                      />
+                    </path>
+                  ))}
+              </g>
+            );
+          })()}
+
+        {/* timeline: baseline + milestone dots + stems + mode accents */}
+        {tlG &&
+          (() => {
+            const dotR = variant === 'canvas' ? 5 : 3.5;
+            const s = variant === 'canvas' ? 1.8 : 1;
+            const Ah = Math.max(6, dims.tileBase * 0.22);
+            return (
+              <g>
+                <path
+                  d={tlG.linePath}
+                  fill="none"
+                  stroke="rgba(15,42,62,0.25)"
+                  strokeWidth={variant === 'canvas' ? 2 : 1.4}
+                  strokeLinecap="round"
+                />
+                <path
+                  d={`M ${tlG.lineEndX + 2} ${tlG.lineY} l ${-Ah} ${-Ah * 0.6} l 0 ${Ah * 1.2} Z`}
+                  fill="rgba(15,42,62,0.25)"
+                />
+                {tlG.dots.map((m, i) => (
+                  <g key={`tl-${i}`}>
+                    <path
+                      d={m.stem}
+                      fill="none"
+                      stroke="rgba(15,42,62,0.2)"
+                      strokeWidth={variant === 'canvas' ? 1.6 : 1.1}
+                    />
+                    <circle
+                      cx={m.x}
+                      cy={tlG.lineY}
+                      r={dotR}
+                      fill="#ffffff"
+                      stroke={accent}
+                      strokeWidth={2}
+                    />
+                  </g>
+                ))}
+                {mode === 'dots' &&
+                  [0, 0.9, 1.8].map((off) => (
+                    <circle key={`tld-${off}`} r={dotR * 0.7} fill={accent}>
+                      <animateMotion
+                        dur={sm(3)}
+                        begin={`${off}s`}
+                        repeatCount="indefinite"
+                        path={tlG.linePath}
+                      />
+                    </circle>
+                  ))}
+                {mode === 'beams' && (
+                  <path
+                    d={tlG.linePath}
+                    pathLength={100}
+                    stroke={`url(#${gradId}-glow)`}
+                    strokeWidth={variant === 'canvas' ? 4 : 3}
+                    strokeLinecap="round"
+                    strokeDasharray="35 65"
+                    fill="none"
+                  >
+                    <animate
+                      attributeName="stroke-dashoffset"
+                      from={100}
+                      to={0}
+                      dur={sm(2.8)}
+                      repeatCount="indefinite"
+                    />
+                  </path>
+                )}
+                {mode === 'pulses' &&
+                  tlG.dots.map((m, i) => (
+                    <circle
+                      key={`tlp-${i}`}
+                      cx={m.x}
+                      cy={tlG.lineY}
+                      r={0}
+                      fill="none"
+                      stroke={accent}
+                      strokeWidth={variant === 'canvas' ? 2 : 1.5}
+                      opacity={0}
+                    >
+                      <animate
+                        attributeName="r"
+                        values={`0;${variant === 'canvas' ? 16 : 9}`}
+                        dur={sm(2.6)}
+                        begin={`${i * 0.3}s`}
+                        repeatCount="indefinite"
+                      />
+                      <animate
+                        attributeName="opacity"
+                        values="0;0.7;0"
+                        dur={sm(2.6)}
+                        begin={`${i * 0.3}s`}
+                        repeatCount="indefinite"
+                      />
+                    </circle>
+                  ))}
+                {mode === 'arrows' &&
+                  [0, 1.1].map((off) => (
+                    <path
+                      key={`tla-${off}`}
+                      d={`M ${-5 * s},${-3 * s} L ${5 * s},0 L ${-5 * s},${3 * s} Z`}
+                      fill={accent}
+                    >
+                      <animateMotion
+                        dur={sm(2.4)}
+                        begin={`${off}s`}
+                        repeatCount="indefinite"
+                        rotate="auto"
+                        path={tlG.linePath}
+                      />
+                    </path>
+                  ))}
+              </g>
+            );
+          })()}
+
+        {/* iceberg: water, berg silhouettes, waterline + mode accents */}
+        {bergG &&
+          (() => {
+            const dotR = variant === 'canvas' ? 4.5 : 3;
+            const s = variant === 'canvas' ? 1.6 : 1;
+            return (
+              <g>
+                <rect
+                  x={0}
+                  y={bergG.waterY}
+                  width={dims.W}
+                  height={dims.H - bergG.waterY}
+                  fill="#38bdf8"
+                  fillOpacity={0.06}
+                />
+                <polygon
+                  points={bergG.belowBerg}
+                  fill={accent}
+                  fillOpacity={0.1}
+                  stroke={accent}
+                  strokeOpacity={0.18}
+                  strokeWidth={1}
+                />
+                <polygon
+                  points={bergG.aboveBerg}
+                  fill="rgba(15,42,62,0.05)"
+                  stroke="rgba(15,42,62,0.16)"
+                  strokeWidth={1}
+                />
+                <path
+                  d={bergG.wavePath}
+                  fill="none"
+                  stroke="#38bdf8"
+                  strokeOpacity={0.55}
+                  strokeWidth={variant === 'canvas' ? 2 : 1.4}
+                  strokeLinecap="round"
+                />
+                {mode === 'dots' &&
+                  bergG.bubbleRails.map((r, i) => (
+                    <circle key={`bgd-${i}`} r={dotR} fill={accent}>
+                      <animateMotion
+                        dur={sm(3.4)}
+                        begin={`${i * 0.7}s`}
+                        repeatCount="indefinite"
+                        path={r}
+                      />
+                      <animate
+                        attributeName="opacity"
+                        values="0;0.9;0"
+                        dur={sm(3.4)}
+                        begin={`${i * 0.7}s`}
+                        repeatCount="indefinite"
+                      />
+                    </circle>
+                  ))}
+                {mode === 'beams' && (
+                  <path
+                    d={bergG.wavePath}
+                    pathLength={100}
+                    stroke={`url(#${gradId}-glow)`}
+                    strokeWidth={variant === 'canvas' ? 4 : 3}
+                    strokeLinecap="round"
+                    strokeDasharray="30 70"
+                    fill="none"
+                  >
+                    <animate
+                      attributeName="stroke-dashoffset"
+                      from={100}
+                      to={0}
+                      dur={sm(3)}
+                      repeatCount="indefinite"
+                    />
+                  </path>
+                )}
+                {mode === 'pulses' &&
+                  [0, 1.5].map((off) => (
+                    <circle
+                      key={`bgp-${off}`}
+                      cx={dims.W / 2}
+                      cy={bergG.waterY}
+                      r={0}
+                      fill="none"
+                      stroke="#38bdf8"
+                      strokeWidth={variant === 'canvas' ? 2 : 1.5}
+                      opacity={0}
+                    >
+                      <animate
+                        attributeName="r"
+                        values={`6;${dims.W * 0.12}`}
+                        dur={sm(3)}
+                        begin={`${off}s`}
+                        repeatCount="indefinite"
+                      />
+                      <animate
+                        attributeName="opacity"
+                        values="0;0.55;0"
+                        dur={sm(3)}
+                        begin={`${off}s`}
+                        repeatCount="indefinite"
+                      />
+                    </circle>
+                  ))}
+                {mode === 'arrows' &&
+                  bergG.bubbleRails.map((r, i) => (
+                    <path
+                      key={`bga-${i}`}
+                      d={`M ${-5 * s},${-3 * s} L ${5 * s},0 L ${-5 * s},${3 * s} Z`}
+                      fill={accent}
+                    >
+                      <animateMotion
+                        dur={sm(3.4)}
+                        begin={`${i * 0.7}s`}
+                        repeatCount="indefinite"
+                        rotate="auto"
+                        path={r}
+                      />
+                    </path>
+                  ))}
               </g>
             );
           })()}
