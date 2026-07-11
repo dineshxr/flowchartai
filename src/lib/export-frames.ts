@@ -188,13 +188,17 @@ export function bakeSmilFrame(svg: SVGSVGElement): () => void {
         }
       }
     } else {
-      // Consolidated transform — captures <animateTransform>.
+      // Bake <animateTransform> (orbit satellites): multiply the animVal items
+      // manually — animVal is a READ-ONLY list, so consolidate() (a mutating
+      // API) throws NoModificationAllowedError on it. The item matrices are
+      // still readable and already reflect the SMIL time set above.
       try {
-        const consolidated = (
-          el as SVGGraphicsElement
-        ).transform?.animVal?.consolidate?.();
-        if (consolidated) {
-          const m = consolidated.matrix;
+        const list = (el as SVGGraphicsElement).transform?.animVal;
+        if (list && list.numberOfItems > 0) {
+          let m = list.getItem(0).matrix;
+          for (let i = 1; i < list.numberOfItems; i++) {
+            m = m.multiply(list.getItem(i).matrix);
+          }
           const prev = el.getAttribute('transform');
           el.setAttribute(
             'transform',

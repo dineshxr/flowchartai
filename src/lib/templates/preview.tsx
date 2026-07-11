@@ -9,11 +9,12 @@
 
 import type {
   PreviewMode,
+  PreviewNode,
   PreviewSpec,
   TreeNode,
 } from '@/components/blocks/infogiph-home/animated-preview';
 import type { ReactNode } from 'react';
-import { iconNode, resolveIcon } from './icon-registry';
+import { iconNode, resolveIcon, resolveSvgIcon } from './icon-registry';
 import type { DiagramData, IconKey, Template } from './types';
 
 /**
@@ -101,9 +102,20 @@ export function derivePreviewSpec(
     icon: ci.node,
     flush: centerFlush(ci),
   };
-  const sats = hub.satellites.map((s, i) => {
+  const sats: PreviewNode[] = hub.satellites.map((s, i) => {
     const si = resolveIcon(s.icon, s.label);
-    return { key: `sat-${i}`, label: s.label, icon: si.node, flush: si.flush };
+    // Also carry the SVG-embeddable variant — the orbit layout draws its
+    // satellites inside the animated <svg>, where HTML icons can't go.
+    const sv = resolveSvgIcon(s.icon, s.label);
+    return {
+      key: `sat-${i}`,
+      label: s.label,
+      icon: si.node,
+      flush: si.flush,
+      svgIcon: sv.node,
+      letter: sv.letter,
+      tint: sv.tint,
+    };
   });
 
   // `tree` from style is only valid with tree data (handled above); for hub
@@ -136,6 +148,17 @@ export function derivePreviewSpec(
       accent: acc,
       bg,
       nodes,
+    };
+  }
+
+  if (layout === 'orbit') {
+    return {
+      layout: 'orbit',
+      mode: style?.mode || 'beams',
+      accent: acc,
+      bg,
+      center,
+      satellites: sats,
     };
   }
 

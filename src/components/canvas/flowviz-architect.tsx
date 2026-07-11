@@ -6,6 +6,7 @@ import {
   AnimatedPreview,
   type Dims,
   type PreviewMode,
+  type PreviewNode,
   type PreviewSpec,
 } from '@/components/blocks/infogiph-home/animated-preview';
 import { ElementInspector } from '@/components/canvas/element-inspector';
@@ -59,18 +60,20 @@ import {
   getTemplateBySlug,
   templateTopicSeed,
 } from '@/lib/templates/catalog';
-import { resolveIcon } from '@/lib/templates/icon-registry';
+import { resolveIcon, resolveSvgIcon } from '@/lib/templates/icon-registry';
 import { derivePreviewSpec } from '@/lib/templates/preview';
 import type { Template, TemplateLayout } from '@/lib/templates/types';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
   Activity,
   ArrowRight,
+  ArrowRightLeft,
   Bot,
   CheckCircle2,
   ChevronLeft,
   CircleDot,
   Cloud,
+  Columns2,
   Database,
   Download,
   Edit,
@@ -83,6 +86,7 @@ import {
   Lock,
   Mail,
   MessageSquare,
+  Orbit,
   PanelLeftClose,
   PanelLeftOpen,
   Search,
@@ -152,13 +156,17 @@ const buildPreviewFromAI = (
     flush: c.flush || c.kind === 'brand',
   };
   const sats: any[] = result.satellites || [];
-  const satNodes = sats.map((s, i) => {
+  const satNodes: PreviewNode[] = sats.map((s, i) => {
     const r = resolveIcon(s.icon, s.label);
+    const sv = resolveSvgIcon(s.icon, s.label);
     return {
       key: `sat-${i}`,
       label: s.label,
       icon: r.node,
       flush: r.flush,
+      svgIcon: sv.node,
+      letter: sv.letter,
+      tint: sv.tint,
     };
   });
 
@@ -178,6 +186,15 @@ const buildPreviewFromAI = (
     case 'radial':
       return {
         layout: 'radial',
+        mode: spec.mode,
+        accent: (spec as any).accent,
+        bg: spec.bg,
+        center,
+        satellites: satNodes,
+      };
+    case 'orbit':
+      return {
+        layout: 'orbit',
         mode: spec.mode,
         accent: (spec as any).accent,
         bg: spec.bg,
@@ -227,6 +244,16 @@ const overrideIcon = (node: any, ov: IconOverride | undefined) => {
       icon: (
         <img src={ov.url} alt="" className="h-full w-full object-contain" />
       ),
+      // Custom logos are stored as data: URLs, which survive the standalone
+      // SVG serialization — so orbit satellites can carry them too.
+      svgIcon: (
+        <image
+          href={ov.url}
+          width="100%"
+          height="100%"
+          preserveAspectRatio="xMidYMid meet"
+        />
+      ),
       flush: false,
     };
   }
@@ -235,10 +262,14 @@ const overrideIcon = (node: any, ov: IconOverride | undefined) => {
   // label→brand inference can't override the user's choice (e.g. picking the
   // "database" concept for a node still labelled "WhatsApp").
   const r = resolveIcon(ov.key, undefined, isCenter);
+  const sv = resolveSvgIcon(ov.key, undefined);
   return {
     ...node,
     icon: r.node,
     flush: isCenter ? r.flush || r.kind === 'brand' : r.flush,
+    svgIcon: sv.node,
+    letter: sv.letter,
+    tint: sv.tint,
   };
 };
 
@@ -261,6 +292,12 @@ function applyElementEdits(
         center: tn(spec.center),
       };
     case 'radial':
+      return {
+        ...spec,
+        satellites: spec.satellites.filter(keep).map(tn),
+        center: tn(spec.center),
+      };
+    case 'orbit':
       return {
         ...spec,
         satellites: spec.satellites.filter(keep).map(tn),
@@ -297,6 +334,10 @@ function indexSpecNodes(
       add(spec.center, true);
       break;
     case 'radial':
+      spec.satellites.forEach((n: any) => add(n));
+      add(spec.center, true);
+      break;
+    case 'orbit':
       spec.satellites.forEach((n: any) => add(n));
       add(spec.center, true);
       break;
@@ -1291,6 +1332,38 @@ export default function FlowVizArchitect({
     }
   };
 
+  // Re-layout the current hub diagram in a different visual style (radial /
+  // orbit / hub-lr / pipeline). Node keys are stable (center, sat-N) so label
+  // and icon edits survive; drag positions don't transfer between layouts.
+  const switchLayout = (l: TemplateLayout) => {
+    if (!diagramData || !('center' in diagramData)) return;
+    const accent =
+      (activePreview as any)?.accent || savedStyle.accent || '#6366f1';
+    skipEditResetRef.current = true;
+    setSavedStyle((s) => ({ ...s, layout: l }));
+    setPositionOverrides({});
+    setActivePreview(
+      derivePreviewSpec(
+        {
+          slug: 'restyled',
+          title: currentTitle,
+          shortDescription: '',
+          longDescription: '',
+          category: '',
+          categoryName: '',
+          tags: [],
+          keywords: [],
+          layout: 'hub',
+          data: diagramData,
+          faqs: [],
+          useCases: [],
+          style: { layout: l, mode: animationType, accent },
+        },
+        accent
+      )
+    );
+  };
+
   const saveFlowchart = async (
     dataToSave: any,
     customTitle?: string,
@@ -1714,6 +1787,54 @@ export default function FlowVizArchitect({
         </div>
 
         <div className="flex items-center gap-2">
+          {diagramData && 'center' in diagramData && activePreview ? (
+            <>
+              <ToggleGroup
+                type="single"
+                value={(activePreview as any).layout ?? 'radial'}
+                onValueChange={(v) => v && switchLayout(v as TemplateLayout)}
+                variant="outline"
+                size="sm"
+                className="rounded-lg bg-white border border-border p-0.5"
+              >
+                <ToggleGroupItem
+                  value="radial"
+                  title="Radial"
+                  aria-label="Radial layout"
+                  className="gap-1.5 text-xs px-2 rounded-md data-[state=on]:bg-foreground data-[state=on]:text-background"
+                >
+                  <Share2 size={14} />
+                </ToggleGroupItem>
+                <ToggleGroupItem
+                  value="orbit"
+                  title="Orbit — satellites revolve around the center"
+                  aria-label="Orbit layout"
+                  className="gap-1.5 text-xs px-2 rounded-md data-[state=on]:bg-foreground data-[state=on]:text-background"
+                >
+                  <Orbit size={14} />
+                </ToggleGroupItem>
+                <ToggleGroupItem
+                  value="hub-lr"
+                  title="Hub — columns left and right"
+                  aria-label="Hub layout"
+                  className="gap-1.5 text-xs px-2 rounded-md data-[state=on]:bg-foreground data-[state=on]:text-background"
+                >
+                  <Columns2 size={14} />
+                </ToggleGroupItem>
+                <ToggleGroupItem
+                  value="pipeline"
+                  title="Pipeline — nodes in a flow"
+                  aria-label="Pipeline layout"
+                  className="gap-1.5 text-xs px-2 rounded-md data-[state=on]:bg-foreground data-[state=on]:text-background"
+                >
+                  <ArrowRightLeft size={14} />
+                </ToggleGroupItem>
+              </ToggleGroup>
+
+              <div className="mx-1 h-6 w-px bg-border" />
+            </>
+          ) : null}
+
           <ToggleGroup
             type="single"
             value={animationType}

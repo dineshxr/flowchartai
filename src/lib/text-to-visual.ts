@@ -27,7 +27,8 @@ export type VisualCategoryKey =
   | 'visual-metaphor'
   | 'narrative'
   | 'cause-effect'
-  | 'hierarchy';
+  | 'hierarchy'
+  | 'ecosystem';
 
 export interface VisualCategory {
   key: VisualCategoryKey;
@@ -110,10 +111,10 @@ export const VISUAL_CATEGORIES: VisualCategory[] = [
   {
     key: 'brainstorming',
     label: 'Brainstorming',
-    tagline: 'Unstructured idea aggregation.',
+    tagline: 'Ideas in motion around a theme.',
     structure:
-      'Divergent ideas, options or angles suggested by the text, spread around the theme.',
-    layout: 'radial',
+      'Divergent ideas, options or angles suggested by the text, orbiting the central theme.',
+    layout: 'orbit',
     mode: 'dots',
     accent: '#ec4899',
   },
@@ -176,6 +177,16 @@ export const VISUAL_CATEGORIES: VisualCategory[] = [
     layout: 'tree',
     mode: 'pulses',
     accent: '#71717a',
+  },
+  {
+    key: 'ecosystem',
+    label: 'Ecosystem',
+    tagline: 'A core platform and everything orbiting it.',
+    structure:
+      'The central platform, product or actor, with the tools, services or players that revolve around it as satellites. Name real products/companies where the text does, so their logos render.',
+    layout: 'orbit',
+    mode: 'beams',
+    accent: '#0ea5e9',
   },
 ];
 

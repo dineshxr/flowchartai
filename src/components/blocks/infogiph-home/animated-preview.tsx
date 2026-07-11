@@ -21,6 +21,15 @@ export interface PreviewNode {
    * "3D" app-icon glyphs that bring their own background and depth.
    */
   flush?: boolean;
+  /**
+   * Pure-SVG icon (brand logo / tinted glyph) for layouts that draw the node
+   * INSIDE the animated <svg> (orbit satellites). HTML icons can't go there —
+   * the export pipeline re-rasterizes the SVG standalone, with no CSS. When
+   * absent, the orbit renderer draws a letter tile from `letter` + `tint`.
+   */
+  svgIcon?: ReactNode;
+  letter?: string;
+  tint?: string;
 }
 
 export interface TreeNode extends PreviewNode {
@@ -50,6 +59,11 @@ export type PreviewSpec =
     })
   | (SpecBase & {
       layout: 'radial';
+      center: PreviewNode;
+      satellites: PreviewNode[];
+    })
+  | (SpecBase & {
+      layout: 'orbit';
       center: PreviewNode;
       satellites: PreviewNode[];
     });
@@ -335,6 +349,106 @@ function treeLayout(spec: Extract<PreviewSpec, { layout: 'tree' }>, d: Dims) {
   return { tiles, edges };
 }
 
+// ── orbit layout ─────────────────────────────────────────────────────────────
+// Napkin/MagicUI-style orbiting circles: the center stays an HTML tile, but the
+// satellites live INSIDE the <svg> on 1–2 concentric rings, revolving via SMIL
+// <animateTransform>. That keeps the motion in the layer the export pipeline
+// re-rasterizes per frame, so GIF/MP4 exports orbit exactly like the live view.
+
+export interface OrbitRing {
+  r: number;
+  /** Seconds per revolution before speed scaling. */
+  period: number;
+  dir: 1 | -1;
+  /** Tile size on this ring. */
+  size: number;
+  sats: PreviewNode[];
+}
+
+export interface OrbitGeometry {
+  cx: number;
+  cy: number;
+  rings: OrbitRing[];
+}
+
+export function computeOrbit(
+  spec: Extract<PreviewSpec, { layout: 'orbit' }>,
+  d: Dims
+): OrbitGeometry {
+  const cx = d.W / 2;
+  const cy = d.H / 2;
+  // Leave room for the tile itself plus its label below the lowest satellite.
+  const outerR = Math.min(d.W, d.H) / 2 - d.margin * 0.7;
+  const sats = spec.satellites;
+  if (sats.length <= 4) {
+    return {
+      cx,
+      cy,
+      rings: [{ r: outerR, period: 26, dir: 1, size: d.tileBase, sats }],
+    };
+  }
+  const innerCount = Math.min(3, Math.max(2, Math.floor(sats.length * 0.4)));
+  return {
+    cx,
+    cy,
+    rings: [
+      {
+        r: outerR * 0.52,
+        period: 17,
+        dir: -1,
+        size: d.tileBase * 0.9,
+        sats: sats.slice(0, innerCount),
+      },
+      {
+        r: outerR,
+        period: 30,
+        dir: 1,
+        size: d.tileBase,
+        sats: sats.slice(innerCount),
+      },
+    ],
+  };
+}
+
+/** Start angle (deg) of satellite `i` on its ring — 12 o'clock, evenly spread. */
+const orbitStartAngle = (ring: OrbitRing, i: number) =>
+  -90 + (360 / Math.max(ring.sats.length, 1)) * i;
+
+/**
+ * Where a satellite is at SMIL time `t` — mirrors the <animateTransform>
+ * timing exactly (linear, begin 0, dur = period / speed) so pointer hit-testing
+ * can find a moving tile.
+ */
+function orbitSatPosition(
+  geo: OrbitGeometry,
+  ring: OrbitRing,
+  i: number,
+  t: number,
+  speed: number
+) {
+  const dur = ring.period / Math.max(speed, 0.05);
+  const a0 = orbitStartAngle(ring, i);
+  const a = ((a0 + ring.dir * 360 * ((t % dur) / dur)) * Math.PI) / 180;
+  return { x: geo.cx + Math.cos(a) * ring.r, y: geo.cy + Math.sin(a) * ring.r };
+}
+
+function orbitLayout(spec: Extract<PreviewSpec, { layout: 'orbit' }>, d: Dims) {
+  // Only the center is a positioned HTML tile; satellites render in the SVG.
+  const tiles: PositionedTile[] = [
+    {
+      key: spec.center.key,
+      icon: spec.center.icon,
+      label: spec.center.label,
+      x: d.W / 2,
+      y: d.H / 2,
+      size: d.tileLarge,
+      center: true,
+      flush: spec.center.flush,
+    },
+  ];
+  return { tiles, edges: [] as Edge[] };
+}
+
 function computeLayout(spec: PreviewSpec, d: Dims) {
   switch (spec.layout) {
     case 'hub-lr':
@@ -345,6 +459,8 @@ function computeLayout(spec: PreviewSpec, d: Dims) {
       return radialLayout(spec, d);
     case 'tree':
       return treeLayout(spec, d);
+    case 'orbit':
+      return orbitLayout(spec, d);
   }
 }
 
@@ -414,6 +530,7 @@ export function AnimatedPreview(props: PreviewSpec & AnimatedPreviewProps) {
 
   const dims = dimsOverride ?? (variant === 'canvas' ? CANVAS_DIMS : HOME_DIMS);
   const layout = computeLayout(spec, dims);
+  const orbit = spec.layout === 'orbit' ? computeOrbit(spec, dims) : null;
 
   // Apply position overrides on top of computed layout
   const tiles = layout.tiles.map((t) => {
@@ -431,6 +548,7 @@ export function AnimatedPreview(props: PreviewSpec & AnimatedPreviewProps) {
   const sm = (s: number) => `${(s / Math.max(speed, 0.05)).toFixed(2)}s`;
 
   const containerRef = useRef<HTMLDivElement>(null);
+  const svgRef = useRef<SVGSVGElement>(null);
   const dragKey = useRef<string | null>(null);
   const dragOffset = useRef<{ dx: number; dy: number }>({ dx: 0, dy: 0 });
 
@@ -487,11 +605,29 @@ export function AnimatedPreview(props: PreviewSpec & AnimatedPreviewProps) {
       }}
     >
       <svg
+        ref={svgRef}
         viewBox={`0 0 ${dims.W} ${dims.H}`}
         className="absolute inset-0 w-full h-full"
         preserveAspectRatio="xMidYMid meet"
       >
         <defs>
+          {/* Soft drop shadow for orbit satellite tiles (SVG-native, so it
+              survives the standalone rasterization in exports). */}
+          <filter
+            id={`${gradId}-satshadow`}
+            x="-40%"
+            y="-40%"
+            width="180%"
+            height="180%"
+          >
+            <feDropShadow
+              dx="0"
+              dy="1"
+              stdDeviation="1.6"
+              floodColor="#0f2a3e"
+              floodOpacity="0.16"
+            />
+          </filter>
           <linearGradient id={gradId} x1="0%" y1="0%" x2="100%" y2="0%">
             <stop offset="0%" stopColor="rgba(255,107,157,0)" />
             <stop offset="50%" stopColor={accent} stopOpacity="0.95" />
@@ -641,6 +777,226 @@ export function AnimatedPreview(props: PreviewSpec & AnimatedPreviewProps) {
             </g>
           );
         })}
+
+        {orbit &&
+          (() => {
+            const dotR = variant === 'canvas' ? 5 : 3.2;
+            const beamW = variant === 'canvas' ? 4 : 3;
+            const arrowScale = variant === 'canvas' ? 1.8 : 1;
+            const outermost = Math.max(...orbit.rings.map((r) => r.r));
+            const fontStack =
+              'ui-sans-serif, system-ui, -apple-system, sans-serif';
+            return (
+              <g>
+                {orbit.rings.map((ring, ri) => (
+                  <g key={`orbit-ring-${ri}`}>
+                    {/* the orbit path */}
+                    <circle
+                      cx={orbit.cx}
+                      cy={orbit.cy}
+                      r={ring.r}
+                      fill="none"
+                      stroke="rgba(15,42,62,0.14)"
+                      strokeWidth={variant === 'canvas' ? 1.6 : 1.1}
+                      strokeDasharray={variant === 'canvas' ? '6 6' : '3 4'}
+                    />
+
+                    {/* mode accents travelling the ring */}
+                    {mode === 'beams' && (
+                      <circle
+                        cx={orbit.cx}
+                        cy={orbit.cy}
+                        r={ring.r}
+                        fill="none"
+                        pathLength={100}
+                        stroke={`url(#${gradId}-glow)`}
+                        strokeWidth={beamW}
+                        strokeLinecap="round"
+                        strokeDasharray="30 70"
+                      >
+                        <animate
+                          attributeName="stroke-dashoffset"
+                          from={ring.dir > 0 ? 100 : -100}
+                          to={0}
+                          dur={sm(3.2)}
+                          begin={`${ri * 0.4}s`}
+                          repeatCount="indefinite"
+                        />
+                      </circle>
+                    )}
+                    {mode === 'dots' &&
+                      [0, 120, 240].map((a0) => (
+                        <g
+                          key={`od-${a0}`}
+                          transform={`translate(${orbit.cx} ${orbit.cy}) rotate(${a0})`}
+                        >
+                          <animateTransform
+                            attributeName="transform"
+                            type="rotate"
+                            additive="sum"
+                            from="0 0 0"
+                            to={`${ring.dir * 360} 0 0`}
+                            dur={sm(ring.period * 0.45)}
+                            repeatCount="indefinite"
+                          />
+                          <circle cx={ring.r} cy={0} r={dotR} fill={accent} />
+                        </g>
+                      ))}
+                    {mode === 'arrows' &&
+                      [0, 180].map((a0) => (
+                        <g
+                          key={`oa-${a0}`}
+                          transform={`translate(${orbit.cx} ${orbit.cy}) rotate(${a0})`}
+                        >
+                          <animateTransform
+                            attributeName="transform"
+                            type="rotate"
+                            additive="sum"
+                            from="0 0 0"
+                            to={`${ring.dir * 360} 0 0`}
+                            dur={sm(ring.period * 0.5)}
+                            repeatCount="indefinite"
+                          />
+                          <path
+                            transform={`translate(${ring.r} 0) rotate(${ring.dir > 0 ? 90 : -90})`}
+                            d={`M ${-5 * arrowScale},${-3 * arrowScale} L ${5 * arrowScale},0 L ${-5 * arrowScale},${3 * arrowScale} Z`}
+                            fill={accent}
+                          />
+                        </g>
+                      ))}
+                  </g>
+                ))}
+
+                {mode === 'pulses' &&
+                  [0, 1.4].map((off) => (
+                    <circle
+                      key={`op-${off}`}
+                      cx={orbit.cx}
+                      cy={orbit.cy}
+                      r={0}
+                      fill="none"
+                      stroke={accent}
+                      strokeWidth={variant === 'canvas' ? 2 : 1.5}
+                      opacity={0}
+                    >
+                      <animate
+                        attributeName="r"
+                        values={`${dims.tileLarge * 0.55};${outermost}`}
+                        dur={sm(2.8)}
+                        begin={`${off}s`}
+                        repeatCount="indefinite"
+                      />
+                      <animate
+                        attributeName="opacity"
+                        values="0;0.55;0"
+                        dur={sm(2.8)}
+                        begin={`${off}s`}
+                        repeatCount="indefinite"
+                      />
+                    </circle>
+                  ))}
+
+                {/* the revolving satellites — counter-rotated to stay upright */}
+                {orbit.rings.map((ring, ri) =>
+                  ring.sats.map((sat, i) => {
+                    const a0 = orbitStartAngle(ring, i);
+                    const s = ring.size;
+                    const iconInset = s * 0.62;
+                    const selected = selectedKey === sat.key;
+                    const label = labelOverrides[sat.key] ?? sat.label;
+                    return (
+                      <g
+                        key={sat.key}
+                        transform={`translate(${orbit.cx} ${orbit.cy}) rotate(${a0})`}
+                      >
+                        <animateTransform
+                          attributeName="transform"
+                          type="rotate"
+                          additive="sum"
+                          from="0 0 0"
+                          to={`${ring.dir * 360} 0 0`}
+                          dur={sm(ring.period)}
+                          repeatCount="indefinite"
+                        />
+                        <g transform={`translate(${ring.r} 0) rotate(${-a0})`}>
+                          <animateTransform
+                            attributeName="transform"
+                            type="rotate"
+                            additive="sum"
+                            from="0 0 0"
+                            to={`${-ring.dir * 360} 0 0`}
+                            dur={sm(ring.period)}
+                            repeatCount="indefinite"
+                          />
+                          <rect
+                            x={-s / 2}
+                            y={-s / 2}
+                            width={s}
+                            height={s}
+                            rx={s * 0.28}
+                            fill="#ffffff"
+                            stroke={
+                              selected ? SELECTION_COLOR : 'rgba(15,42,62,0.12)'
+                            }
+                            strokeWidth={selected ? 2 : 1}
+                            filter={`url(#${gradId}-satshadow)`}
+                          />
+                          {sat.svgIcon ? (
+                            <svg
+                              x={-iconInset / 2}
+                              y={-iconInset / 2}
+                              width={iconInset}
+                              height={iconInset}
+                            >
+                              {sat.svgIcon}
+                            </svg>
+                          ) : (
+                            <>
+                              <rect
+                                x={-s / 2}
+                                y={-s / 2}
+                                width={s}
+                                height={s}
+                                rx={s * 0.28}
+                                fill={sat.tint ?? accent}
+                                opacity={0.13}
+                              />
+                              <text
+                                textAnchor="middle"
+                                dominantBaseline="central"
+                                fontSize={s * 0.42}
+                                fontWeight={700}
+                                fill={sat.tint ?? accent}
+                                fontFamily={fontStack}
+                              >
+                                {sat.letter ??
+                                  (sat.label ?? '?').charAt(0).toUpperCase()}
+                              </text>
+                            </>
+                          )}
+                          {dims.labelSize > 0 && label ? (
+                            <text
+                              y={s / 2 + dims.labelSize + 6}
+                              textAnchor="middle"
+                              fontSize={dims.labelSize}
+                              fontWeight={600}
+                              fill="#0f2a3e"
+                              stroke="#ffffff"
+                              strokeWidth={3}
+                              paintOrder="stroke"
+                              fontFamily={fontStack}
+                            >
+                              {label}
+                            </text>
+                          ) : null}
+                        </g>
+                      </g>
+                    );
+                  })
+                )}
+              </g>
+            );
+          })()}
       </svg>
 
       <div
@@ -651,8 +1007,29 @@ export function AnimatedPreview(props: PreviewSpec & AnimatedPreviewProps) {
         onPointerDown={
           editable && onSelect
             ? (e) => {
+                if (e.target !== e.currentTarget) return; // a tile handles itself
+                // Orbit satellites live in the SVG *under* this overlay, so
+                // hit-test them at their CURRENT revolved position (from the
+                // SVG's SMIL clock) before treating the click as empty canvas.
+                if (orbit) {
+                  const t = svgRef.current?.getCurrentTime?.() ?? 0;
+                  const p = toSvg(e.clientX, e.clientY);
+                  for (const ring of orbit.rings) {
+                    for (let i = 0; i < ring.sats.length; i++) {
+                      const pos = orbitSatPosition(orbit, ring, i, t, speed);
+                      const hit = ring.size / 2 + 4;
+                      if (
+                        Math.abs(p.x - pos.x) <= hit &&
+                        Math.abs(p.y - pos.y) <= hit
+                      ) {
+                        onSelect(ring.sats[i].key);
+                        return;
+                      }
+                    }
+                  }
+                }
                 // Clicking the empty canvas (not a tile) clears selection.
-                if (e.target === e.currentTarget) onSelect(null);
+                onSelect(null);
               }
             : undefined
         }

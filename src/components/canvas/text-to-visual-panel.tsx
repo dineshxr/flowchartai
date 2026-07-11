@@ -20,7 +20,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Textarea } from '@/components/ui/textarea';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { useAIUsageLimit } from '@/hooks/use-ai-usage-limit';
-import { resolveIcon } from '@/lib/templates/icon-registry';
+import { resolveIcon, resolveSvgIcon } from '@/lib/templates/icon-registry';
 import type {
   DiagramData,
   TemplateLayout,
@@ -103,7 +103,18 @@ export function specFromSuggestion(s: VisualSuggestion): PreviewSpec {
   };
   const sats: PreviewNode[] = s.satellites.map((sat, i) => {
     const r = resolveIcon(sat.icon, sat.label);
-    return { key: `sat-${i}`, label: sat.label, icon: r.node, flush: r.flush };
+    // SVG-embeddable variant for the orbit layout (satellites render inside
+    // the animated <svg>, where HTML icons can't go).
+    const sv = resolveSvgIcon(sat.icon, sat.label);
+    return {
+      key: `sat-${i}`,
+      label: sat.label,
+      icon: r.node,
+      flush: r.flush,
+      svgIcon: sv.node,
+      letter: sv.letter,
+      tint: sv.tint,
+    };
   });
   const base = { mode: cat.mode, accent: cat.accent };
 
@@ -150,6 +161,8 @@ export function specFromSuggestion(s: VisualSuggestion): PreviewSpec {
         root: { ...center, key: 'root', children },
       };
     }
+    case 'orbit':
+      return { ...base, layout: 'orbit', center, satellites: sats };
     default:
       return { ...base, layout: 'radial', center, satellites: sats };
   }
@@ -159,6 +172,8 @@ export function specFromSuggestion(s: VisualSuggestion): PreviewSpec {
 function thumbSpec(spec: PreviewSpec): PreviewSpec {
   switch (spec.layout) {
     case 'radial':
+      return { ...spec, satellites: spec.satellites.slice(0, 6) };
+    case 'orbit':
       return { ...spec, satellites: spec.satellites.slice(0, 6) };
     case 'pipeline':
       return { ...spec, nodes: spec.nodes.slice(0, 5) };

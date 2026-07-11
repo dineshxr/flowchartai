@@ -58,7 +58,12 @@ export interface TreeDiagramData {
 export type DiagramData = HubDiagramData | TreeDiagramData;
 
 /** Animated preview layout shapes (mirrors PreviewSpec.layout). */
-export type TemplateLayout = 'radial' | 'hub-lr' | 'pipeline' | 'tree';
+export type TemplateLayout =
+  | 'radial'
+  | 'hub-lr'
+  | 'pipeline'
+  | 'tree'
+  | 'orbit';
 /** Animated preview motion styles (mirrors PreviewMode). */
 export type TemplateMode = 'dots' | 'beams' | 'pulses' | 'arrows';
 
