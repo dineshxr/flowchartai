@@ -28,27 +28,27 @@ export function AIUsageLimitCard({
   onLearnMore,
   className,
 }: AIUsageLimitCardProps) {
-  // 根据当前计划获取升级建议
+  // 根据当前计划获取升级建议 (keep in sync with src/config/plans.ts)
   const getUpgradeInfo = () => {
     switch (currentPlan) {
       case 'free':
         return {
-          targetPlan: 'Hobby',
-          price: '$8/month',
+          targetPlan: 'Pro',
+          price: '$9/month (billed yearly)',
           features: [
-            '100 AI requests per month',
-            'Email support (24h response)',
-            'Save unlimited diagrams',
+            '500 AI generations per month',
+            'Unlimited exports, no watermark',
+            '2K & 4K video, GIF & image export',
           ],
         };
       case 'hobby':
         return {
-          targetPlan: 'Professional',
-          price: '$12/month',
+          targetPlan: 'Max',
+          price: '$23/month (billed yearly)',
           features: [
-            'Unlimited AI requests',
-            'Priority support + technical help',
-            'Commercial use license',
+            'Unlimited AI generations',
+            'Brand kit — your logo & colors',
+            'Team workspace & priority support',
           ],
         };
       case 'professional':
@@ -73,7 +73,9 @@ export function AIUsageLimitCard({
           <span className="font-medium text-amber-700">
             {usedCount}/{totalLimit}
           </span>{' '}
-          AI requests this month
+          {currentPlan === 'free'
+            ? 'of your free AI generations'
+            : 'AI generations this month'}
         </CardDescription>
       </CardHeader>
 

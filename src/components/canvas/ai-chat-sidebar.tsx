@@ -4,6 +4,7 @@ import { LoginForm } from '@/components/auth/login-form';
 import { LoginWrapper } from '@/components/auth/login-wrapper';
 import { UpgradeDialog } from '@/components/pricing/upgrade-dialog';
 import { AIUsageLimitCard } from '@/components/shared/ai-usage-limit-card';
+import { CreditsCounter } from '@/components/shared/credits-counter';
 import { GuestUsageIndicator } from '@/components/shared/guest-usage-indicator';
 import MarkdownRenderer from '@/components/shared/markdown-renderer';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -1408,6 +1409,13 @@ const AiChatSidebar: React.FC<AiChatSidebarProps> = ({
           </div>
         )}
 
+        {/* Credits counter — always visible for signed-in users */}
+        {currentUser && (
+          <div className="px-4 py-2 border-b border-gray-100">
+            <CreditsCounter onUpgrade={() => setShowPricingModal(true)} />
+          </div>
+        )}
+
         {/* Messages */}
         <div className="flex-1 overflow-hidden relative">
           <ScrollArea ref={scrollAreaRef} className="h-full w-full">
@@ -1664,7 +1672,11 @@ const AiChatSidebar: React.FC<AiChatSidebarProps> = ({
             refreshUsageData(); // Refresh usage data when dialog closes
           }
         }}
-        reason="You've used your free AI generations. Upgrade for more."
+        reason={
+          usageData?.subscriptionStatus === 'hobby'
+            ? "You've used this month's 500 generations. Max removes the cap entirely."
+            : "You've used your free AI generations. Upgrade for 500 a month."
+        }
       />
     </div>
   );

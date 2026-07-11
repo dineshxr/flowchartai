@@ -1,5 +1,6 @@
 'use client';
 
+import { PlanBadge } from '@/components/shared/plan-badge';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -111,8 +112,9 @@ export function SidebarUser({ user, className }: SidebarUserProps) {
               />
 
               <div className="grid flex-1 text-left text-sm leading-tight">
-                <span className="truncate font-semibold">
+                <span className="flex items-center gap-1.5 truncate font-semibold">
                   {user.name || 'User'}
+                  <PlanBadge />
                 </span>
                 <span className="truncate text-xs">{user.email || ''}</span>
               </div>
@@ -133,8 +135,9 @@ export function SidebarUser({ user, className }: SidebarUserProps) {
                   className="size-8 border"
                 />
                 <div className="grid flex-1 text-left text-sm leading-tight">
-                  <span className="truncate font-semibold">
+                  <span className="flex items-center gap-1.5 truncate font-semibold">
                     {user.name ?? ''}
+                    <PlanBadge />
                   </span>
                   <span className="truncate text-xs">{user.email ?? ''}</span>
                 </div>

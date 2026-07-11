@@ -12,11 +12,14 @@ import {
   type PreviewSpec,
   type TreeNode,
 } from '@/components/blocks/infogiph-home/animated-preview';
+import { UpgradeDialog } from '@/components/pricing/upgrade-dialog';
+import { CreditsCounter } from '@/components/shared/credits-counter';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Textarea } from '@/components/ui/textarea';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import { useAIUsageLimit } from '@/hooks/use-ai-usage-limit';
 import { resolveIcon } from '@/lib/templates/icon-registry';
 import type {
   DiagramData,
@@ -233,6 +236,8 @@ export function TextToVisualPanel({
   const [loadingCategory, setLoadingCategory] =
     useState<VisualCategoryKey | null>(null);
   const [categoryQuery, setCategoryQuery] = useState('');
+  const [showUpgrade, setShowUpgrade] = useState(false);
+  const { usageData, refreshUsageData } = useAIUsageLimit();
 
   // Specs are derived once per suggestion batch; thumbnails and the canvas
   // preview share them so what you click is what you get.
@@ -307,6 +312,12 @@ export function TextToVisualPanel({
         toast.error('Please sign in to use this feature');
         return;
       }
+      if (response.status === 429) {
+        // Out of credits — upsell instead of a dead-end error.
+        refreshUsageData();
+        setShowUpgrade(true);
+        return;
+      }
       if (!response.ok) {
         const data = await response.json().catch(() => null);
         toast.error(data?.message || 'Could not generate visual suggestions');
@@ -321,6 +332,7 @@ export function TextToVisualPanel({
         return;
       }
       setSuggestions(next);
+      refreshUsageData(); // keep the credits counter honest after a spend
       // Auto-preview the best fit so the canvas responds immediately.
       setSelectedId(next[0].id);
       onPreview({
@@ -429,6 +441,11 @@ export function TextToVisualPanel({
             )}
             {suggestions.length > 0 ? 'New suggestions' : 'Suggest visuals'}
           </Button>
+
+          {/* Credits counter — visible where credits are spent */}
+          <div className="flex justify-center">
+            <CreditsCounter onUpgrade={() => setShowUpgrade(true)} />
+          </div>
 
           {/* AI Suggestions */}
           {suggestions.length > 0 && (
@@ -567,6 +584,20 @@ export function TextToVisualPanel({
             : 'Pick a suggestion to apply it to the canvas'}
         </p>
       </div>
+
+      {/* Out-of-credits upsell */}
+      <UpgradeDialog
+        open={showUpgrade}
+        onOpenChange={(o) => {
+          setShowUpgrade(o);
+          if (!o) refreshUsageData();
+        }}
+        reason={
+          usageData?.subscriptionStatus === 'hobby'
+            ? "You've used this month's 500 generations. Max removes the cap entirely."
+            : "You've used your free AI generations. Upgrade for 500 a month."
+        }
+      />
     </div>
   );
 }

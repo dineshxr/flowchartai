@@ -159,7 +159,9 @@ export async function POST(req: Request) {
         return new Response(
           JSON.stringify({
             error: 'Usage limit exceeded',
-            message: `You have reached your AI usage limit. ${usageCheck.remainingUsage} of ${usageCheck.limit} requests remaining.`,
+            message:
+              usageCheck.reason ??
+              'You have reached your AI usage limit. Upgrade for more generations.',
           }),
           { status: 429, headers: { 'Content-Type': 'application/json' } }
         );
