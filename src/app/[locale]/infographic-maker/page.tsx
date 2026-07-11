@@ -99,6 +99,10 @@ export default function InfographicMakerPage() {
         { label: 'Free Infographic Maker', href: '/free-infographic-maker' },
         { label: 'Infographic Video Maker', href: '/infographic-video-maker' },
         {
+          label: 'Animated Infographic Maker',
+          href: '/animated-infographic-maker',
+        },
+        {
           label: 'How to make an infographic',
           href: '/blog/how-to-make-an-infographic',
         },

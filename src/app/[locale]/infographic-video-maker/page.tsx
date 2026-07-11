@@ -89,7 +89,7 @@ export default function InfographicVideoMakerPage() {
         },
         {
           q: 'Is the infographic video maker free?',
-          a: 'You can start free. Animated GIF and MP4 exports are part of the paid plans for higher-volume and premium use.',
+          a: 'You can start free — the free plan includes GIF and MP4 exports at 1080p with a small Infogiph watermark. Paid plans add unlimited exports, watermark removal, and 2K/4K video.',
         },
         {
           q: 'What aspect ratios are supported?',
@@ -97,8 +97,15 @@ export default function InfographicVideoMakerPage() {
         },
       ]}
       related={[
+        {
+          label: 'Animated Infographic Maker',
+          href: '/animated-infographic-maker',
+        },
+        {
+          label: 'Free Infographic Video Maker',
+          href: '/free-infographic-video-maker',
+        },
         { label: 'Infographic Maker', href: '/infographic-maker' },
-        { label: 'Free Infographic Maker', href: '/free-infographic-maker' },
         {
           label: 'How to make an infographic video',
           href: '/blog/how-to-make-an-infographic-video',

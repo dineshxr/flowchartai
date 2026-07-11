@@ -32,6 +32,8 @@ function getEnabledStaticRoutes(): string[] {
     '/infographic-maker',
     '/free-infographic-maker',
     '/infographic-video-maker',
+    '/free-infographic-video-maker',
+    '/animated-infographic-maker',
     ...makerRoutes,
     '/pricing',
     '/about',
@@ -86,6 +88,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         route === '/infographic-maker' ||
         route === '/free-infographic-maker' ||
         route === '/infographic-video-maker' ||
+        route === '/free-infographic-video-maker' ||
+        route === '/animated-infographic-maker' ||
         route === '/templates' ||
         makerRoutes.includes(route)
       ) {
