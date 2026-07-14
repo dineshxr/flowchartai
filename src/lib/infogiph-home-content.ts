@@ -165,12 +165,27 @@ export const footerColumns: FooterColumn[] = [
   {
     heading: 'Product',
     links: [
+      { label: 'AI Infographics', href: '/canvas' },
+      { label: 'Text to Visuals', href: '/canvas?tab=text' },
       { label: 'Infographic Maker', href: '/infographic-maker' },
       { label: 'Free Infographic Maker', href: '/free-infographic-maker' },
       { label: 'Infographic Video Maker', href: '/infographic-video-maker' },
       { label: 'Templates', href: '/templates' },
       { label: 'Pricing', href: '/pricing' },
-      { label: 'Canvas', href: '/canvas' },
+    ],
+  },
+  {
+    heading: 'AI Makers',
+    links: [
+      { label: 'Flow Chart Maker', href: '/ai-flow-chart-maker' },
+      { label: 'Mind Map Maker', href: '/ai-mind-map-maker' },
+      { label: 'Concept Map Maker', href: '/ai-concept-map-maker' },
+      { label: 'Comparison Chart Maker', href: '/ai-comparison-chart-maker' },
+      { label: 'Timeline Maker', href: '/ai-timeline-maker' },
+      { label: 'Roadmap Maker', href: '/ai-roadmap-maker' },
+      { label: 'Org Chart Maker', href: '/ai-org-chart-maker' },
+      { label: 'Venn Diagram Maker', href: '/ai-venn-diagram-maker' },
+      { label: 'Genogram Maker', href: '/ai-genogram-maker' },
     ],
   },
   {

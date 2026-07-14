@@ -6,7 +6,7 @@ export function Footer() {
   return (
     <footer className="border-t bg-muted/30 mt-auto">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 py-10 sm:py-14">
-        <div className="grid grid-cols-2 md:grid-cols-6 gap-8">
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-8">
           <div className="col-span-2">
             <InfogiphWordmark className="h-7 w-auto text-foreground mb-4" />
             <p className="text-sm text-muted-foreground max-w-xs leading-relaxed">

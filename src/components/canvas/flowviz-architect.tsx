@@ -10,6 +10,10 @@ import {
 } from '@/components/blocks/infogiph-home/animated-preview';
 import { ElementInspector } from '@/components/canvas/element-inspector';
 import { ProcessingOverlay } from '@/components/canvas/processing-overlay';
+import {
+  type AppliedVisual,
+  TextToVisualPanel,
+} from '@/components/canvas/text-to-visual-panel';
 import { UserButton } from '@/components/layout/user-button';
 import { UpgradeDialog } from '@/components/pricing/upgrade-dialog';
 import { Button } from '@/components/ui/button';
@@ -57,7 +61,7 @@ import {
 } from '@/lib/templates/catalog';
 import { resolveIcon } from '@/lib/templates/icon-registry';
 import { derivePreviewSpec } from '@/lib/templates/preview';
-import type { Template } from '@/lib/templates/types';
+import type { Template, TemplateLayout } from '@/lib/templates/types';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
   Activity,
@@ -88,6 +92,7 @@ import {
   Sparkles,
   User,
   Users,
+  Wand2,
   Workflow,
   Zap,
 } from 'lucide-react';
@@ -942,6 +947,16 @@ export default function FlowVizArchitect({
   const [error, setError] = useState<string | null>(null);
   const [animationType, setAnimationType] = useState<PreviewMode>('dots');
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarTab, setSidebarTab] = useState<'templates' | 'text'>(
+    'templates'
+  );
+  // Pinned visual style from an applied "text to visuals" suggestion. Persisted
+  // with the flowchart so e.g. a timeline reopens as a pipeline, not a random
+  // hash-derived layout. Cleared when another flow replaces the diagram.
+  const [savedStyle, setSavedStyle] = useState<{
+    layout?: TemplateLayout;
+    accent?: string;
+  }>({});
   const [templateQuery, setTemplateQuery] = useState('');
   const [diagramData, setDiagramData] = useState<any>({
     center: { label: 'AI Engine', icon: 'bot' },
@@ -1001,6 +1016,8 @@ export default function FlowVizArchitect({
     exportMP4,
     isExporting,
     exportProgress,
+    exportStage,
+    cancelExport,
   } = useFlowchartExport(exportContainerRef);
 
   // Measure the live canvas frame so the diagram layout can be recomputed for
@@ -1076,6 +1093,12 @@ export default function FlowVizArchitect({
       if (!diagram || typeof diagram !== 'object' || !(isHub || isTree)) return;
 
       setDiagramData(diagram);
+      const pinnedLayout = (isV2 ? parsed.previewLayout : undefined) as
+        | TemplateLayout
+        | undefined;
+      const pinnedAccent = (isV2 ? parsed.accent : undefined) as
+        | string
+        | undefined;
       if (isV2) {
         // Restore the saved element edits and tell the edit-reset effect to skip
         // the wipe it would otherwise run when activePreview changes below.
@@ -1085,6 +1108,7 @@ export default function FlowVizArchitect({
         setLabelOverrides(parsed.labelOverrides || {});
         setIconOverrides(parsed.iconOverrides || {});
         setDeletedKeys(parsed.deletedKeys || []);
+        setSavedStyle({ layout: pinnedLayout, accent: pinnedAccent });
       }
       // Derive an animated spec so a reopened flowchart renders through
       // AnimatedPreview + the shared icon registry (real brand/3D icons). Node
@@ -1103,8 +1127,14 @@ export default function FlowVizArchitect({
           data: diagram,
           faqs: [],
           useCases: [],
+          // A visual applied from "text to visuals" pins its layout + accent so
+          // it reopens exactly as applied (e.g. a timeline stays a pipeline).
+          style:
+            pinnedLayout || pinnedAccent
+              ? { layout: pinnedLayout, accent: pinnedAccent }
+              : undefined,
         } as Template,
-        '#6366f1'
+        pinnedAccent || '#6366f1'
       );
       setActivePreview(spec);
     } catch (e) {
@@ -1145,6 +1175,15 @@ export default function FlowVizArchitect({
     const ro = new ResizeObserver(update);
     ro.observe(el);
     return () => ro.disconnect();
+  }, []);
+
+  // Deep link: /canvas?tab=text opens the editor on the "Text to visuals"
+  // tab (used by the site header/footer nav).
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (new URLSearchParams(window.location.search).get('tab') === 'text') {
+      setSidebarTab('text');
+    }
   }, []);
 
   // Deep link: /canvas?template=<slug> opens the editor with that catalog
@@ -1261,6 +1300,8 @@ export default function FlowVizArchitect({
       labelOverrides?: Record<string, string>;
       iconOverrides?: Record<string, IconOverride>;
       deletedKeys?: string[];
+      previewLayout?: TemplateLayout;
+      accent?: string;
     }
   ) => {
     if (!currentUser) return;
@@ -1278,6 +1319,8 @@ export default function FlowVizArchitect({
         labelOverrides: snapshot?.labelOverrides ?? labelOverrides,
         iconOverrides: snapshot?.iconOverrides ?? iconOverrides,
         deletedKeys: snapshot?.deletedKeys ?? deletedKeys,
+        previewLayout: snapshot?.previewLayout ?? savedStyle.layout,
+        accent: snapshot?.accent ?? savedStyle.accent,
       });
       const titleToSave =
         currentTitle !== 'Untitled'
@@ -1357,6 +1400,7 @@ export default function FlowVizArchitect({
       setActivePreview(nextPreview);
       setPositionOverrides({});
       setLabelOverrides({});
+      setSavedStyle({});
       localStorage.removeItem('flowchart_auto_generate');
       localStorage.removeItem('flowchart_auto_input');
       if (currentTitle === 'Untitled') {
@@ -1387,6 +1431,7 @@ export default function FlowVizArchitect({
     setActiveTemplate(template);
     setPositionOverrides({});
     setLabelOverrides({});
+    setSavedStyle({});
     if (currentTitle === 'Untitled') {
       setCurrentTitle(template.label);
       setTempTitle(template.label);
@@ -1409,11 +1454,49 @@ export default function FlowVizArchitect({
     });
     setPositionOverrides({});
     setLabelOverrides({});
+    setSavedStyle({});
     setTopic('');
     if (currentTitle === 'Untitled') {
       setCurrentTitle(tpl.title);
       setTempTitle(tpl.title);
     }
+  };
+
+  // ---- Text → visuals (long-form text, Napkin-style) ------------------------
+  // Live-preview a suggestion on the canvas. Selecting different suggestions
+  // swaps the diagram; the edit-reset effect clears element edits each time.
+  const previewVisual = (v: AppliedVisual) => {
+    setDiagramData(v.data);
+    setActivePreview(v.spec);
+    setAnimationType(v.mode);
+    setPositionOverrides({});
+    setLabelOverrides({});
+    setSavedStyle({ layout: v.layout, accent: v.accent });
+    if (v.orientation === 'portrait') setExportPreset('portrait');
+    else if (v.orientation === 'landscape') setExportPreset('landscape');
+  };
+
+  // "Save and Apply": commit the chosen visual — title it and persist with its
+  // pinned layout/accent so it reloads exactly as applied.
+  const applyVisual = (v: AppliedVisual) => {
+    previewVisual(v);
+    if (currentTitle === 'Untitled') {
+      setCurrentTitle(v.title);
+      setTempTitle(v.title);
+    }
+    if (!currentUser) {
+      toast.success('Applied to canvas — sign in to save it to your library');
+      return;
+    }
+    saveFlowchart(v.data, v.title, {
+      mode: v.mode,
+      positionOverrides: {},
+      labelOverrides: {},
+      iconOverrides: {},
+      deletedKeys: [],
+      previewLayout: v.layout,
+      accent: v.accent,
+    });
   };
 
   // Catalog search for the sidebar (matches title, description, category, tags).
@@ -1889,204 +1972,248 @@ export default function FlowVizArchitect({
 
       {/* Main Content Area */}
       <div className="flex flex-1 overflow-hidden">
-        {/* Sidebar - Template Picker */}
+        {/* Sidebar - Template Picker / Text to visuals */}
         {sidebarOpen && (
-          <div className="flex w-[280px] shrink-0 flex-col border-r border-border bg-[#fafafa]">
-            {/* Templates header + search */}
-            <div className="px-4 pb-3 pt-4">
-              <div className="flex items-center justify-between gap-2">
-                <h2 className="text-sm font-semibold text-foreground">
-                  Templates
-                </h2>
-                <a
-                  href="/templates"
-                  target="_blank"
-                  rel="noreferrer"
-                  className="shrink-0 text-[11px] font-medium text-foreground/55 transition-colors hover:text-foreground"
+          <div
+            className={`flex ${
+              sidebarTab === 'text' ? 'w-[340px]' : 'w-[280px]'
+            } shrink-0 flex-col border-r border-border bg-[#fafafa] transition-[width] duration-200`}
+          >
+            {/* Mode tabs */}
+            <div className="px-3 pt-3">
+              <div className="flex rounded-lg border border-border bg-white p-0.5">
+                <button
+                  type="button"
+                  onClick={() => setSidebarTab('templates')}
+                  className={`flex flex-1 items-center justify-center gap-1.5 rounded-md py-1.5 text-xs font-medium transition-colors ${
+                    sidebarTab === 'templates'
+                      ? 'bg-foreground text-background'
+                      : 'text-foreground/60 hover:text-foreground'
+                  }`}
                 >
-                  Browse all {allTemplates.length} →
-                </a>
-              </div>
-              <div className="relative mt-2.5">
-                <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  value={templateQuery}
-                  onChange={(e) => setTemplateQuery(e.target.value)}
-                  placeholder={`Search ${allTemplates.length} templates…`}
-                  className="h-9 rounded-lg border-border bg-white pl-8 text-xs focus-visible:border-foreground/40 focus-visible:ring-0"
-                />
+                  <LayoutGrid size={13} /> Templates
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSidebarTab('text')}
+                  className={`flex flex-1 items-center justify-center gap-1.5 rounded-md py-1.5 text-xs font-medium transition-colors ${
+                    sidebarTab === 'text'
+                      ? 'bg-foreground text-background'
+                      : 'text-foreground/60 hover:text-foreground'
+                  }`}
+                >
+                  <Wand2 size={13} /> Text to visuals
+                </button>
               </div>
             </div>
 
-            <ScrollArea className="flex-1">
-              <div className="space-y-1.5 px-3 pb-3">
-                {templateQuery.trim() ? (
-                  templateResults.length > 0 ? (
-                    templateResults.map((t) => (
+            {/* Kept mounted (hidden) so pasted text + suggestions survive tab
+                switches; `contents` delegates layout to the panel itself. */}
+            <div className={sidebarTab === 'text' ? 'contents' : 'hidden'}>
+              <TextToVisualPanel
+                onPreview={previewVisual}
+                onApply={applyVisual}
+              />
+            </div>
+            {sidebarTab === 'templates' && (
+              <>
+                {/* Templates header + search */}
+                <div className="px-4 pb-3 pt-4">
+                  <div className="flex items-center justify-between gap-2">
+                    <h2 className="text-sm font-semibold text-foreground">
+                      Templates
+                    </h2>
+                    <a
+                      href="/templates"
+                      target="_blank"
+                      rel="noreferrer"
+                      className="shrink-0 text-[11px] font-medium text-foreground/55 transition-colors hover:text-foreground"
+                    >
+                      Browse all {allTemplates.length} →
+                    </a>
+                  </div>
+                  <div className="relative mt-2.5">
+                    <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      value={templateQuery}
+                      onChange={(e) => setTemplateQuery(e.target.value)}
+                      placeholder={`Search ${allTemplates.length} templates…`}
+                      className="h-9 rounded-lg border-border bg-white pl-8 text-xs focus-visible:border-foreground/40 focus-visible:ring-0"
+                    />
+                  </div>
+                </div>
+
+                <ScrollArea className="flex-1">
+                  <div className="space-y-1.5 px-3 pb-3">
+                    {templateQuery.trim() ? (
+                      templateResults.length > 0 ? (
+                        templateResults.map((t) => (
+                          <button
+                            key={t.slug}
+                            type="button"
+                            onClick={() => loadCatalogTemplate(t)}
+                            className="group flex w-full items-center gap-3 rounded-xl border border-transparent bg-white px-3 py-2.5 text-left transition-all hover:border-border hover:shadow-sm"
+                          >
+                            <span
+                              className="h-9 w-9 shrink-0 rounded-lg"
+                              style={{
+                                background: `${accentForCategory(t.category)}1a`,
+                                border: `1px solid ${accentForCategory(t.category)}40`,
+                              }}
+                            />
+                            <div className="min-w-0">
+                              <div className="truncate text-xs font-medium text-foreground">
+                                {t.title}
+                              </div>
+                              <div className="mt-0.5 truncate text-[11px] text-muted-foreground">
+                                {t.categoryName}
+                              </div>
+                            </div>
+                          </button>
+                        ))
+                      ) : (
+                        <div className="px-3 py-8 text-center">
+                          <p className="text-xs text-muted-foreground">
+                            No templates match “{templateQuery.trim()}”.
+                          </p>
+                          <a
+                            href="/templates"
+                            target="_blank"
+                            rel="noreferrer"
+                            className="mt-1 inline-block text-xs font-medium text-foreground hover:underline"
+                          >
+                            Browse all templates →
+                          </a>
+                        </div>
+                      )
+                    ) : (
+                      <>
+                        <p className="px-1 pb-0.5 pt-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                          Quick start
+                        </p>
+                        {TEMPLATES.map((template) => (
+                          <button
+                            key={template.id}
+                            type="button"
+                            onClick={() => handleTemplateSelect(template)}
+                            className="group flex w-full items-center gap-3 rounded-xl border border-transparent bg-white px-3 py-2.5 text-left text-sm transition-all hover:border-border hover:shadow-sm"
+                          >
+                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border bg-white text-foreground/70 transition-colors group-hover:text-foreground">
+                              {template.icon}
+                            </div>
+                            <div className="min-w-0">
+                              <div className="truncate text-xs font-medium text-foreground">
+                                {template.label}
+                              </div>
+                              <div className="mt-0.5 truncate text-[11px] text-muted-foreground">
+                                {template.data.satellites?.length ||
+                                  template.data.root?.children?.length ||
+                                  0}{' '}
+                                nodes
+                              </div>
+                            </div>
+                          </button>
+                        ))}
+                      </>
+                    )}
+                  </div>
+                </ScrollArea>
+
+                {/* Generator */}
+                <div className="border-t border-border bg-white p-3">
+                  <div className="mb-2 flex items-center gap-1.5">
+                    <Sparkles className="h-3.5 w-3.5 text-foreground" />
+                    <span className="text-xs font-semibold text-foreground">
+                      Generate with AI
+                    </span>
+                  </div>
+                  <div className="mb-2 flex flex-wrap gap-1.5">
+                    {EXAMPLE_PROMPTS.slice(0, 4).map((ex) => (
                       <button
-                        key={t.slug}
+                        key={ex}
                         type="button"
-                        onClick={() => loadCatalogTemplate(t)}
-                        className="group flex w-full items-center gap-3 rounded-xl border border-transparent bg-white px-3 py-2.5 text-left transition-all hover:border-border hover:shadow-sm"
+                        onClick={() => setTopic(ex)}
+                        title={ex}
+                        className="rounded-full border border-border bg-[#fafafa] px-2 py-1 text-[10px] font-medium text-foreground/65 transition-colors hover:border-foreground/30 hover:text-foreground"
                       >
-                        <span
-                          className="h-9 w-9 shrink-0 rounded-lg"
-                          style={{
-                            background: `${accentForCategory(t.category)}1a`,
-                            border: `1px solid ${accentForCategory(t.category)}40`,
-                          }}
-                        />
-                        <div className="min-w-0">
-                          <div className="truncate text-xs font-medium text-foreground">
-                            {t.title}
-                          </div>
-                          <div className="mt-0.5 truncate text-[11px] text-muted-foreground">
-                            {t.categoryName}
-                          </div>
-                        </div>
-                      </button>
-                    ))
-                  ) : (
-                    <div className="px-3 py-8 text-center">
-                      <p className="text-xs text-muted-foreground">
-                        No templates match “{templateQuery.trim()}”.
-                      </p>
-                      <a
-                        href="/templates"
-                        target="_blank"
-                        rel="noreferrer"
-                        className="mt-1 inline-block text-xs font-medium text-foreground hover:underline"
-                      >
-                        Browse all templates →
-                      </a>
-                    </div>
-                  )
-                ) : (
-                  <>
-                    <p className="px-1 pb-0.5 pt-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                      Quick start
-                    </p>
-                    {TEMPLATES.map((template) => (
-                      <button
-                        key={template.id}
-                        type="button"
-                        onClick={() => handleTemplateSelect(template)}
-                        className="group flex w-full items-center gap-3 rounded-xl border border-transparent bg-white px-3 py-2.5 text-left text-sm transition-all hover:border-border hover:shadow-sm"
-                      >
-                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border bg-white text-foreground/70 transition-colors group-hover:text-foreground">
-                          {template.icon}
-                        </div>
-                        <div className="min-w-0">
-                          <div className="truncate text-xs font-medium text-foreground">
-                            {template.label}
-                          </div>
-                          <div className="mt-0.5 truncate text-[11px] text-muted-foreground">
-                            {template.data.satellites?.length ||
-                              template.data.root?.children?.length ||
-                              0}{' '}
-                            nodes
-                          </div>
-                        </div>
+                        {ex.split(' ').slice(0, 3).join(' ')}…
                       </button>
                     ))}
-                  </>
-                )}
-              </div>
-            </ScrollArea>
-
-            {/* Generator */}
-            <div className="border-t border-border bg-white p-3">
-              <div className="mb-2 flex items-center gap-1.5">
-                <Sparkles className="h-3.5 w-3.5 text-foreground" />
-                <span className="text-xs font-semibold text-foreground">
-                  Generate with AI
-                </span>
-              </div>
-              <div className="mb-2 flex flex-wrap gap-1.5">
-                {EXAMPLE_PROMPTS.slice(0, 4).map((ex) => (
-                  <button
-                    key={ex}
-                    type="button"
-                    onClick={() => setTopic(ex)}
-                    title={ex}
-                    className="rounded-full border border-border bg-[#fafafa] px-2 py-1 text-[10px] font-medium text-foreground/65 transition-colors hover:border-foreground/30 hover:text-foreground"
-                  >
-                    {ex.split(' ').slice(0, 3).join(' ')}…
-                  </button>
-                ))}
-              </div>
-              <form
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  generateDiagram(
-                    undefined,
-                    undefined,
-                    sidebarImage || undefined
-                  );
-                }}
-                className="space-y-2"
-              >
-                <Textarea
-                  value={topic}
-                  onChange={(e) => setTopic(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && !e.shiftKey) {
+                  </div>
+                  <form
+                    onSubmit={(e) => {
                       e.preventDefault();
                       generateDiagram(
                         undefined,
                         undefined,
                         sidebarImage || undefined
                       );
-                    }
-                  }}
-                  placeholder="Describe what you want to visualize…"
-                  rows={2}
-                  className="resize-none rounded-lg border-border bg-white text-xs focus-visible:border-foreground/40 focus-visible:ring-0"
-                />
-                <div className="flex items-center gap-2">
-                  <input
-                    ref={sidebarFileRef}
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (!file) return;
-                      if (file.size > 4 * 1024 * 1024) {
-                        toast.error('Image must be under 4 MB');
-                        return;
-                      }
-                      const reader = new FileReader();
-                      reader.onload = () =>
-                        setSidebarImage(reader.result as string);
-                      reader.readAsDataURL(file);
                     }}
-                  />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="h-9 shrink-0 rounded-lg border-border text-xs hover:bg-[#fafafa]"
-                    onClick={() => sidebarFileRef.current?.click()}
+                    className="space-y-2"
                   >
-                    {sidebarImage ? '✓ Image' : '+ Image'}
-                  </Button>
-                  <Button
-                    type="submit"
-                    disabled={loading || (!topic.trim() && !sidebarImage)}
-                    className="h-9 flex-1 gap-2 rounded-lg bg-foreground text-xs text-background hover:bg-neutral-800 disabled:opacity-50"
-                    size="sm"
-                  >
-                    {loading ? (
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    ) : (
-                      <Sparkles className="h-3.5 w-3.5" />
-                    )}
-                    Generate
-                  </Button>
+                    <Textarea
+                      value={topic}
+                      onChange={(e) => setTopic(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && !e.shiftKey) {
+                          e.preventDefault();
+                          generateDiagram(
+                            undefined,
+                            undefined,
+                            sidebarImage || undefined
+                          );
+                        }
+                      }}
+                      placeholder="Describe what you want to visualize…"
+                      rows={2}
+                      className="resize-none rounded-lg border-border bg-white text-xs focus-visible:border-foreground/40 focus-visible:ring-0"
+                    />
+                    <div className="flex items-center gap-2">
+                      <input
+                        ref={sidebarFileRef}
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (!file) return;
+                          if (file.size > 4 * 1024 * 1024) {
+                            toast.error('Image must be under 4 MB');
+                            return;
+                          }
+                          const reader = new FileReader();
+                          reader.onload = () =>
+                            setSidebarImage(reader.result as string);
+                          reader.readAsDataURL(file);
+                        }}
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-9 shrink-0 rounded-lg border-border text-xs hover:bg-[#fafafa]"
+                        onClick={() => sidebarFileRef.current?.click()}
+                      >
+                        {sidebarImage ? '✓ Image' : '+ Image'}
+                      </Button>
+                      <Button
+                        type="submit"
+                        disabled={loading || (!topic.trim() && !sidebarImage)}
+                        className="h-9 flex-1 gap-2 rounded-lg bg-foreground text-xs text-background hover:bg-neutral-800 disabled:opacity-50"
+                        size="sm"
+                      >
+                        {loading ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <Sparkles className="h-3.5 w-3.5" />
+                        )}
+                        Generate
+                      </Button>
+                    </div>
+                  </form>
                 </div>
-              </form>
-            </div>
+              </>
+            )}
           </div>
         )}
 
@@ -2116,6 +2243,46 @@ export default function FlowVizArchitect({
           <div className="pointer-events-none absolute bottom-4 right-4 z-10 select-none rounded-md bg-[rgba(15,23,42,0.72)] px-2.5 py-1 text-xs font-semibold tracking-tight text-white shadow-sm">
             infogiph.com
           </div>
+          {/* Export progress. The capture works on an off-screen clone, so the
+              canvas keeps animating — this card is the only export UI. */}
+          {isExporting && (
+            <output
+              className="absolute bottom-6 left-1/2 z-20 block -translate-x-1/2"
+              aria-live="polite"
+            >
+              <div className="flex items-center gap-3 rounded-xl border border-border bg-white/95 px-4 py-3 shadow-lg backdrop-blur">
+                <Loader2 className="h-4 w-4 animate-spin text-foreground/70" />
+                <div className="w-56">
+                  <div className="flex items-center justify-between text-xs font-medium">
+                    <span>
+                      {exportStage === 'preparing' && 'Preparing export…'}
+                      {exportStage === 'rendering' && 'Rendering frames…'}
+                      {exportStage === 'encoding' && 'Encoding…'}
+                      {exportStage === 'finalizing' && 'Finishing up…'}
+                      {exportStage === 'idle' && 'Exporting…'}
+                    </span>
+                    <span className="tabular-nums text-muted-foreground">
+                      {exportProgress}%
+                    </span>
+                  </div>
+                  <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-border">
+                    <div
+                      className="h-full rounded-full bg-foreground transition-[width] duration-200"
+                      style={{ width: `${exportProgress}%` }}
+                    />
+                  </div>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={cancelExport}
+                  className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground"
+                >
+                  Cancel
+                </Button>
+              </div>
+            </output>
+          )}
           <div className="h-full flex items-center justify-center p-6">
             <div
               className="relative rounded-xl border border-border bg-white shadow-[0_8px_30px_rgba(0,0,0,0.04)] overflow-hidden transition-all duration-300"
