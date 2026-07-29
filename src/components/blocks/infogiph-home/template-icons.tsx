@@ -53,6 +53,9 @@ const DESCS: Record<string, string> = {
   'payment-processing-flow-diagram': 'Checkout, gateway, ledger & payout',
   'serverless-architecture-template': 'Functions, auth & managed data',
   'learning-path-diagram': 'A structured route from basics to mastery',
+  'ai-tool-ecosystem-orbit': 'Models & tools revolving around your stack',
+  'saas-integration-orbit': 'Slack, Stripe & friends orbiting your product',
+  'social-media-ecosystem-orbit': 'Every channel circling your brand',
 };
 
 function build(slug: string, size: Size): ShowcaseItem | null {
@@ -83,14 +86,17 @@ export const showcaseHeroes: ShowcaseItem[] = compact([
 /** The varied-size animated gallery beneath the heroes. */
 export const showcaseGallery: ShowcaseItem[] = compact([
   build('aws-cloud-architecture-diagram', 'wide'),
+  build('ai-tool-ecosystem-orbit', 'square'),
   build('supply-chain-diagram', 'wide'),
   build('ai-agent-architecture-diagram', 'square'),
   build('microservices-architecture-diagram', 'wide'),
   build('kubernetes-architecture-diagram', 'square'),
   build('org-chart-template', 'tall'),
+  build('saas-integration-orbit', 'wide'),
   build('zero-trust-architecture-diagram', 'square'),
   build('ci-cd-pipeline-diagram', 'wide'),
   build('marketing-funnel-diagram', 'wide'),
+  build('social-media-ecosystem-orbit', 'square'),
   build('payment-processing-flow-diagram', 'square'),
   build('learning-path-diagram', 'tall'),
   build('serverless-architecture-template', 'wide'),

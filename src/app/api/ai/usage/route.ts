@@ -1,4 +1,8 @@
-import { canUserUseAI, getUserAIUsageStats } from '@/lib/ai-usage';
+import {
+  canUserUseAI,
+  getUserAIUsageStats,
+  getUserPlanLevel,
+} from '@/lib/ai-usage';
 import { getSession } from '@/lib/server';
 
 export async function GET() {
@@ -21,16 +25,18 @@ export async function GET() {
 
     const userId = session.user.id;
 
-    // Get usage stats and limits
-    const [stats, limits] = await Promise.all([
+    // Get usage stats, limits, and the user's plan tier
+    const [stats, limits, planLevel] = await Promise.all([
       getUserAIUsageStats(userId),
       canUserUseAI(userId),
+      getUserPlanLevel(userId),
     ]);
 
     return new Response(
       JSON.stringify({
         stats,
         limits,
+        planLevel,
       }),
       {
         status: 200,

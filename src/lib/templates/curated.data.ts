@@ -101,7 +101,9 @@ export const curatedTemplates: RawTemplate[] = [
     category: 'ai-ml',
     categoryName: 'AI & Machine Learning',
     style: {
-      layout: 'radial',
+      // Orbit: the models/frameworks revolve around the LLM — the homepage's
+      // flagship hero card shows the motion off best.
+      layout: 'orbit',
       mode: 'beams',
       accent: '#6366f1',
       bg: 'linear-gradient(135deg,#eef2ff 0%,#faf5ff 100%)',
@@ -245,6 +247,199 @@ export const curatedTemplates: RawTemplate[] = [
       bg: 'linear-gradient(135deg,#ecfdf5 0%,#eff6ff 100%)',
     },
   },
+
+  // ---- Orbit-style templates (revolving satellites) -------------------------
+  {
+    slug: 'ai-tool-ecosystem-orbit',
+    title: 'AI Tool Ecosystem',
+    shortDescription:
+      'Your AI stack as a living orbit — models, frameworks and vector stores revolving around the product they power',
+    longDescription:
+      'This animated diagram shows an AI product’s ecosystem as orbiting circles: the product sits at the center while the models and infrastructure it depends on — OpenAI’s GPT models, Anthropic’s Claude, Google Gemini, Hugging Face, LangChain and Pinecone — revolve around it on two rings. The orbital motion makes dependency and gravity instantly readable: everything in the diagram exists in relation to the center.\n\nUse it to present your AI stack in a pitch deck, to document which providers a product depends on, or to compare vendor ecosystems. Every node is editable, so you can swap in the exact models, frameworks and databases your team uses — and export the result as an animated GIF or MP4 with the orbits in motion.',
+    tags: [
+      'ai stack',
+      'ai ecosystem',
+      'orbit diagram',
+      'llm tools',
+      'ai infrastructure',
+      'animated diagram',
+    ],
+    keywords: [
+      'ai tool ecosystem diagram',
+      'ai stack diagram',
+      'orbiting circles diagram',
+      'ai infrastructure map',
+      'llm stack visualization',
+      'animated ai diagram',
+    ],
+    layout: 'hub',
+    centerLabel: 'Your AI Stack',
+    centerIcon: 'brain3d',
+    satellites: [
+      { label: 'OpenAI GPT', icon: 'openai' },
+      { label: 'Claude', icon: 'claude' },
+      { label: 'Gemini', icon: 'gemini' },
+      { label: 'Hugging Face', icon: 'huggingface' },
+      { label: 'LangChain', icon: 'langchain' },
+      { label: 'Pinecone', icon: 'pinecone' },
+    ],
+    faqs: [
+      {
+        q: 'What is an orbit diagram?',
+        a: 'An orbit diagram places one central element in the middle and animates the related elements revolving around it on rings — like planets around a sun. It communicates dependency and gravity: everything shown exists in relation to the center.',
+      },
+      {
+        q: 'Can I export the orbiting animation?',
+        a: 'Yes. Export to GIF or MP4 and the satellites keep revolving in the exported file — perfect for pitch decks, docs and social posts. PNG and SVG exports capture a clean still.',
+      },
+      {
+        q: 'Can I change which tools appear in the orbit?',
+        a: 'Every node is editable. Swap any satellite for the models, frameworks or databases your stack actually uses — brand logos are matched automatically from the label.',
+      },
+    ],
+    useCases: [
+      'AI stack slide for a pitch deck',
+      'Documenting model and vendor dependencies',
+      'Comparing AI provider ecosystems',
+      'Animated visual for a product launch post',
+      'Engineering onboarding docs',
+    ],
+    category: 'ai-ml',
+    categoryName: 'AI & Machine Learning',
+    style: {
+      layout: 'orbit',
+      mode: 'beams',
+      accent: '#8b5cf6',
+      bg: 'linear-gradient(135deg,#f5f3ff 0%,#eff6ff 100%)',
+    },
+  },
+  {
+    slug: 'saas-integration-orbit',
+    title: 'SaaS Integration Map',
+    shortDescription:
+      'The integrations that revolve around your product — Slack, Notion, Stripe and more, orbiting as animated circles',
+    longDescription:
+      'This animated integration map shows a SaaS product at the center with its key integrations — Slack, Notion, Stripe, Salesforce, Mailchimp and Google Drive — orbiting around it. The revolving motion tells the story a static integrations grid can’t: your product is the gravitational center of a working ecosystem.\n\nUse it on an integrations page, in a partner deck, or in onboarding materials to show how your product connects to the tools customers already use. Every node is editable — swap in your actual integrations and the matching brand logos render automatically. Export as an animated GIF or MP4 with the orbits in motion, or as a clean PNG/SVG still.',
+    tags: [
+      'integrations',
+      'saas',
+      'orbit diagram',
+      'partner ecosystem',
+      'animated diagram',
+      'product marketing',
+    ],
+    keywords: [
+      'saas integration diagram',
+      'integration map template',
+      'product ecosystem diagram',
+      'orbiting integrations animation',
+      'partner ecosystem map',
+      'integrations page visual',
+    ],
+    layout: 'hub',
+    centerLabel: 'Your Product',
+    centerIcon: 'bolt3d',
+    satellites: [
+      { label: 'Slack', icon: 'slack' },
+      { label: 'Notion', icon: 'notion' },
+      { label: 'Stripe', icon: 'stripe' },
+      { label: 'Salesforce', icon: 'salesforce' },
+      { label: 'Mailchimp', icon: 'mailchimp' },
+      { label: 'Google Drive', icon: 'gdrive' },
+    ],
+    faqs: [
+      {
+        q: 'What should an integration map show?',
+        a: 'Your product at the center and the tools it connects to around it. The orbit layout adds motion, which makes the ecosystem feel alive — ideal for marketing pages and partner decks rather than technical wiring diagrams.',
+      },
+      {
+        q: 'Do the brand logos render automatically?',
+        a: 'Yes. Label a node "Slack", "Stripe" or any of the dozens of recognized products and the real logo renders automatically — or pick a logo explicitly in the editor.',
+      },
+      {
+        q: 'Can I use this on my website?',
+        a: 'Export as an animated GIF or MP4 and embed it on your integrations or landing page. Higher resolutions and watermark-free exports are available on paid plans.',
+      },
+    ],
+    useCases: [
+      'Integrations page hero animation',
+      'Partner ecosystem slide',
+      'Customer onboarding materials',
+      'Product launch announcement visual',
+      'App marketplace listing graphic',
+    ],
+    category: 'product',
+    categoryName: 'Product & UX',
+    style: {
+      layout: 'orbit',
+      mode: 'dots',
+      accent: '#6366f1',
+      bg: 'linear-gradient(135deg,#eef2ff 0%,#faf5ff 100%)',
+    },
+  },
+  {
+    slug: 'social-media-ecosystem-orbit',
+    title: 'Social Media Ecosystem',
+    shortDescription:
+      'Your brand at the center of its channels — Instagram, TikTok, YouTube and more orbiting in one animated view',
+    longDescription:
+      'This animated diagram puts a brand at the center of its social presence, with Instagram, TikTok, YouTube, WhatsApp and Meta revolving around it as orbiting circles. It reads instantly: one brand, many channels, all in motion around the same center of gravity.\n\nUse it to open a social strategy deck, to map where a brand publishes and engages, or as a share-ready animation announcing a channel strategy. Every node is editable — add or remove channels, rename the center to your brand, and the platform logos render automatically. Export as an animated GIF or MP4 with the orbit in motion.',
+    tags: [
+      'social media',
+      'marketing',
+      'orbit diagram',
+      'channel strategy',
+      'animated diagram',
+      'brand',
+    ],
+    keywords: [
+      'social media ecosystem diagram',
+      'social channel map template',
+      'brand channel strategy visual',
+      'orbiting social icons animation',
+      'social media strategy diagram',
+      'animated marketing diagram',
+    ],
+    layout: 'hub',
+    centerLabel: 'Your Brand',
+    centerIcon: 'mega3d',
+    satellites: [
+      { label: 'Instagram', icon: 'instagram' },
+      { label: 'TikTok', icon: 'tiktok' },
+      { label: 'YouTube', icon: 'youtube' },
+      { label: 'WhatsApp', icon: 'whatsapp' },
+      { label: 'Meta', icon: 'meta' },
+    ],
+    faqs: [
+      {
+        q: 'What is a social media ecosystem map?',
+        a: 'A single view of every channel a brand operates, arranged around the brand itself. The orbit layout animates the channels revolving around the brand, which makes the strategy read at a glance in decks and posts.',
+      },
+      {
+        q: 'Can I add or remove channels?',
+        a: 'Yes — every node is editable. Add LinkedIn, X or a newsletter, remove channels you don’t use, and the layout rebalances the orbit automatically.',
+      },
+      {
+        q: 'What formats can I export?',
+        a: 'Animated GIF and MP4 keep the orbital motion; PNG and SVG give you a clean still for documents. Free accounts export at 1080p with a small watermark.',
+      },
+    ],
+    useCases: [
+      'Social strategy deck opener',
+      'Channel audit and planning workshops',
+      'Agency pitch for multi-channel management',
+      'Brand guidelines: where we publish',
+      'Animated post announcing a new channel',
+    ],
+    category: 'marketing',
+    categoryName: 'Marketing & Growth',
+    style: {
+      layout: 'orbit',
+      mode: 'pulses',
+      accent: '#ec4899',
+      bg: 'linear-gradient(135deg,#fdf2f8 0%,#fff7ed 100%)',
+    },
+  },
 ];
 
 // ---------------------------------------------------------------------------
@@ -368,7 +563,8 @@ export const curatedOverrides: Record<string, CuratedOverride> = {
       { label: 'Search', icon: 'algolia' },
     ],
     style: {
-      layout: 'hub-lr',
+      // It's literally a funnel.
+      layout: 'funnel',
       mode: 'dots',
       accent: '#ec4899',
       bg: grad('#fdf2f8', '#fff1f2'),
@@ -404,7 +600,8 @@ export const curatedOverrides: Record<string, CuratedOverride> = {
       { label: 'Observe', icon: 'grafana' },
     ],
     style: {
-      layout: 'pipeline',
+      // CI/CD is a loop — commit → build → deploy → observe → commit.
+      layout: 'cycle',
       mode: 'arrows',
       accent: '#16a34a',
       bg: grad('#f0fdf4', '#f7fee7'),
@@ -540,7 +737,8 @@ export const curatedOverrides: Record<string, CuratedOverride> = {
       { label: 'Walmart', icon: 'walmart' },
     ],
     style: {
-      layout: 'radial',
+      // Factory → ERP → carriers → retail reads as milestones along a line.
+      layout: 'timeline',
       mode: 'beams',
       accent: '#f59e0b',
       bg: grad('#fff7ed', '#fffbeb'),

@@ -170,6 +170,14 @@ export const footerColumns: FooterColumn[] = [
       { label: 'Infographic Maker', href: '/infographic-maker' },
       { label: 'Free Infographic Maker', href: '/free-infographic-maker' },
       { label: 'Infographic Video Maker', href: '/infographic-video-maker' },
+      {
+        label: 'Free Infographic Video Maker',
+        href: '/free-infographic-video-maker',
+      },
+      {
+        label: 'Animated Infographic Maker',
+        href: '/animated-infographic-maker',
+      },
       { label: 'Templates', href: '/templates' },
       { label: 'Pricing', href: '/pricing' },
     ],

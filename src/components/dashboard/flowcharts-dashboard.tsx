@@ -2,6 +2,7 @@
 
 import { UpgradeDialog } from '@/components/pricing/upgrade-dialog';
 import { AIUsageLimitCard } from '@/components/shared/ai-usage-limit-card';
+import { CreditsCounter } from '@/components/shared/credits-counter';
 import { GuestUsageIndicator } from '@/components/shared/guest-usage-indicator';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -191,10 +192,13 @@ export function FlowchartsDashboard() {
             Create, edit, and manage your AI-powered flowcharts
           </p>
         </div>
-        <Button onClick={handleCreateNew} className="font-normal">
-          <Plus className="mr-2 h-4 w-4" />
-          New Flowchart
-        </Button>
+        <div className="flex items-center gap-3">
+          <CreditsCounter onUpgrade={() => setShowPricingModal(true)} />
+          <Button onClick={handleCreateNew} className="font-normal">
+            <Plus className="mr-2 h-4 w-4" />
+            New Flowchart
+          </Button>
+        </div>
       </div>
 
       {/* Guest Usage Indicator */}

@@ -12,12 +12,15 @@ import {
   type PreviewSpec,
   type TreeNode,
 } from '@/components/blocks/infogiph-home/animated-preview';
+import { UpgradeDialog } from '@/components/pricing/upgrade-dialog';
+import { CreditsCounter } from '@/components/shared/credits-counter';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Textarea } from '@/components/ui/textarea';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
-import { resolveIcon } from '@/lib/templates/icon-registry';
+import { useAIUsageLimit } from '@/hooks/use-ai-usage-limit';
+import { resolveIcon, resolveSvgIcon } from '@/lib/templates/icon-registry';
 import type {
   DiagramData,
   TemplateLayout,
@@ -30,7 +33,9 @@ import {
   type VisualIllustration,
   type VisualOrientation,
   type VisualSuggestion,
+  assignVariantLayouts,
   getVisualCategory,
+  modeForLayout,
   suggestionToDiagramData,
 } from '@/lib/text-to-visual';
 import {
@@ -89,8 +94,12 @@ const THUMB_DIMS: Dims = {
  * node keys follow the same center/sat-N (and root/cN) convention as
  * derivePreviewSpec, so element edits and reloads keep working.
  */
-export function specFromSuggestion(s: VisualSuggestion): PreviewSpec {
+export function specFromSuggestion(
+  s: VisualSuggestion,
+  layoutOverride?: TemplateLayout
+): PreviewSpec {
   const cat = getVisualCategory(s.category) || VISUAL_CATEGORIES[0];
+  const layout = layoutOverride ?? cat.layout;
   const ci = resolveIcon(s.center.icon, s.center.label, true);
   const center: PreviewNode = {
     key: 'center',
@@ -100,11 +109,22 @@ export function specFromSuggestion(s: VisualSuggestion): PreviewSpec {
   };
   const sats: PreviewNode[] = s.satellites.map((sat, i) => {
     const r = resolveIcon(sat.icon, sat.label);
-    return { key: `sat-${i}`, label: sat.label, icon: r.node, flush: r.flush };
+    // SVG-embeddable variant for the orbit layout (satellites render inside
+    // the animated <svg>, where HTML icons can't go).
+    const sv = resolveSvgIcon(sat.icon, sat.label);
+    return {
+      key: `sat-${i}`,
+      label: sat.label,
+      icon: r.node,
+      flush: r.flush,
+      svgIcon: sv.node,
+      letter: sv.letter,
+      tint: sv.tint,
+    };
   });
-  const base = { mode: cat.mode, accent: cat.accent };
+  const base = { mode: modeForLayout(cat, layout), accent: cat.accent };
 
-  switch (cat.layout) {
+  switch (layout) {
     case 'hub-lr': {
       const mid = Math.ceil(sats.length / 2);
       return {
@@ -147,6 +167,30 @@ export function specFromSuggestion(s: VisualSuggestion): PreviewSpec {
         root: { ...center, key: 'root', children },
       };
     }
+    case 'orbit':
+      return { ...base, layout: 'orbit', center, satellites: sats };
+    case 'cycle':
+      return { ...base, layout: 'cycle', center, satellites: sats };
+    case 'steps':
+      return { ...base, layout: 'steps', center, satellites: sats };
+    case 'funnel':
+      return { ...base, layout: 'funnel', center, satellites: sats };
+    case 'pyramid':
+      // Pyramid layers are BASE-first; text order is surface/top-first.
+      return {
+        ...base,
+        layout: 'pyramid',
+        center,
+        satellites: [...sats].reverse(),
+      };
+    case 'quadrant':
+      return { ...base, layout: 'quadrant', center, satellites: sats };
+    case 'columns':
+      return { ...base, layout: 'columns', center, satellites: sats };
+    case 'timeline':
+      return { ...base, layout: 'timeline', center, satellites: sats };
+    case 'iceberg':
+      return { ...base, layout: 'iceberg', center, satellites: sats };
     default:
       return { ...base, layout: 'radial', center, satellites: sats };
   }
@@ -156,6 +200,20 @@ export function specFromSuggestion(s: VisualSuggestion): PreviewSpec {
 function thumbSpec(spec: PreviewSpec): PreviewSpec {
   switch (spec.layout) {
     case 'radial':
+      return { ...spec, satellites: spec.satellites.slice(0, 6) };
+    case 'orbit':
+      return { ...spec, satellites: spec.satellites.slice(0, 6) };
+    case 'cycle':
+      return { ...spec, satellites: spec.satellites.slice(0, 6) };
+    case 'steps':
+    case 'funnel':
+    case 'pyramid':
+      return { ...spec, satellites: spec.satellites.slice(0, 4) };
+    case 'timeline':
+    case 'iceberg':
+      return { ...spec, satellites: spec.satellites.slice(0, 5) };
+    case 'quadrant':
+    case 'columns':
       return { ...spec, satellites: spec.satellites.slice(0, 6) };
     case 'pipeline':
       return { ...spec, nodes: spec.nodes.slice(0, 5) };
@@ -233,14 +291,23 @@ export function TextToVisualPanel({
   const [loadingCategory, setLoadingCategory] =
     useState<VisualCategoryKey | null>(null);
   const [categoryQuery, setCategoryQuery] = useState('');
+  const [showUpgrade, setShowUpgrade] = useState(false);
+  const { usageData, refreshUsageData } = useAIUsageLimit();
 
+  // Each suggestion in a batch gets its own shape variant (Napkin-style:
+  // same content, genuinely different structures across the cards).
+  const layoutById = useMemo(
+    () => assignVariantLayouts(suggestions),
+    [suggestions]
+  );
   // Specs are derived once per suggestion batch; thumbnails and the canvas
   // preview share them so what you click is what you get.
   const specs = useMemo(() => {
     const map = new Map<string, PreviewSpec>();
-    for (const s of suggestions) map.set(s.id, specFromSuggestion(s));
+    for (const s of suggestions)
+      map.set(s.id, specFromSuggestion(s, layoutById.get(s.id)));
     return map;
-  }, [suggestions]);
+  }, [suggestions, layoutById]);
 
   const filteredCategories = useMemo(() => {
     const q = categoryQuery.trim().toLowerCase();
@@ -253,16 +320,20 @@ export function TextToVisualPanel({
 
   const buildVisual = (
     s: VisualSuggestion,
-    orient: VisualOrientation = orientation
+    orient: VisualOrientation = orientation,
+    layoutOverride?: TemplateLayout
   ): AppliedVisual => {
     const cat = getVisualCategory(s.category) || VISUAL_CATEGORIES[0];
+    const layout = layoutOverride ?? layoutById.get(s.id) ?? cat.layout;
+    const spec =
+      (!layoutOverride && specs.get(s.id)) || specFromSuggestion(s, layout);
     return {
       data: suggestionToDiagramData(s),
-      spec: specs.get(s.id) || specFromSuggestion(s),
+      spec,
       title: s.title,
       category: s.category,
-      layout: cat.layout,
-      mode: cat.mode,
+      layout,
+      mode: modeForLayout(cat, layout),
       accent: cat.accent,
       orientation: orient,
     };
@@ -307,6 +378,12 @@ export function TextToVisualPanel({
         toast.error('Please sign in to use this feature');
         return;
       }
+      if (response.status === 429) {
+        // Out of credits — upsell instead of a dead-end error.
+        refreshUsageData();
+        setShowUpgrade(true);
+        return;
+      }
       if (!response.ok) {
         const data = await response.json().catch(() => null);
         toast.error(data?.message || 'Could not generate visual suggestions');
@@ -321,13 +398,12 @@ export function TextToVisualPanel({
         return;
       }
       setSuggestions(next);
+      refreshUsageData(); // keep the credits counter honest after a spend
       // Auto-preview the best fit so the canvas responds immediately.
+      // (The memos haven't recomputed in this tick — assign + build directly.)
+      const assigned = assignVariantLayouts(next);
       setSelectedId(next[0].id);
-      onPreview({
-        ...buildVisual(next[0]),
-        // specs memo hasn't recomputed yet in this tick — build directly.
-        spec: specFromSuggestion(next[0]),
-      });
+      onPreview(buildVisual(next[0], orientation, assigned.get(next[0].id)));
     } catch (err: any) {
       toast.error(err.message || 'Could not generate visual suggestions');
     } finally {
@@ -429,6 +505,11 @@ export function TextToVisualPanel({
             )}
             {suggestions.length > 0 ? 'New suggestions' : 'Suggest visuals'}
           </Button>
+
+          {/* Credits counter — visible where credits are spent */}
+          <div className="flex justify-center">
+            <CreditsCounter onUpgrade={() => setShowUpgrade(true)} />
+          </div>
 
           {/* AI Suggestions */}
           {suggestions.length > 0 && (
@@ -567,6 +648,20 @@ export function TextToVisualPanel({
             : 'Pick a suggestion to apply it to the canvas'}
         </p>
       </div>
+
+      {/* Out-of-credits upsell */}
+      <UpgradeDialog
+        open={showUpgrade}
+        onOpenChange={(o) => {
+          setShowUpgrade(o);
+          if (!o) refreshUsageData();
+        }}
+        reason={
+          usageData?.subscriptionStatus === 'hobby'
+            ? "You've used this month's 500 generations. Max removes the cap entirely."
+            : "You've used your free AI generations. Upgrade for 500 a month."
+        }
+      />
     </div>
   );
 }
