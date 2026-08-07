@@ -1453,19 +1453,20 @@ export default function FlowVizArchitect({
           body: JSON.stringify({ content, title: titleToSave }),
         });
         toast.success('Flowchart saved successfully');
-      } else {
-        const response = await fetch('/api/flowcharts', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ content, title: titleToSave }),
-        });
-        if (response.ok) {
-          const newFlowchart = await response.json();
-          toast.success('Created new flowchart');
-          if (newFlowchart.id) {
-            setLocalFlowchartId(newFlowchart.id);
-            window.history.replaceState(null, '', `/canvas/${newFlowchart.id}`);
-          }
+        return idToUse;
+      }
+      const response = await fetch('/api/flowcharts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content, title: titleToSave }),
+      });
+      if (response.ok) {
+        const newFlowchart = await response.json();
+        toast.success('Created new flowchart');
+        if (newFlowchart.id) {
+          setLocalFlowchartId(newFlowchart.id);
+          window.history.replaceState(null, '', `/canvas/${newFlowchart.id}`);
+          return newFlowchart.id as string;
         }
       }
     } catch (err) {
@@ -1473,6 +1474,7 @@ export default function FlowVizArchitect({
     } finally {
       setIsSaving(false);
     }
+    return undefined;
   };
 
   const generateDiagram = async (
@@ -2124,6 +2126,18 @@ export default function FlowVizArchitect({
         open={upgradeOpen}
         onOpenChange={setUpgradeOpen}
         reason={upgradeReason}
+        returnTo={
+          localFlowchartId || flowchartId
+            ? `/canvas/${localFlowchartId || flowchartId}`
+            : currentPath
+        }
+        onBeforeCheckout={async () => {
+          // Save first so checkout genuinely returns to this exact diagram —
+          // a first save mints the /canvas/[id] URL we hand to Stripe.
+          if (!currentUser || !diagramData) return undefined;
+          const id = await saveFlowchart(diagramData);
+          return id ? `/canvas/${id}` : undefined;
+        }}
       />
 
       {/* Main Content Area */}

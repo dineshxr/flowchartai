@@ -18,7 +18,9 @@ function priceLabel(plan: Plan, yearly: boolean) {
 }
 
 export function UpgradePlans() {
-  const [yearly, setYearly] = useState(true);
+  // Monthly preselected: the one organic checkout failure was a yearly
+  // upfront charge — keep the first purchase small; yearly stays a toggle.
+  const [yearly, setYearly] = useState(false);
   const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
 
   const onUpgrade = async (plan: Plan) => {

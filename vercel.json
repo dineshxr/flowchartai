@@ -7,6 +7,12 @@
       "maxDuration": 60
     }
   },
+  "crons": [
+    {
+      "path": "/api/cron/lifecycle",
+      "schedule": "0 15 * * *"
+    }
+  ],
   "redirects": [
     {
       "source": "/(.*)",

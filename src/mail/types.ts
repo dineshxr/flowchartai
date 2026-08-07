@@ -1,8 +1,12 @@
 import type { Locale, Messages } from 'next-intl';
+import { CapHit } from './templates/cap-hit';
 import { ContactMessage } from './templates/contact-message';
+import { CreditsLow } from './templates/credits-low';
 import { ForgotPassword } from './templates/forgot-password';
 import { SubscribeNewsletter } from './templates/subscribe-newsletter';
 import { VerifyEmail } from './templates/verify-email';
+import { Welcome } from './templates/welcome';
+import { WinBack } from './templates/win-back';
 
 /**
  * list all the email templates here
@@ -12,6 +16,10 @@ export const EmailTemplates = {
   forgotPassword: ForgotPassword,
   subscribeNewsletter: SubscribeNewsletter,
   contactMessage: ContactMessage,
+  welcome: Welcome,
+  creditsLow: CreditsLow,
+  capHit: CapHit,
+  winBack: WinBack,
 } as const;
 
 /**

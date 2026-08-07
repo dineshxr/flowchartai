@@ -27,10 +27,21 @@ export async function POST(req: Request) {
 
   let plan: string | undefined;
   let interval: Interval = 'month';
+  let returnTo: string | null = null;
   try {
     const body = await req.json();
     plan = body.plan;
     interval = body.interval === 'year' ? 'year' : 'month';
+    // Optional path to send the user back to after checkout (e.g. the canvas
+    // they were working on). Same-origin relative paths only.
+    if (
+      typeof body.returnTo === 'string' &&
+      body.returnTo.startsWith('/') &&
+      !body.returnTo.startsWith('//') &&
+      body.returnTo.length <= 300
+    ) {
+      returnTo = body.returnTo;
+    }
   } catch {
     return NextResponse.json({ error: 'Invalid body' }, { status: 400 });
   }
@@ -54,8 +65,12 @@ export async function POST(req: Request) {
       mode: 'subscription',
       customer: customerId,
       line_items: [{ price: priceId, quantity: 1 }],
-      success_url: `${base}/dashboard/billing?checkout=success`,
-      cancel_url: `${base}/pricing?checkout=cancelled`,
+      success_url: returnTo
+        ? `${base}${returnTo}${returnTo.includes('?') ? '&' : '?'}checkout=success`
+        : `${base}/dashboard/billing?checkout=success`,
+      cancel_url: returnTo
+        ? `${base}${returnTo}${returnTo.includes('?') ? '&' : '?'}checkout=cancelled`
+        : `${base}/pricing?checkout=cancelled`,
       allow_promotion_codes: true,
       billing_address_collection: 'auto',
       client_reference_id: userId,

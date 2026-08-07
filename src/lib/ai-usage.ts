@@ -259,6 +259,32 @@ export async function recordAIUsage(
 
   await db.collection(COLLECTIONS.aiUsage).doc(usageId).set(doc);
 
+  // Lifecycle hooks (creditsLow at 1 left, capHitAt stamp at 0 left). Runs on
+  // every successful record — the single choke point all generation routes
+  // share. Never allowed to break the generation path.
+  if (doc.success === true) {
+    try {
+      const subscription = await getUserSubscriptionStatus(userId);
+      const isFree = subscription.type === 'free' || !subscription.priceId;
+      if (isFree) {
+        const snap = await db
+          .collection(COLLECTIONS.aiUsage)
+          .where('userId', '==', userId)
+          .get();
+        const successCount = snap.docs.reduce(
+          (n, d) => ((d.data() as AiUsageDoc).success === true ? n + 1 : n),
+          0
+        );
+        const { afterSuccessfulGeneration } = await import(
+          '@/lib/lifecycle-emails'
+        );
+        await afterSuccessfulGeneration(userId, successCount, true);
+      }
+    } catch (err) {
+      console.error('[ai-usage] lifecycle hook failed', err);
+    }
+  }
+
   return usageId;
 }
 

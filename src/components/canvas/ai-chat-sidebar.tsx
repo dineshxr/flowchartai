@@ -1421,11 +1421,35 @@ const AiChatSidebar: React.FC<AiChatSidebarProps> = ({
           <ScrollArea ref={scrollAreaRef} className="h-full w-full">
             <div className="space-y-4 px-4 pb-4 min-h-0">
               {messages.length === 0 && (
-                <div className="text-center py-8 text-gray-500">
-                  <p className="text-sm">Ask me to create a flowchart!</p>
-                  <p className="text-xs mt-1 opacity-75">
-                    I can help you visualize processes, workflows, and ideas.
+                <div className="py-6 text-gray-500">
+                  <p className="text-center text-sm">
+                    Describe anything — get an animated diagram.
                   </p>
+                  <p className="mt-1 text-center text-xs opacity-75">
+                    Try one of these to see how it works:
+                  </p>
+                  <div className="mt-4 flex flex-col gap-2">
+                    {[
+                      'Customer onboarding: sign up, verify email, invite team, create first project, success check-in',
+                      'How our AI product works: user input, model processes it, results ranked, feedback improves the model',
+                      'Content pipeline: idea, draft, review, edits approved? publish, promote on social',
+                    ].map((prompt) => (
+                      <button
+                        key={prompt}
+                        type="button"
+                        onClick={() => {
+                          setInput(prompt);
+                          setTimeout(() => {
+                            adjustTextareaHeight();
+                            textareaRef.current?.focus();
+                          }, 0);
+                        }}
+                        className="rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-left text-xs leading-relaxed text-gray-700 shadow-sm transition-colors hover:border-gray-300 hover:bg-gray-50"
+                      >
+                        {prompt}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               )}
 
@@ -1677,6 +1701,7 @@ const AiChatSidebar: React.FC<AiChatSidebarProps> = ({
             ? "You've used this month's 500 generations. Max removes the cap entirely."
             : "You've used your free AI generations. Upgrade for 500 a month."
         }
+        returnTo={currentPath}
       />
     </div>
   );

@@ -2,6 +2,7 @@ import 'server-only';
 
 import { getDb } from '@/db';
 import { COLLECTIONS, type UserDoc } from '@/db/schema';
+import { sendWelcomeEmail } from '@/lib/lifecycle-emails';
 
 /**
  * Mirror a Firebase user into the `user` collection. Everything that references
@@ -32,6 +33,9 @@ export async function ensureUser(u: {
       updatedAt: now,
     };
     await ref.set(doc);
+    // Day-0 welcome — internally one-shot and error-swallowing, so it can
+    // never break session creation.
+    await sendWelcomeEmail({ id: u.id, email, name: u.name ?? null });
     return;
   }
 

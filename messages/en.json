@@ -565,6 +565,18 @@
       "email": "Email: {email}",
       "message": "Message: {message}",
       "subject": "Contact Message from Website"
+    },
+    "welcome": {
+      "subject": "Welcome to Infogiph — your first infographic is one sentence away"
+    },
+    "creditsLow": {
+      "subject": "You have 1 free AI generation left"
+    },
+    "capHit": {
+      "subject": "Your diagrams are saved — here’s how to keep going"
+    },
+    "winBack": {
+      "subject": "Turn one sentence into an infographic"
     }
   },
   "HomePage": {

@@ -52,6 +52,15 @@ export interface UserDoc {
   customerId?: string | null;
   country?: string | null;
   metadata?: Record<string, any> | null;
+  /** Lifecycle-email bookkeeping: when each one-shot email/event happened. */
+  lifecycle?: {
+    welcomeAt?: Date | null;
+    creditsLowAt?: Date | null;
+    /** When the user burned their last free credit (set by recordAIUsage). */
+    capHitAt?: Date | null;
+    capHitEmailAt?: Date | null;
+    winBackAt?: Date | null;
+  } | null;
 }
 
 export interface PaymentDoc {

@@ -20,6 +20,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Textarea } from '@/components/ui/textarea';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { useAIUsageLimit } from '@/hooks/use-ai-usage-limit';
+import { useLocalePathname } from '@/i18n/navigation';
 import { resolveIcon, resolveSvgIcon } from '@/lib/templates/icon-registry';
 import type {
   DiagramData,
@@ -288,6 +289,7 @@ export function TextToVisualPanel({
   const [suggestions, setSuggestions] = useState<VisualSuggestion[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const currentPath = useLocalePathname();
   const [loadingCategory, setLoadingCategory] =
     useState<VisualCategoryKey | null>(null);
   const [categoryQuery, setCategoryQuery] = useState('');
@@ -661,6 +663,7 @@ export function TextToVisualPanel({
             ? "You've used this month's 500 generations. Max removes the cap entirely."
             : "You've used your free AI generations. Upgrade for 500 a month."
         }
+        returnTo={currentPath}
       />
     </div>
   );

@@ -7,17 +7,21 @@ import { toast } from 'sonner';
  */
 export async function startCheckout(
   plan: 'pro' | 'max',
-  interval: 'month' | 'year'
+  interval: 'month' | 'year',
+  opts: {
+    /** Path to land back on after checkout (e.g. the canvas being edited). */
+    returnTo?: string;
+  } = {}
 ): Promise<void> {
   try {
     const res = await fetch('/api/stripe/checkout', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ plan, interval }),
+      body: JSON.stringify({ plan, interval, returnTo: opts.returnTo }),
     });
 
     if (res.status === 401) {
-      window.location.href = `/auth/login?callbackUrl=${encodeURIComponent('/pricing')}`;
+      window.location.href = `/auth/login?callbackUrl=${encodeURIComponent(opts.returnTo || '/pricing')}`;
       return;
     }
 
