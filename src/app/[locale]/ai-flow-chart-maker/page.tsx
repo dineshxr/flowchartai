@@ -99,6 +99,14 @@ export default function AiFlowChartMakerPage() {
       related={[
         { label: 'Flow chart examples', href: '/blog/flow-chart-examples' },
         {
+          label: 'Decision tree examples',
+          href: '/blog/decision-tree-examples',
+        },
+        {
+          label: 'Workflow diagram guide',
+          href: '/blog/workflow-diagram-guide',
+        },
+        {
           label: 'Flowchart symbols guide',
           href: '/blog/flowchart-symbols-guide',
         },
@@ -107,6 +115,11 @@ export default function AiFlowChartMakerPage() {
           href: '/blog/flowchart-maker-guide',
         },
         { label: 'AI Roadmap Maker', href: '/ai-roadmap-maker' },
+        { label: 'AI Concept Map Maker', href: '/ai-concept-map-maker' },
+        {
+          label: 'AI Agent Architecture Diagram',
+          href: '/templates/ai-ml/ai-agent-architecture-diagram',
+        },
         { label: 'Process templates', href: '/templates/process' },
       ]}
     />

@@ -1450,6 +1450,14 @@ export const rawTemplates: RawTemplate[] = [
         q: 'What is the difference between an AI agent and a chatbot?',
         a: 'A chatbot responds turn by turn, while an AI agent plans multi-step tasks, calls tools, and loops autonomously until a goal is achieved with minimal human input.',
       },
+      {
+        q: 'How do you draw an AI agent architecture diagram?',
+        a: 'Put the reasoning core (the LLM) in the center, then connect it to planning, tool calling, short-term and long-term memory, and the executor, with a feedback loop from results back into reasoning. This template gives you that structure ready-made — rename the nodes to match your agent and export.',
+      },
+      {
+        q: 'What should an agentic AI architecture diagram include?',
+        a: 'At minimum: the model, the planner or control loop, the tools and APIs the agent can call, memory stores, guardrails or evaluators, and the environment it acts on. Add data flows between them so reviewers can trace one full observe–plan–act cycle.',
+      },
     ],
     useCases: [
       'Agentic app design',
@@ -5808,7 +5816,7 @@ export const rawTemplates: RawTemplate[] = [
     slug: 'payment-processing-flow-diagram',
     title: 'Payment Processing Flow Diagram (Checkout to Settlement)',
     shortDescription:
-      'Map how a card payment moves from checkout to settlement through gateway and banks',
+      'Map how a card payment moves from checkout to settlement through the payment gateway, processor, and banks',
     longDescription:
       "A payment processing flow diagram maps the journey of a single transaction from the moment a customer enters card details to final settlement in the merchant's bank. The key parts include the checkout frontend, the payment gateway, the processor, the acquiring bank, card networks like Visa and Mastercard, the issuing bank that authorizes funds, and the webhook that confirms the result back to your system.\n\nProduct managers, fintech engineers, and solutions architects use this diagram when integrating Stripe, Adyen, or a custom processor, or when explaining authorization, capture, and settlement to stakeholders. It is ideal for onboarding docs, compliance reviews, and debugging declined-transaction issues across the full payment stack.",
     tags: [
@@ -5876,6 +5884,18 @@ export const rawTemplates: RawTemplate[] = [
       {
         q: 'How do webhooks fit into payment processing?',
         a: 'Webhooks let the processor asynchronously notify your backend of events like payment success, failure, or refund, so your ledger and order system stay in sync.',
+      },
+      {
+        q: 'What is a payment gateway process flow diagram?',
+        a: 'It is a diagram centered on the gateway’s role: how checkout data is tokenized and passed to the gateway, forwarded to the processor and card networks, authorized by the issuing bank, and returned as an approve/decline result. This template covers that full gateway path end to end.',
+      },
+      {
+        q: 'How do you draw a payment flow diagram?',
+        a: 'List the actors (customer, checkout, gateway, processor, card network, issuing bank, merchant account), then connect them in transaction order with arrows for requests and responses. Or skip the manual work: open this template, rename the nodes to match your stack (Stripe, Adyen, custom), and export.',
+      },
+      {
+        q: 'What is the difference between a payment gateway and a payment processor?',
+        a: 'The gateway is the front door — it securely captures and tokenizes card data from your checkout. The processor is the engine behind it that routes the transaction to card networks and banks for authorization and settlement. Providers like Stripe bundle both roles.',
       },
     ],
     useCases: [

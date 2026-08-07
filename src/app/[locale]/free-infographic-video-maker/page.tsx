@@ -17,8 +17,8 @@ export default function FreeInfographicVideoMakerPage() {
   return (
     <LandingPage
       canonicalPath={PATH}
-      eyebrow="Free Infographic Video Maker"
-      title="Make infographic videos, free"
+      eyebrow="AI Infographic Video Generator"
+      title="The free infographic video maker for GIF & MP4"
       subtitle="Infogiph is an infographic video maker that is free to use: describe your idea in a sentence, AI turns it into an animated video infographic, and you export a real GIF or MP4 — no credit card, no video editor, no rendering queue."
       ctaText="Create a free infographic video"
       benefits={[
@@ -93,6 +93,18 @@ export default function FreeInfographicVideoMakerPage() {
         {
           q: 'What do the paid plans add?',
           a: 'Pro ($12/mo, or $9/mo billed yearly) adds 500 AI generations per month, unlimited exports, no watermark, and 2K/4K video. Max removes the caps entirely and adds brand kit and team features.',
+        },
+        {
+          q: 'What is the best free infographic video maker?',
+          a: 'The best free option is the one that gives you a real video file without payment. Judge any tool on four things: does the free tier export actual GIF/MP4 (not a locked preview), does it animate the infographic for you, can you edit after generating, and is the resolution usable. Infogiph checks all four — free exports are real 1080p GIF/MP4 files.',
+        },
+        {
+          q: 'How do I turn an infographic into a video?',
+          a: 'With Infogiph you skip the conversion step entirely: describe your content (or pick a template), the AI generates the infographic with motion built in, and you export straight to MP4 or looping GIF. There is no separate animation or rendering stage.',
+        },
+        {
+          q: 'Can AI generate an infographic video from text?',
+          a: 'Yes — that is exactly how Infogiph works. Paste or type your text, and the AI infographic video generator builds a structured animated diagram from it: steps reveal in sequence, connectors draw in, and the result exports as video.',
         },
       ]}
       related={[

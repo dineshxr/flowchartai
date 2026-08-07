@@ -95,6 +95,14 @@ export default function AnimatedInfographicMakerPage() {
           q: 'Do I need motion design experience?',
           a: 'No. There is no timeline and there are no keyframes. If you can write a sentence describing your idea, the animated infographic maker handles the motion for you.',
         },
+        {
+          q: 'How can I create animated infographics without a complicated workflow?',
+          a: 'Use a tool that generates the animation with the infographic instead of making you add motion afterwards. In Infogiph the whole workflow is: type what you want to show, let the AI build the animated diagram, tweak anything on the canvas, and export a GIF or MP4. No storyboard, no timeline, no separate animation software.',
+        },
+        {
+          q: 'Can I start from a template instead of a blank canvas?',
+          a: 'Yes — there are 98 editable templates across DevOps, marketing, finance, education, and more. Every template is pre-animated, so you can swap in your own labels and export a finished animated infographic in minutes.',
+        },
       ]}
       related={[
         {
@@ -113,6 +121,8 @@ export default function AnimatedInfographicMakerPage() {
           label: 'How to make an animated infographic',
           href: '/blog/how-to-make-an-animated-infographic',
         },
+        { label: 'AI Timeline Maker', href: '/ai-timeline-maker' },
+        { label: 'AI Concept Map Maker', href: '/ai-concept-map-maker' },
       ]}
     />
   );
