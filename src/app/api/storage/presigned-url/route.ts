@@ -1,10 +1,18 @@
 import { randomUUID } from 'crypto';
+import { getSession } from '@/lib/server';
 import { getPresignedUploadUrl } from '@/storage';
 import { StorageError } from '@/storage/types';
 import { type NextRequest, NextResponse } from 'next/server';
 
 export async function POST(request: NextRequest) {
   try {
+    // This mints a signed upload URL against paid storage — it must never be
+    // callable anonymously.
+    const session = await getSession();
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const body = await request.json();
     const { filename, contentType, folder } = body as {
       filename: string;

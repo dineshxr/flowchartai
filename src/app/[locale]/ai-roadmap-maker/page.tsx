@@ -8,7 +8,7 @@ const PATH = '/ai-roadmap-maker';
 export const metadata: Metadata = constructMetadata({
   title: 'Free AI Roadmap Maker & Generator | Create Visual Roadmaps Online',
   description:
-    'Create product, project, and learning roadmaps online with AI. Describe your milestones and Infogiph generates a polished visual roadmap in seconds — free to start, editable, exports to PNG, SVG, GIF & MP4.',
+    'Create product, project, and learning roadmaps online with AI. Describe your milestones and Infogiph generates a polished visual roadmap in seconds — free to start, editable, exports to GIF, MP4 & PNG.',
   canonicalUrl: `${getBaseUrl()}${PATH}`,
   image: `/api/og?title=${encodeURIComponent('AI Roadmap Maker')}&subtitle=${encodeURIComponent('Visual roadmaps from plain text — in seconds.')}`,
 });
@@ -40,7 +40,7 @@ export default function AiRoadmapMakerPage() {
         },
         {
           title: 'Present it anywhere',
-          body: 'Export free PNG/SVG for decks, docs, and wikis — or animated GIF/MP4 (paid) that reveals the roadmap phase by phase in all-hands and investor updates.',
+          body: 'Export a free PNG for decks, docs, and wikis — or an animated GIF/MP4, also free, that reveals the roadmap phase by phase in all-hands and investor updates.',
         },
         {
           title: 'From notes to narrative',
@@ -58,7 +58,7 @@ export default function AiRoadmapMakerPage() {
         {
           heading: 'How to make a roadmap in three steps',
           paragraphs: [
-            'First, write down the plan: the phases or quarters, and what happens in each. Second, generate — the AI builds the roadmap with your milestones in order, grouped and labeled. Third, refine and export: adjust wording, colors, and emphasis, then download PNG or SVG free.',
+            'First, write down the plan: the phases or quarters, and what happens in each. Second, generate — the AI builds the roadmap with your milestones in order, grouped and labeled. Third, refine and export: adjust wording, colors, and emphasis, then download a PNG, GIF, or MP4 free.',
             "If your plan lives in a doc already, paste it. Infogiph's text-to-visual AI pulls the roadmap out of prose, which is dramatically faster than rebuilding it shape by shape in a slide editor.",
           ],
         },
@@ -73,7 +73,7 @@ export default function AiRoadmapMakerPage() {
       faqs={[
         {
           q: 'Is the AI roadmap maker free?',
-          a: 'Yes. Free plan includes AI roadmap generation, full editing, and PNG/SVG export — no credit card. Paid plans add volume and animated GIF/MP4 exports.',
+          a: 'Yes. Free plan includes AI roadmap generation, full editing, and unlimited GIF, MP4, and PNG exports — no credit card. Paid plans remove the Infogiph watermark and add generation volume.',
         },
         {
           q: 'What kinds of roadmaps can I create?',
@@ -89,7 +89,7 @@ export default function AiRoadmapMakerPage() {
         },
         {
           q: 'Can I use these roadmaps in investor or client decks?',
-          a: 'Absolutely. Export SVG for crisp scaling in slides, or an animated MP4 (paid) that reveals phases as you talk through them.',
+          a: 'Absolutely. Export a crisp PNG for slides, or an animated MP4 that reveals phases as you talk through them. Paid plans drop the small Infogiph watermark.',
         },
         {
           q: 'Roadmap vs timeline — which do I need?',

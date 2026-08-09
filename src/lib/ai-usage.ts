@@ -85,13 +85,21 @@ export async function getUserSubscriptionStatus(userId: string) {
   }
 
   // 查找有效的订阅
+  // NOTE: keep this in sync with getActiveSubscription() in
+  // src/lib/stripe/billing.ts — the two must agree on who counts as paid.
   const validSubscription = payments.find((p) => {
     // 1. Active或trialing状态的订阅直接有效
     if (p.status === 'active' || p.status === 'trialing') {
       return true;
     }
 
-    // 2. Canceled状态但设置了cancelAtPeriodEnd的订阅
+    // 2. past_due: the renewal charge failed and Stripe is still retrying.
+    // They're being billed, so they keep their plan until it truly cancels.
+    if (p.status === 'past_due') {
+      return true;
+    }
+
+    // 3. Canceled状态但设置了cancelAtPeriodEnd的订阅
     // 在periodEnd之前仍然有效（宽限期）
     if (p.status === 'canceled' && p.cancelAtPeriodEnd) {
       return p.periodEnd && p.periodEnd > new Date();

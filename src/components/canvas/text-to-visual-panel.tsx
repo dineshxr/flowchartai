@@ -14,6 +14,7 @@ import {
 } from '@/components/blocks/infogiph-home/animated-preview';
 import { UpgradeDialog } from '@/components/pricing/upgrade-dialog';
 import { CreditsCounter } from '@/components/shared/credits-counter';
+import { AgentThinkingOrb } from '@/components/shared/thinking-orb';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -48,7 +49,7 @@ import {
   Sparkles,
   Wand2,
 } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 
 // Everything the canvas needs to render, persist and export a chosen visual.
@@ -68,6 +69,14 @@ interface TextToVisualPanelProps {
   onPreview: (visual: AppliedVisual) => void;
   /** Fired by Save and Apply — commit the visual (title, save, orientation). */
   onApply: (visual: AppliedVisual) => void;
+  /**
+   * Text handed over from the floating canvas composer. Seeds the box and
+   * runs one generation, so a user who pasted at the bottom of the screen
+   * doesn't have to paste again in the sidebar.
+   */
+  seedText?: string | null;
+  /** Called once the seed has been taken, so the parent can clear it. */
+  onSeedConsumed?: () => void;
 }
 
 const MIN_TEXT_CHARS = 40;
@@ -280,6 +289,8 @@ function ParamRow<T extends string>({
 export function TextToVisualPanel({
   onPreview,
   onApply,
+  seedText,
+  onSeedConsumed,
 }: TextToVisualPanelProps) {
   const [text, setText] = useState('');
   const [orientation, setOrientation] = useState<VisualOrientation>('auto');
@@ -346,6 +357,17 @@ export function TextToVisualPanel({
     onPreview(buildVisual(s));
   };
 
+  // Take text handed over from the floating composer and run it once. Keyed on
+  // the seed value itself; the parent clears it via onSeedConsumed so the same
+  // text can be sent again later.
+  useEffect(() => {
+    if (!seedText) return;
+    setText(seedText);
+    onSeedConsumed?.();
+    void generate(undefined, seedText);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [seedText]);
+
   // Orientation is a live parameter: re-preview the current selection with it.
   const changeOrientation = (o: VisualOrientation) => {
     setOrientation(o);
@@ -353,8 +375,11 @@ export function TextToVisualPanel({
     if (sel) onPreview(buildVisual(sel, o));
   };
 
-  const generate = async (category?: VisualCategoryKey) => {
-    const source = text.trim();
+  const generate = async (
+    category?: VisualCategoryKey,
+    sourceOverride?: string
+  ) => {
+    const source = (sourceOverride ?? text).trim();
     if (source.length < MIN_TEXT_CHARS) {
       toast.error(
         'Paste a longer text — at least a full paragraph — to get meaningful visuals.'
@@ -501,7 +526,7 @@ export function TextToVisualPanel({
             size="sm"
           >
             {loading && loadingCategory === null ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              <AgentThinkingOrb size={20} label="Suggesting visuals" />
             ) : (
               <Sparkles className="h-3.5 w-3.5" />
             )}
@@ -616,7 +641,11 @@ export function TextToVisualPanel({
                     </span>
                   </span>
                   {loadingCategory === cat.key ? (
-                    <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-muted-foreground" />
+                    <AgentThinkingOrb
+                      size={20}
+                      label={`Generating a ${cat.label} visual`}
+                      className="shrink-0"
+                    />
                   ) : (
                     <ArrowRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
                   )}

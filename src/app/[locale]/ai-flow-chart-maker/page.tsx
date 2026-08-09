@@ -8,7 +8,7 @@ const PATH = '/ai-flow-chart-maker';
 export const metadata: Metadata = constructMetadata({
   title: 'Free AI Flow Chart Maker Online - Create Diagrams Instantly',
   description:
-    'Make flow charts online with AI. Describe a process in plain English and Infogiph generates a clean, editable flow chart in seconds — free to start, no drawing required, export to PNG, SVG, GIF & MP4.',
+    'Make flow charts online with AI. Describe a process in plain English and Infogiph generates a clean, editable flow chart in seconds — free to start, no drawing required, export to GIF, MP4 & PNG.',
   canonicalUrl: `${getBaseUrl()}${PATH}`,
   image: `/api/og?title=${encodeURIComponent('AI Flow Chart Maker')}&subtitle=${encodeURIComponent('Create flow charts online instantly — from plain text.')}`,
 });
@@ -44,7 +44,7 @@ export default function AiFlowChartMakerPage() {
         },
         {
           title: 'Animated or static exports',
-          body: 'Export static PNG and SVG free. Upgrade for animated GIF and MP4 flow charts that reveal step by step — perfect for tutorials and demos.',
+          body: 'Export a static PNG or an animated GIF or MP4 free — flow charts that reveal step by step, perfect for tutorials and demos. Upgrading only removes the watermark.',
         },
       ]}
       body={[
@@ -58,7 +58,7 @@ export default function AiFlowChartMakerPage() {
         {
           heading: 'How to create a flow chart online in three steps',
           paragraphs: [
-            'One: open the canvas and describe your process in the chat — a sentence works, and pasting a full SOP or spec works even better. Two: the AI generates the flow chart with start/end points, process steps, and decision branches. Three: edit anything on the canvas and export as PNG or SVG for free.',
+            'One: open the canvas and describe your process in the chat — a sentence works, and pasting a full SOP or spec works even better. Two: the AI generates the flow chart with start/end points, process steps, and decision branches. Three: edit anything on the canvas and export as a PNG, GIF, or MP4 for free.',
             'Everything runs in the browser. There is nothing to download, and your flow charts are saved to your account so you can update them as processes evolve.',
           ],
         },
@@ -73,7 +73,7 @@ export default function AiFlowChartMakerPage() {
       faqs={[
         {
           q: 'Is the AI flow chart maker free?',
-          a: 'Yes — free to start with daily AI generation, full canvas editing, and clean PNG/SVG exports. No credit card needed. Paid plans add volume and GIF/MP4 exports.',
+          a: 'Yes — free to start with 5 AI generations, full canvas editing, and unlimited GIF, MP4, and PNG exports. No credit card needed. Paid plans remove the watermark and add generation volume.',
         },
         {
           q: 'How do I make a flow chart with AI?',
@@ -93,7 +93,7 @@ export default function AiFlowChartMakerPage() {
         },
         {
           q: 'Can I export my flow chart to PowerPoint or docs?',
-          a: 'Export PNG or SVG and drop it into PowerPoint, Google Docs, Notion, or anywhere images work. Animated GIF/MP4 exports (paid) embed nicely in slides and wikis too.',
+          a: 'Export a PNG and drop it into PowerPoint, Google Docs, Notion, or anywhere images work. Animated GIF/MP4 exports, free as well, embed nicely in slides and wikis too.',
         },
       ]}
       related={[

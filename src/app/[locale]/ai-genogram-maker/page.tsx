@@ -44,7 +44,7 @@ export default function AiGenogramMakerPage() {
         },
         {
           title: 'Share-ready exports',
-          body: 'Export PNG or SVG free for family newsletters, genealogy projects, school assignments, or counseling coursework. Animated exports available on paid plans.',
+          body: 'Export PNG, GIF, or MP4 free for family newsletters, genealogy projects, school assignments, or counseling coursework. Paid plans remove the small Infogiph watermark.',
         },
       ]}
       body={[
@@ -59,7 +59,7 @@ export default function AiGenogramMakerPage() {
           heading: 'How the online family tree generator works',
           paragraphs: [
             'Write the family out in plain language, one relationship at a time — it can be as simple as "Grandpa Joe and Grandma May had two kids: my dad Sam and my aunt Rita. Rita has one son, Leo." The AI parses names, partnerships, and parent-child links, then lays out the tree by generation.',
-            'From there, edit freely: rename people, add birth years, mark deceased members, adjust colors, and draw extra relationship lines. When it looks right, export a high-resolution PNG or a scalable SVG for printing.',
+            'From there, edit freely: rename people, add birth years, mark deceased members, adjust colors, and draw extra relationship lines. When it looks right, export a crisp PNG for printing — or a GIF or MP4 if you want the tree to build itself generation by generation.',
           ],
         },
         {
@@ -73,7 +73,7 @@ export default function AiGenogramMakerPage() {
       faqs={[
         {
           q: 'Is the genogram maker free?',
-          a: 'Yes. AI generation, full editing, and PNG/SVG exports are included on the free plan with a daily generation limit. No credit card required.',
+          a: 'Yes. Full editing and unlimited GIF, MP4, and PNG exports are included on the free plan, alongside 5 AI generations. No credit card required.',
         },
         {
           q: 'How many generations can I include?',
@@ -93,7 +93,7 @@ export default function AiGenogramMakerPage() {
         },
         {
           q: 'Can I print the family tree?',
-          a: 'Export as SVG or high-resolution PNG and print at any size — SVG scales cleanly for large poster prints.',
+          a: 'Export a PNG and print it at whatever size you need — the exported image is generous enough for anything from a handout to a large poster print.',
         },
       ]}
       related={[

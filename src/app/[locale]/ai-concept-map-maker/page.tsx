@@ -8,7 +8,7 @@ const PATH = '/ai-concept-map-maker';
 export const metadata: Metadata = constructMetadata({
   title: 'Free AI Concept Map Maker & Generator: Visualize Ideas Instantly',
   description:
-    'Turn notes, topics, and ideas into clear concept maps with AI. Infogiph connects concepts with labeled relationships automatically — free online concept map generator, fully editable, exports to PNG & SVG.',
+    'Turn notes, topics, and ideas into clear concept maps with AI. Infogiph connects concepts with labeled relationships automatically — free online concept map generator, fully editable, exports to GIF, MP4 & PNG.',
   canonicalUrl: `${getBaseUrl()}${PATH}`,
   image: `/api/og?title=${encodeURIComponent('AI Concept Map Maker')}&subtitle=${encodeURIComponent('Visualize ideas and their relationships instantly.')}`,
 });
@@ -39,8 +39,8 @@ export default function AiConceptMapMakerPage() {
           body: 'Add missing concepts, reword nodes, redraw connections, or ask the AI to expand a branch. The canvas gives you full manual control.',
         },
         {
-          title: 'Free PNG & SVG export',
-          body: 'Drop finished concept maps into study notes, slides, wikis, and papers. Clean exports on the free plan, animated GIF/MP4 on paid.',
+          title: 'Free GIF, MP4 & PNG export',
+          body: 'Drop finished concept maps into study notes, slides, wikis, and papers. Unlimited exports on the free plan — paid plans simply drop the Infogiph watermark.',
         },
         {
           title: 'Great for studying and teaching',
@@ -73,7 +73,7 @@ export default function AiConceptMapMakerPage() {
       faqs={[
         {
           q: 'Is the AI concept map maker free to use?',
-          a: 'Yes. You can generate concept maps with AI, edit them on the full canvas, and export PNG and SVG on the free plan — no credit card required.',
+          a: 'Yes. You can generate concept maps with AI, edit them on the full canvas, and take unlimited GIF, MP4, and PNG exports on the free plan — no credit card required.',
         },
         {
           q: 'How does the AI build a concept map from my text?',
@@ -93,7 +93,7 @@ export default function AiConceptMapMakerPage() {
         },
         {
           q: 'What export formats are supported?',
-          a: 'PNG and SVG are free. Paid plans add animated GIF and MP4 exports, which work well for teaching videos and explainers.',
+          a: 'Three: animated GIF, MP4 video, and static PNG — all included on every plan, free ones too. Paid plans remove the small Infogiph watermark, which matters for teaching videos and explainers.',
         },
       ]}
       related={[

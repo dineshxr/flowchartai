@@ -8,7 +8,7 @@ const PATH = '/ai-mind-map-maker';
 export const metadata: Metadata = constructMetadata({
   title: 'Free AI Mind Map Maker & Creator | Generate Visuals Instantly',
   description:
-    'Generate mind maps with AI from any topic or notes. Infogiph branches your ideas into a clear, editable mind map in seconds — free online mind map creator with PNG & SVG export, no design skills needed.',
+    'Generate mind maps with AI from any topic or notes. Infogiph branches your ideas into a clear, editable mind map in seconds — free online mind map creator with GIF, MP4 & PNG export, no design skills needed.',
   canonicalUrl: `${getBaseUrl()}${PATH}`,
   image: `/api/og?title=${encodeURIComponent('AI Mind Map Maker')}&subtitle=${encodeURIComponent('Turn any topic into a branching mind map instantly.')}`,
 });
@@ -44,7 +44,7 @@ export default function AiMindMapMakerPage() {
         },
         {
           title: 'Free, shareable exports',
-          body: 'Download PNG or SVG free and drop your mind map into slides, docs, and posts. Paid plans add animated GIF/MP4 that draw the map branch by branch.',
+          body: 'Download PNG, GIF, or MP4 free and drop your mind map into slides, docs, and posts — animated exports included, drawing the map branch by branch.',
         },
       ]}
       body={[
@@ -73,7 +73,7 @@ export default function AiMindMapMakerPage() {
       faqs={[
         {
           q: 'Is the AI mind map maker free?',
-          a: 'Yes — generate mind maps with AI, edit them fully, and export PNG/SVG on the free plan. No credit card required to start.',
+          a: 'Yes — generate mind maps with AI, edit them fully, and take unlimited GIF, MP4, and PNG exports on the free plan. No credit card required to start.',
         },
         {
           q: 'How does the AI mind map generator work?',
@@ -93,7 +93,7 @@ export default function AiMindMapMakerPage() {
         },
         {
           q: 'What can I do with the finished mind map?',
-          a: 'Export it as PNG or SVG for slides, docs, and social — or as an animated GIF/MP4 (paid) that reveals branches one by one for presentations.',
+          a: 'Export it as a PNG for slides, docs, and social — or as an animated GIF/MP4 that reveals branches one by one for presentations.',
         },
       ]}
       related={[

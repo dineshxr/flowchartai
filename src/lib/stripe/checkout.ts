@@ -25,11 +25,27 @@ export async function startCheckout(
       return;
     }
 
-    const data = await res
-      .json()
-      .catch(() => ({}) as { url?: string; error?: string });
+    const data = await res.json().catch(
+      () =>
+        ({}) as {
+          url?: string;
+          error?: string;
+          message?: string;
+          changed?: boolean;
+        }
+    );
     if (res.ok && data.url) {
+      // `changed` means we swapped the plan on the existing subscription
+      // instead of opening a new one — there's no Stripe page to visit.
+      if (data.changed) toast.success('Your plan has been updated.');
       window.location.href = data.url;
+      return;
+    }
+    if (res.status === 409) {
+      // Already subscribed to this exact plan — send them to billing rather
+      // than letting them buy it a second time.
+      toast.info(data.message || "You're already on this plan.");
+      if (data.url) window.location.href = data.url;
       return;
     }
     if (res.status === 503) {

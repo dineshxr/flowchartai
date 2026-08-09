@@ -47,7 +47,7 @@ export function UpgradeDialog({
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  /** Short context, e.g. "Export in 2K & 4K with Pro." */
+  /** Short context, e.g. "Export without the watermark with Pro." */
   reason?: string;
   /** Path to come back to after checkout (e.g. the canvas being edited). */
   returnTo?: string;

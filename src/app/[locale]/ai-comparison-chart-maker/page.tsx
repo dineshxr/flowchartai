@@ -8,7 +8,7 @@ const PATH = '/ai-comparison-chart-maker';
 export const metadata: Metadata = constructMetadata({
   title: 'Free AI Comparison Chart Maker: Generate Infographics in 30s',
   description:
-    'Create comparison charts with AI in about 30 seconds. Describe the options you are comparing and Infogiph builds a clean, editable comparison infographic — free, no design skills, export to PNG, SVG, GIF & MP4.',
+    'Create comparison charts with AI in about 30 seconds. Describe the options you are comparing and Infogiph builds a clean, editable comparison infographic — free, no design skills, export to GIF, MP4 & PNG.',
   canonicalUrl: `${getBaseUrl()}${PATH}`,
   image: `/api/og?title=${encodeURIComponent('AI Comparison Chart Maker')}&subtitle=${encodeURIComponent('Generate comparison infographics in 30 seconds — free.')}`,
 });
@@ -40,7 +40,7 @@ export default function AiComparisonChartMakerPage() {
         },
         {
           title: 'Free exports that look professional',
-          body: 'Download your comparison chart as PNG or SVG on the free plan — ready for blog posts, pricing pages, decks, and social. Animated GIF and MP4 are available on paid plans.',
+          body: 'Download your comparison chart as a PNG, GIF, or MP4 on the free plan — ready for blog posts, pricing pages, decks, and social. Paid plans remove the small Infogiph watermark.',
         },
         {
           title: 'Works for any comparison',
@@ -66,14 +66,14 @@ export default function AiComparisonChartMakerPage() {
           heading: 'Where comparison chart infographics shine',
           paragraphs: [
             'Pricing pages and plan comparisons convert better when readers can scan differences at a glance. Marketers use comparison infographics for "X vs Y" content that ranks and gets shared. Product teams compare vendors and tools before buying. Students and researchers contrast theories, methods, or case studies.',
-            'Because Infogiph exports clean PNG and SVG for free — and animated versions on paid plans — one generated chart works across your blog, deck, docs, and social channels without redesigning it each time.',
+            'Because Infogiph exports clean PNG, GIF, and MP4 files for free — animated versions included — one generated chart works across your blog, deck, docs, and social channels without redesigning it each time.',
           ],
         },
       ]}
       faqs={[
         {
           q: 'Is the AI comparison chart maker really free?',
-          a: 'Yes. The free plan includes AI generation, the full canvas editor, and clean PNG and SVG exports — no credit card required. Paid plans add higher volume and GIF/MP4 exports.',
+          a: 'Yes. The free plan includes AI generation, the full canvas editor, and unlimited GIF, MP4, and PNG exports — no credit card required. Paid plans remove the Infogiph watermark and add generation volume.',
         },
         {
           q: 'How fast can I generate a comparison chart?',
@@ -89,7 +89,7 @@ export default function AiComparisonChartMakerPage() {
         },
         {
           q: 'What formats can I export a comparison chart in?',
-          a: 'PNG and SVG are free. Animated GIF and MP4 exports — great for social posts and ads — are included in paid plans.',
+          a: 'Three: static PNG, animated GIF, and MP4 video. All of them are free, including the animated ones that work so well for social posts and ads — paid plans just remove the Infogiph watermark.',
         },
         {
           q: 'Do comparison charts come out as tables or infographics?',

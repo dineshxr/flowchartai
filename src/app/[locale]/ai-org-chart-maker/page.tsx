@@ -8,7 +8,7 @@ const PATH = '/ai-org-chart-maker';
 export const metadata: Metadata = constructMetadata({
   title: 'Free Organizational Chart Maker | Create AI Org Charts in Seconds',
   description:
-    'Build organizational charts in seconds with AI. Paste your team structure — names, roles, who reports to whom — and Infogiph draws a clean, editable org chart. Free online org chart maker with PNG & SVG export.',
+    'Build organizational charts in seconds with AI. Paste your team structure — names, roles, who reports to whom — and Infogiph draws a clean, editable org chart. Free online org chart maker with GIF, MP4 & PNG export.',
   canonicalUrl: `${getBaseUrl()}${PATH}`,
   image: `/api/og?title=${encodeURIComponent('AI Org Chart Maker')}&subtitle=${encodeURIComponent('From team list to org chart in seconds.')}`,
 });
@@ -44,7 +44,7 @@ export default function AiOrgChartMakerPage() {
         },
         {
           title: 'Free export, easy sharing',
-          body: 'Download PNG or SVG free for onboarding docs, wikis, and slides. Animated exports (paid) can introduce the team one level at a time.',
+          body: 'Download PNG, GIF, or MP4 free for onboarding docs, wikis, and slides. Animated exports can introduce the team one level at a time.',
         },
       ]}
       body={[
@@ -58,7 +58,7 @@ export default function AiOrgChartMakerPage() {
         {
           heading: 'How to make an organizational chart in three steps',
           paragraphs: [
-            'One: write the structure. A simple format works — "CEO: Priya. CTO: Marcus (reports to Priya). Engineering Manager: Lena (reports to Marcus)…" — or paste a team page or HR export. Two: generate, and the AI builds the tree with everyone in place. Three: polish and export — adjust colors by department, add photos or notes, download PNG/SVG free.',
+            'One: write the structure. A simple format works — "CEO: Priya. CTO: Marcus (reports to Priya). Engineering Manager: Lena (reports to Marcus)…" — or paste a team page or HR export. Two: generate, and the AI builds the tree with everyone in place. Three: polish and export — adjust colors by department, add photos or notes, download a PNG, GIF, or MP4 free.',
             'The chart stays editable in your account, so the next new hire is a ten-second update rather than a new document.',
           ],
         },
@@ -73,7 +73,7 @@ export default function AiOrgChartMakerPage() {
       faqs={[
         {
           q: 'Is the org chart maker free?',
-          a: 'Yes — AI generation, full editing, and PNG/SVG exports are included free with a daily generation limit. No credit card required.',
+          a: 'Yes — full editing and unlimited GIF, MP4, and PNG exports are included free, along with 5 AI generations. No credit card required.',
         },
         {
           q: 'How do I create an org chart with AI?',
@@ -93,7 +93,7 @@ export default function AiOrgChartMakerPage() {
         },
         {
           q: 'Can I export the org chart to PowerPoint or a wiki?',
-          a: 'Export PNG or SVG and embed it in PowerPoint, Google Slides, Notion, Confluence, or any doc. SVG stays sharp at any size.',
+          a: 'Export a PNG and embed it in PowerPoint, Google Slides, Notion, Confluence, or any doc — or use an animated GIF wherever the tool supports it.',
         },
       ]}
       related={[

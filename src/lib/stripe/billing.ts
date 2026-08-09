@@ -110,6 +110,11 @@ export async function getActiveSubscription(userId: string) {
       (p) =>
         p.status === 'active' ||
         p.status === 'trialing' ||
+        // A failed renewal puts Stripe into ~2 weeks of smart retries, during
+        // which the customer is still being billed and may well pay. Cutting
+        // them to free the moment the first charge declines takes away the
+        // plan they're paying for; the periodEnd filter above still bounds it.
+        p.status === 'past_due' ||
         (p.status === 'canceled' &&
           p.cancelAtPeriodEnd &&
           p.periodEnd &&
@@ -168,10 +173,22 @@ export async function syncSubscription(
     updatedAt: new Date(),
   };
 
-  await db
-    .collection(COLLECTIONS.payment)
-    .doc(sub.id)
-    .set({ ...values, createdAt: new Date() }, { merge: true });
+  // `createdAt` is the sort key that decides which subscription is "current"
+  // (getActiveSubscription, getUserSubscriptionStatus). Re-stamping it on every
+  // sync makes whichever row was updated most recently sort first — so a late
+  // webhook about an OLD subscription could outrank the live one and downgrade
+  // the customer. Set it only when the row is first written.
+  const ref = db.collection(COLLECTIONS.payment).doc(sub.id);
+  const existing = await ref.get();
+  await ref.set(
+    existing.exists
+      ? values
+      : {
+          ...values,
+          createdAt: sub.created ? new Date(sub.created * 1000) : new Date(),
+        },
+    { merge: true }
+  );
 }
 
 async function userIdForCustomer(customerId: string): Promise<string | null> {

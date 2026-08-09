@@ -38,7 +38,7 @@ export function AIUsageLimitCard({
           features: [
             '500 AI generations per month',
             'Unlimited exports, no watermark',
-            '2K & 4K video, GIF & image export',
+            'GIF, MP4 & image export',
           ],
         };
       case 'hobby':

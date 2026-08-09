@@ -127,7 +127,7 @@ function EditExportVisual() {
     { icon: Type, label: 'Fonts' },
     { icon: Code2, label: 'Layout' },
   ];
-  const formats = ['SVG', 'PNG', 'GIF', 'MP4'];
+  const formats = ['GIF', 'MP4', 'PNG'];
 
   return (
     <div ref={ref} className="mx-auto w-full max-w-[440px]">
@@ -199,7 +199,7 @@ const STEPS = [
   {
     highlight: 'Edit',
     title: 'and export anywhere',
-    body: 'Everything stays editable. Adjust any node, swap colors, icons, and fonts, then export to SVG, PNG, GIF, or MP4 — ready for decks, docs, and social.',
+    body: 'Everything stays editable. Adjust any node, swap colors, icons, and fonts, then export to GIF, MP4, or PNG — ready for decks, docs, and social.',
     Visual: EditExportVisual,
   },
 ] as const;

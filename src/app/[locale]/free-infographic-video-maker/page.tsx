@@ -24,7 +24,7 @@ export default function FreeInfographicVideoMakerPage() {
       benefits={[
         {
           title: 'GIF & MP4 export on the free plan',
-          body: 'Free means a real video file on your device — looping GIF or MP4 at 1080p — not a locked preview behind a checkout page.',
+          body: 'Free means a real video file on your device — a looping GIF or an MP4, exported as many times as you like — not a locked preview behind a checkout page.',
         },
         {
           title: 'Text to video in seconds',
@@ -44,15 +44,15 @@ export default function FreeInfographicVideoMakerPage() {
         },
         {
           title: 'Upgrade only for more',
-          body: 'Paid plans add unlimited exports, watermark removal, and 2K/4K video. Everyday one-off videos stay free.',
+          body: 'Paid plans remove the Infogiph watermark and add hundreds of AI generations a month. Everyday one-off videos stay free.',
         },
       ]}
       body={[
         {
           heading: 'What the free plan actually includes',
           paragraphs: [
-            'Many "free" infographic video makers let you build something, then hold the download hostage. Infogiph keeps the free tier genuinely usable: 5 AI generations, 5 exports, the full editor, and every export format — GIF, MP4, PNG, and SVG — at 1080p with a small Infogiph watermark.',
-            'If you outgrow it, Pro adds unlimited exports, watermark-free files, 2K and 4K resolution, and hundreds of monthly AI generations. But you can make and publish your first infographic videos without spending anything.',
+            'Many "free" infographic video makers let you build something, then hold the download hostage. Infogiph keeps the free tier genuinely usable: 5 AI generations, unlimited exports, the full editor, and every export format — animated GIF, MP4 video, and static PNG — each carrying a small Infogiph watermark.',
+            'If you outgrow it, Pro adds watermark-free files and 500 AI generations a month, and Max lifts the generation limit entirely. But you can make and publish your first infographic videos without spending anything.',
           ],
         },
         {
@@ -72,11 +72,11 @@ export default function FreeInfographicVideoMakerPage() {
       faqs={[
         {
           q: 'Is Infogiph really a free infographic video maker?',
-          a: 'Yes. The free plan includes 5 AI generations and 5 exports with GIF and MP4 included, at 1080p. No credit card is required to start.',
+          a: 'Yes. The free plan includes 5 AI generations and unlimited exports, with GIF and MP4 included. No credit card is required to start.',
         },
         {
           q: 'Can I export MP4 for free?',
-          a: 'Yes — MP4 and looping GIF are both available on the free plan at 1080p. Paid plans add 2K and 4K exports.',
+          a: 'Yes — MP4 and looping GIF are both available on the free plan, with no cap on how many you export. Paid plans remove the small Infogiph watermark.',
         },
         {
           q: 'Do free infographic videos have a watermark?',
@@ -84,7 +84,7 @@ export default function FreeInfographicVideoMakerPage() {
         },
         {
           q: 'How many infographic videos can I make for free?',
-          a: 'The free plan includes 5 AI generations and 5 exports. The editor and all 98 templates stay fully available, so you can refine a project as much as you like before spending an export.',
+          a: 'The free plan includes 5 AI generations and unlimited exports. The editor and all 98 templates stay fully available, so you can refine and re-export a project as many times as you like.',
         },
         {
           q: 'Do I need After Effects or Premiere?',
@@ -92,11 +92,11 @@ export default function FreeInfographicVideoMakerPage() {
         },
         {
           q: 'What do the paid plans add?',
-          a: 'Pro ($12/mo, or $9/mo billed yearly) adds 500 AI generations per month, unlimited exports, no watermark, and 2K/4K video. Max removes the caps entirely and adds brand kit and team features.',
+          a: 'Pro ($12/mo, or $9/mo billed yearly) removes the watermark from every export and adds 500 AI generations per month, priority generation, and a commercial usage license. Max ($29/mo, or $23/mo billed yearly) makes AI generations unlimited and adds brand kit and team features.',
         },
         {
           q: 'What is the best free infographic video maker?',
-          a: 'The best free option is the one that gives you a real video file without payment. Judge any tool on four things: does the free tier export actual GIF/MP4 (not a locked preview), does it animate the infographic for you, can you edit after generating, and is the resolution usable. Infogiph checks all four — free exports are real 1080p GIF/MP4 files.',
+          a: 'The best free option is the one that gives you a real video file without payment. Judge any tool on four things: does the free tier export actual GIF/MP4 (not a locked preview), does it animate the infographic for you, can you edit after generating, and does it cap how many files you can download. Infogiph checks all four — free exports are real GIF/MP4 files, and there is no download cap.',
         },
         {
           q: 'How do I turn an infographic into a video?',

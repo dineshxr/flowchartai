@@ -58,7 +58,7 @@ export default function AnimatedInfographicMakerPage() {
         {
           heading: 'Make an animated infographic in three steps',
           paragraphs: [
-            'First, describe what you want to visualize — a process, a launch plan, a system, a comparison. Second, the AI generates a complete animated infographic with labeled nodes, matched icons, and built-in motion. Third, edit anything you like and export as GIF, MP4, PNG, or SVG.',
+            'First, describe what you want to visualize — a process, a launch plan, a system, a comparison. Second, the AI generates a complete animated infographic with labeled nodes, matched icons, and built-in motion. Third, edit anything you like and export it as an animated GIF, an MP4 video, or a static PNG.',
             'Most animated infographics generate in seconds, so you can iterate on the wording and structure instead of wrestling with software.',
           ],
         },
@@ -77,7 +77,7 @@ export default function AnimatedInfographicMakerPage() {
         },
         {
           q: 'Is there a free animated infographic maker?',
-          a: 'Yes. Infogiph is free to start: the free plan includes 5 AI generations and 5 exports, with GIF and MP4 included at 1080p (exports carry a small Infogiph watermark). No credit card required.',
+          a: 'Yes. Infogiph is free to start: the free plan includes 5 AI generations and unlimited exports, with GIF and MP4 included (exports carry a small Infogiph watermark). No credit card required.',
         },
         {
           q: 'How does the AI animated infographic maker work?',
@@ -89,7 +89,7 @@ export default function AnimatedInfographicMakerPage() {
         },
         {
           q: 'What formats can I export?',
-          a: 'Animated exports come out as looping GIF or MP4; static exports as PNG or SVG. The free plan exports at 1080p, and paid plans add 2K and 4K with no watermark.',
+          a: 'Animated exports come out as a looping GIF or an MP4 video; static exports come out as PNG. Every plan gets the same three formats — paid plans drop the small Infogiph watermark and add more AI generations.',
         },
         {
           q: 'Do I need motion design experience?',

@@ -19,7 +19,7 @@ const SUBTITLE = `Browse ${allTemplates.length}+ free, editable infographic and 
 export const metadata: Metadata = constructMetadata({
   title: `${TITLE} — ${allTemplates.length}+ Free Templates | Infogiph`,
   description:
-    'Browse free, editable infographic and diagram templates across architecture, data, AI, business, marketing, DevOps and more. Search, customise, and export to PNG, SVG, GIF, or MP4.',
+    'Browse free, editable infographic and diagram templates across architecture, data, AI, business, marketing, DevOps and more. Search, customise, and export to GIF, MP4, or PNG.',
   canonicalUrl: `${getBaseUrl()}${PATH}`,
   image: `/api/og?title=${encodeURIComponent(TITLE)}&subtitle=${encodeURIComponent(`${allTemplates.length}+ free, editable templates you can customise in seconds.`)}`,
 });

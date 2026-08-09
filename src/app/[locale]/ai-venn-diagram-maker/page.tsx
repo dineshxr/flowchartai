@@ -8,7 +8,7 @@ const PATH = '/ai-venn-diagram-maker';
 export const metadata: Metadata = constructMetadata({
   title: 'Free Venn Diagram Maker: Create AI Venn Diagrams Online',
   description:
-    "Create Venn diagrams online with AI. Name the sets you're comparing and Infogiph generates a clean 2- or 3-circle Venn diagram with the overlaps filled in — free, editable, exports to PNG & SVG.",
+    "Create Venn diagrams online with AI. Name the sets you're comparing and Infogiph generates a clean 2- or 3-circle Venn diagram with the overlaps filled in — free, editable, exports to GIF, MP4 & PNG.",
   canonicalUrl: `${getBaseUrl()}${PATH}`,
   image: `/api/og?title=${encodeURIComponent('AI Venn Diagram Maker')}&subtitle=${encodeURIComponent('Overlaps and differences, visualized in seconds.')}`,
 });
@@ -39,8 +39,8 @@ export default function AiVennDiagramMakerPage() {
           body: 'Change circle colors, opacity, fonts, and labels on the canvas. Match your brand or your slide theme in seconds.',
         },
         {
-          title: 'Free PNG & SVG export',
-          body: 'Use your Venn diagram in essays, decks, blog posts, and social. SVG export keeps it crisp at any size.',
+          title: 'Free GIF, MP4 & PNG export',
+          body: 'Use your Venn diagram in essays, decks, blog posts, and social. Static or animated, exports are unlimited on every plan.',
         },
         {
           title: 'More than circles when you need it',
@@ -58,7 +58,7 @@ export default function AiVennDiagramMakerPage() {
         {
           heading: 'How to make a Venn diagram in seconds',
           paragraphs: [
-            'Describe the comparison in the canvas chat: name the two or three sets and, optionally, any points you already know belong in each region. The AI generates the diagram; you refine labels, adjust colors, and export PNG or SVG free.',
+            'Describe the comparison in the canvas chat: name the two or three sets and, optionally, any points you already know belong in each region. The AI generates the diagram; you refine labels, adjust colors, and export a PNG, GIF, or MP4 free.',
             'Because everything is editable, you can also use a generated Venn as a workshop artifact — drop it on the canvas, then move items between regions live as the team debates where they belong.',
           ],
         },
@@ -73,7 +73,7 @@ export default function AiVennDiagramMakerPage() {
       faqs={[
         {
           q: 'Is the Venn diagram maker free?',
-          a: 'Yes — generate Venn diagrams with AI, edit them fully, and export PNG/SVG on the free plan. No credit card required.',
+          a: 'Yes — generate Venn diagrams with AI, edit them fully, and take unlimited GIF, MP4, and PNG exports on the free plan. No credit card required.',
         },
         {
           q: 'Can it make 3-circle Venn diagrams?',
@@ -89,7 +89,7 @@ export default function AiVennDiagramMakerPage() {
         },
         {
           q: 'Can I use the diagrams in school or work documents?',
-          a: 'Yes — export clean PNG for docs and slides, or SVG for print and scaling. Free-plan exports carry no watermark.',
+          a: 'Yes — export a clean PNG for docs and slides, or a GIF or MP4 when you want it animated. Free-plan exports carry a small Infogiph watermark; paid plans remove it.',
         },
         {
           q: 'When should I use a comparison chart instead of a Venn?',

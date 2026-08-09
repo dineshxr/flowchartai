@@ -1,7 +1,7 @@
 'use client';
 
-import { LoginForm } from '@/components/auth/login-form';
 import { LoginWrapper } from '@/components/auth/login-wrapper';
+import { SignInTakeover } from '@/components/auth/signin-takeover';
 import {
   AnimatedPreview,
   type Dims,
@@ -9,7 +9,16 @@ import {
   type PreviewNode,
   type PreviewSpec,
 } from '@/components/blocks/infogiph-home/animated-preview';
+import {
+  CanvasComposer,
+  type ComposerMode,
+} from '@/components/canvas/canvas-composer';
 import { ElementInspector } from '@/components/canvas/element-inspector';
+import {
+  EXPORT_FORMATS,
+  ExportDialog,
+  type ExportFormat,
+} from '@/components/canvas/export-dialog';
 import { ProcessingOverlay } from '@/components/canvas/processing-overlay';
 import {
   type AppliedVisual,
@@ -17,14 +26,9 @@ import {
 } from '@/components/canvas/text-to-visual-panel';
 import { UserButton } from '@/components/layout/user-button';
 import { UpgradeDialog } from '@/components/pricing/upgrade-dialog';
+import { AgentThinkingOrb } from '@/components/shared/thinking-orb';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -45,13 +49,7 @@ import {
 import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
-import {
-  PLAN_BY_ID,
-  RESOLUTIONS,
-  RESOLUTION_BY_ID,
-  type ResolutionTier,
-  canUseResolution,
-} from '@/config/plans';
+import { PLAN_BY_ID } from '@/config/plans';
 import { useCurrentUserWithStatus } from '@/hooks/use-current-user';
 import {
   EXPORT_PRESETS,
@@ -1033,6 +1031,11 @@ export default function FlowVizArchitect({
   const [error, setError] = useState<string | null>(null);
   const [animationType, setAnimationType] = useState<PreviewMode>('dots');
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  // Floating bottom composer — the primary way into both AI entry points.
+  const [composerMode, setComposerMode] = useState<ComposerMode>('describe');
+  const [composerCollapsed, setComposerCollapsed] = useState(false);
+  // Text handed from the composer to the Text-to-visuals panel.
+  const [composerSeedText, setComposerSeedText] = useState<string | null>(null);
   const [sidebarTab, setSidebarTab] = useState<'templates' | 'text'>(
     'templates'
   );
@@ -1076,11 +1079,14 @@ export default function FlowVizArchitect({
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [animationSpeed, setAnimationSpeed] = useState(1);
   const [exportPreset, setExportPreset] = useState<ExportPreset>('original');
-  const [resolution, setResolution] = useState<ResolutionTier>('1080p');
+  // Export is a two-step flow: pick a file type in the toolbar, then confirm
+  // size (and see the watermark/upgrade pitch) in the dialog.
+  const [exportFormat, setExportFormat] = useState<ExportFormat>('gif');
+  const [exportDialogOpen, setExportDialogOpen] = useState(false);
   const [upgradeOpen, setUpgradeOpen] = useState(false);
   const [upgradeReason, setUpgradeReason] = useState<string | undefined>();
-  // Active plan (from the Stripe subscription) — drives watermark, export
-  // resolution and the export limit. Defaults to free until detected.
+  // Active plan (from the Stripe subscription) — the only thing it changes
+  // about an export is the watermark. Defaults to free until detected.
   const userPlan = useUserPlan();
   const [sidebarImage, setSidebarImage] = useState<string | null>(null);
   const sidebarFileRef = useRef<HTMLInputElement>(null);
@@ -1158,9 +1164,11 @@ export default function FlowVizArchitect({
   // Export is gated behind sign-in. These drive the "progress saved" dialog and
   // the resume-after-login flow.
   const [showExportAuth, setShowExportAuth] = useState(false);
-  const [pendingExportFormat, setPendingExportFormat] = useState<
-    'png' | 'svg' | 'gif' | 'mp4' | null
-  >(null);
+  const [authGateReason, setAuthGateReason] = useState<'export' | 'generate'>(
+    'export'
+  );
+  const [pendingExportFormat, setPendingExportFormat] =
+    useState<ExportFormat | null>(null);
   const exportResumeTriggered = useRef(false);
 
   useEffect(() => {
@@ -1349,17 +1357,29 @@ export default function FlowVizArchitect({
     }
   }, [authLoading, isAuthenticated]);
 
-  // Once the restored diagram has rendered, trigger the saved export.
+  // Once the restored diagram has rendered, reopen the export dialog on the
+  // format they were attempting. It stops short of downloading on purpose:
+  // they've just signed in, so this is the right moment to show what the
+  // export will look like — watermark included — before it runs.
   useEffect(() => {
     if (!pendingExportFormat || !isAuthenticated || !activePreview) return;
     if (isExporting) return;
     const fmt = pendingExportFormat;
     const id = setTimeout(() => {
-      runExport(fmt);
+      setExportFormat(fmt);
+      setExportDialogOpen(true);
       setPendingExportFormat(null);
     }, 900);
     return () => clearTimeout(id);
   }, [pendingExportFormat, isAuthenticated, activePreview, isExporting]);
+
+  // Close the export dialog once a run finishes (or is canceled). The hook
+  // owns `isExporting`, so watch its falling edge rather than guessing.
+  const wasExporting = useRef(false);
+  useEffect(() => {
+    if (wasExporting.current && !isExporting) setExportDialogOpen(false);
+    wasExporting.current = isExporting;
+  }, [isExporting]);
 
   const handleTitleChange = async (newTitle: string) => {
     setCurrentTitle(newTitle);
@@ -1502,14 +1522,20 @@ export default function FlowVizArchitect({
         body: JSON.stringify(body),
       });
       if (response.status === 401) {
-        toast.error('Please sign in to use this feature');
         setLoading(false);
+        setAuthGateReason('generate');
+        setShowExportAuth(true);
         return;
       }
       if (response.status === 429) {
-        const data = await response.json();
-        toast.error(data.message || 'Usage limit exceeded');
+        // Out of credits on the main generate box — the highest-intent moment
+        // in the product. Show the upgrade dialog, not a toast that vanishes.
+        const data = await response.json().catch(() => ({}) as any);
         setLoading(false);
+        openUpgrade(
+          data.message ||
+            "You've used all your free AI generations. Upgrade for 500 a month and watermark-free exports."
+        );
         return;
       }
       if (!response.ok) throw new Error('Generation failed');
@@ -1639,33 +1665,21 @@ export default function FlowVizArchitect({
     setUpgradeOpen(true);
   };
 
-  // 2K/4K are Pro — selecting them on a free plan opens the upgrade prompt.
-  const selectResolution = (r: ResolutionTier) => {
-    if (!canUseResolution(userPlan, r)) {
-      openUpgrade(
-        'Export in 2K & 4K with Pro — crisp video, GIF and images for any screen.'
-      );
-      return;
-    }
-    setResolution(r);
-  };
-
-  const runExport = (format: 'png' | 'svg' | 'gif' | 'mp4') => {
-    const plan = PLAN_BY_ID[userPlan];
-    const res = canUseResolution(userPlan, resolution) ? resolution : '1080p';
-    const opts = {
-      resolutionScale: RESOLUTION_BY_ID[res].scale,
-      watermark: plan.limits.watermark,
-    };
+  // Runs the actual download. Every plan exports at the same size and quality;
+  // the only thing the plan changes is whether the watermark is stamped.
+  const runExport = (format: ExportFormat | 'svg') => {
+    const opts = { watermark: PLAN_BY_ID[userPlan].limits.watermark };
     if (format === 'png') exportPNG(currentTitle, exportPreset, opts);
     else if (format === 'svg') exportSVG(currentTitle, exportPreset, opts);
     else if (format === 'gif') exportGIF(currentTitle, exportPreset, opts);
     else exportMP4(currentTitle, exportPreset, opts);
   };
 
-  // Exporting requires an account. If the user is signed out, stash their work
-  // and prompt sign-in; the resume effect picks the export back up afterwards.
-  const handleExport = (format: 'png' | 'svg' | 'gif' | 'mp4') => {
+  // Step 1 of export: pick a file type. Exporting requires an account — if the
+  // user is signed out, stash their work and prompt sign-in; the resume effect
+  // picks the export back up afterwards. Otherwise open the export dialog,
+  // which is where size is chosen and the run is confirmed.
+  const handleExport = (format: ExportFormat) => {
     if (!isAuthenticated) {
       try {
         localStorage.setItem(
@@ -1682,27 +1696,12 @@ export default function FlowVizArchitect({
         // storage may be unavailable; still prompt for sign-in
       }
       // Defer so the export dropdown can close before the dialog takes focus.
+      setAuthGateReason('export');
       setTimeout(() => setShowExportAuth(true), 30);
       return;
     }
-    // Free plan: limited exports (see plans.ts). Soft, localStorage-based until
-    // Stripe + per-user server enforcement lands.
-    const exportsAllowed = PLAN_BY_ID[userPlan].limits.exports;
-    if (typeof exportsAllowed === 'number') {
-      const used = Number(localStorage.getItem('ig_free_exports') || '0');
-      if (used >= exportsAllowed) {
-        openUpgrade(
-          `You've used all ${exportsAllowed} free exports. Upgrade for unlimited, watermark-free exports.`
-        );
-        return;
-      }
-      try {
-        localStorage.setItem('ig_free_exports', String(used + 1));
-      } catch {
-        // storage unavailable — allow the export
-      }
-    }
-    runExport(format);
+    setExportFormat(format);
+    setTimeout(() => setExportDialogOpen(true), 30);
   };
 
   const handleManualSave = () => {
@@ -1930,40 +1929,8 @@ export default function FlowVizArchitect({
 
           <div className="mx-1 h-6 w-px bg-border" />
 
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="outline"
-                size="sm"
-                className="gap-1.5 text-xs rounded-lg border-border hover:bg-[#fafafa]"
-              >
-                <LayoutGrid className="h-3.5 w-3.5" />
-                {EXPORT_PRESETS[exportPreset].label.split(' (')[0]}
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56">
-              {(Object.keys(EXPORT_PRESETS) as ExportPreset[]).map((k) => (
-                <DropdownMenuItem
-                  key={k}
-                  onClick={() => setExportPreset(k)}
-                  className={
-                    exportPreset === k ? 'bg-accent text-accent-foreground' : ''
-                  }
-                >
-                  <span className="flex items-center gap-2 w-full">
-                    <span
-                      className={
-                        'h-1.5 w-1.5 rounded-full ' +
-                        (exportPreset === k ? 'bg-foreground' : 'bg-border')
-                      }
-                    />
-                    {EXPORT_PRESETS[k].label}
-                  </span>
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
-
+          {/* Export — pick a file type here, everything else (size, watermark,
+              upgrade) lives in the dialog this opens. */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
@@ -1981,73 +1948,31 @@ export default function FlowVizArchitect({
                 {isExporting && exportProgress > 0 ? ` ${exportProgress}%` : ''}
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-60">
+            <DropdownMenuContent align="end" className="w-64">
               <DropdownMenuLabel className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                Resolution
+                Choose a file type
               </DropdownMenuLabel>
-              {RESOLUTIONS.map((r) => {
-                const locked = !canUseResolution(userPlan, r.id);
-                const active = resolution === r.id;
+              {(['gif', 'mp4', 'png'] as ExportFormat[]).map((f) => {
+                const meta = EXPORT_FORMATS[f];
+                const Icon = meta.icon;
                 return (
                   <DropdownMenuItem
-                    key={r.id}
-                    onSelect={(e) => {
-                      e.preventDefault();
-                      selectResolution(r.id);
-                    }}
-                    className="flex items-center justify-between gap-2"
+                    key={f}
+                    onClick={() => handleExport(f)}
+                    className="flex items-start gap-2.5 py-2"
                   >
-                    <span className="flex items-center gap-2">
-                      <span
-                        className={
-                          'h-1.5 w-1.5 rounded-full ' +
-                          (active ? 'bg-foreground' : 'bg-border')
-                        }
-                      />
-                      <span className="font-medium">{r.label}</span>
-                      <span className="text-[11px] text-muted-foreground">
-                        {r.note}
+                    <Icon className="mt-0.5 h-4 w-4 shrink-0 text-foreground/70" />
+                    <span className="min-w-0">
+                      <span className="block text-sm font-medium">
+                        {meta.label}
+                      </span>
+                      <span className="block text-[11px] leading-snug text-muted-foreground">
+                        {meta.blurb}
                       </span>
                     </span>
-                    {locked && (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-foreground/5 px-1.5 py-0.5 text-[10px] font-semibold text-foreground/70">
-                        <Lock className="h-2.5 w-2.5" />
-                        Pro
-                      </span>
-                    )}
                   </DropdownMenuItem>
                 );
               })}
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => handleExport('png')}>
-                Download as PNG
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleExport('svg')}>
-                Download as SVG
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleExport('gif')}>
-                Download as GIF
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleExport('mp4')}>
-                Download as MP4
-              </DropdownMenuItem>
-              {PLAN_BY_ID[userPlan].limits.watermark && (
-                <>
-                  <DropdownMenuSeparator />
-                  <button
-                    type="button"
-                    onClick={() =>
-                      openUpgrade(
-                        'Remove the watermark and unlock 2K & 4K with Pro.'
-                      )
-                    }
-                    className="flex w-full items-center gap-1.5 px-2 py-1.5 text-left text-[11px] text-muted-foreground transition-colors hover:text-foreground"
-                  >
-                    <Lock className="h-3 w-3 shrink-0" />
-                    Watermark on free — remove with Pro →
-                  </button>
-                </>
-              )}
             </DropdownMenuContent>
           </DropdownMenu>
 
@@ -2077,7 +2002,7 @@ export default function FlowVizArchitect({
               size="sm"
               onClick={() =>
                 openUpgrade(
-                  'Unlock Pro — unlimited generations, watermark-free exports, and 2K/4K downloads.'
+                  'Unlock Pro — watermark-free exports and 500 AI generations a month.'
                 )
               }
               className="ig-gradient text-xs gap-1.5 rounded-lg text-white shadow-[0_2px_10px_rgba(255,107,157,0.35)] hover:opacity-95"
@@ -2103,24 +2028,47 @@ export default function FlowVizArchitect({
         </div>
       </div>
 
-      {/* Sign-in gate for exports */}
-      <Dialog open={showExportAuth} onOpenChange={setShowExportAuth}>
-        <DialogContent className="sm:max-w-[420px] p-0 overflow-hidden">
-          <DialogHeader className="px-6 pt-6">
-            <DialogTitle>Sign in to export</DialogTitle>
-          </DialogHeader>
-          <div className="px-6 pt-2">
-            <div className="flex items-start gap-2 rounded-lg border border-border bg-muted/50 p-3 text-sm text-muted-foreground">
-              <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" />
-              <span>
-                Your progress is saved. We&apos;ll pick up right where you left
-                off after you sign in.
-              </span>
-            </div>
-          </div>
-          <LoginForm callbackUrl={currentPath} className="border-none" />
-        </DialogContent>
-      </Dialog>
+      {/* Sign-in gate — shown before an export, and before a generation (which
+          costs a credit and so needs an account to bill it to). */}
+      <SignInTakeover
+        open={showExportAuth}
+        onOpenChange={setShowExportAuth}
+        callbackUrl={currentPath}
+        title={
+          authGateReason === 'generate'
+            ? 'Sign in to generate your diagram'
+            : 'Sign in to export your diagram'
+        }
+        subtitle={
+          authGateReason === 'generate'
+            ? 'Create a free account in one click — your prompt is waiting for you on the other side.'
+            : 'Create a free account in one click and your download starts right after.'
+        }
+      />
+
+      <ExportDialog
+        open={exportDialogOpen}
+        onOpenChange={setExportDialogOpen}
+        format={exportFormat}
+        preset={exportPreset}
+        onPresetChange={setExportPreset}
+        plan={userPlan}
+        isExporting={isExporting}
+        exportProgress={exportProgress}
+        exportStage={exportStage}
+        onExport={() => runExport(exportFormat)}
+        onCancelExport={cancelExport}
+        returnTo={
+          localFlowchartId || flowchartId
+            ? `/canvas/${localFlowchartId || flowchartId}`
+            : currentPath
+        }
+        onBeforeCheckout={async () => {
+          if (!currentUser || !diagramData) return undefined;
+          const id = await saveFlowchart(diagramData);
+          return id ? `/canvas/${id}` : undefined;
+        }}
+      />
 
       <UpgradeDialog
         open={upgradeOpen}
@@ -2183,6 +2131,8 @@ export default function FlowVizArchitect({
               <TextToVisualPanel
                 onPreview={previewVisual}
                 onApply={applyVisual}
+                seedText={composerSeedText}
+                onSeedConsumed={() => setComposerSeedText(null)}
               />
             </div>
             {sidebarTab === 'templates' && (
@@ -2289,99 +2239,9 @@ export default function FlowVizArchitect({
                   </div>
                 </ScrollArea>
 
-                {/* Generator */}
-                <div className="border-t border-border bg-white p-3">
-                  <div className="mb-2 flex items-center gap-1.5">
-                    <Sparkles className="h-3.5 w-3.5 text-foreground" />
-                    <span className="text-xs font-semibold text-foreground">
-                      Generate with AI
-                    </span>
-                  </div>
-                  <div className="mb-2 flex flex-wrap gap-1.5">
-                    {EXAMPLE_PROMPTS.slice(0, 4).map((ex) => (
-                      <button
-                        key={ex}
-                        type="button"
-                        onClick={() => setTopic(ex)}
-                        title={ex}
-                        className="rounded-full border border-border bg-[#fafafa] px-2 py-1 text-[10px] font-medium text-foreground/65 transition-colors hover:border-foreground/30 hover:text-foreground"
-                      >
-                        {ex.split(' ').slice(0, 3).join(' ')}…
-                      </button>
-                    ))}
-                  </div>
-                  <form
-                    onSubmit={(e) => {
-                      e.preventDefault();
-                      generateDiagram(
-                        undefined,
-                        undefined,
-                        sidebarImage || undefined
-                      );
-                    }}
-                    className="space-y-2"
-                  >
-                    <Textarea
-                      value={topic}
-                      onChange={(e) => setTopic(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' && !e.shiftKey) {
-                          e.preventDefault();
-                          generateDiagram(
-                            undefined,
-                            undefined,
-                            sidebarImage || undefined
-                          );
-                        }
-                      }}
-                      placeholder="Describe what you want to visualize…"
-                      rows={2}
-                      className="resize-none rounded-lg border-border bg-white text-xs focus-visible:border-foreground/40 focus-visible:ring-0"
-                    />
-                    <div className="flex items-center gap-2">
-                      <input
-                        ref={sidebarFileRef}
-                        type="file"
-                        accept="image/*"
-                        className="hidden"
-                        onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          if (!file) return;
-                          if (file.size > 4 * 1024 * 1024) {
-                            toast.error('Image must be under 4 MB');
-                            return;
-                          }
-                          const reader = new FileReader();
-                          reader.onload = () =>
-                            setSidebarImage(reader.result as string);
-                          reader.readAsDataURL(file);
-                        }}
-                      />
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className="h-9 shrink-0 rounded-lg border-border text-xs hover:bg-[#fafafa]"
-                        onClick={() => sidebarFileRef.current?.click()}
-                      >
-                        {sidebarImage ? '✓ Image' : '+ Image'}
-                      </Button>
-                      <Button
-                        type="submit"
-                        disabled={loading || (!topic.trim() && !sidebarImage)}
-                        className="h-9 flex-1 gap-2 rounded-lg bg-foreground text-xs text-background hover:bg-neutral-800 disabled:opacity-50"
-                        size="sm"
-                      >
-                        {loading ? (
-                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                        ) : (
-                          <Sparkles className="h-3.5 w-3.5" />
-                        )}
-                        Generate
-                      </Button>
-                    </div>
-                  </form>
-                </div>
+                {/* The AI generator used to live here, below the template
+                    list and under the fold. It's now the floating composer
+                    docked at the bottom of the canvas — see <CanvasComposer>. */}
               </>
             )}
           </div>
@@ -2413,46 +2273,42 @@ export default function FlowVizArchitect({
           <div className="pointer-events-none absolute bottom-4 right-4 z-10 select-none rounded-md bg-[rgba(15,23,42,0.72)] px-2.5 py-1 text-xs font-semibold tracking-tight text-white shadow-sm">
             infogiph.com
           </div>
-          {/* Export progress. The capture works on an off-screen clone, so the
-              canvas keeps animating — this card is the only export UI. */}
-          {isExporting && (
-            <output
-              className="absolute bottom-6 left-1/2 z-20 block -translate-x-1/2"
-              aria-live="polite"
-            >
-              <div className="flex items-center gap-3 rounded-xl border border-border bg-white/95 px-4 py-3 shadow-lg backdrop-blur">
-                <Loader2 className="h-4 w-4 animate-spin text-foreground/70" />
-                <div className="w-56">
-                  <div className="flex items-center justify-between text-xs font-medium">
-                    <span>
-                      {exportStage === 'preparing' && 'Preparing export…'}
-                      {exportStage === 'rendering' && 'Rendering frames…'}
-                      {exportStage === 'encoding' && 'Encoding…'}
-                      {exportStage === 'finalizing' && 'Finishing up…'}
-                      {exportStage === 'idle' && 'Exporting…'}
-                    </span>
-                    <span className="tabular-nums text-muted-foreground">
-                      {exportProgress}%
-                    </span>
-                  </div>
-                  <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-border">
-                    <div
-                      className="h-full rounded-full bg-foreground transition-[width] duration-200"
-                      style={{ width: `${exportProgress}%` }}
-                    />
-                  </div>
-                </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={cancelExport}
-                  className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground"
-                >
-                  Cancel
-                </Button>
-              </div>
-            </output>
-          )}
+          {/* Export progress lives in the export dialog, which stays open for
+              the duration of a run — see <ExportDialog>. Nothing here. */}
+
+          {/* Both AI entry points, docked over the canvas where they're seen. */}
+          <CanvasComposer
+            mode={composerMode}
+            onModeChange={setComposerMode}
+            collapsed={composerCollapsed}
+            onCollapsedChange={setComposerCollapsed}
+            topic={topic}
+            onTopicChange={setTopic}
+            onGenerate={() =>
+              generateDiagram(undefined, undefined, sidebarImage || undefined)
+            }
+            generating={loading}
+            hasImage={!!sidebarImage}
+            onPickImage={(file) => {
+              if (file.size > 4 * 1024 * 1024) {
+                toast.error('Image must be under 4 MB');
+                return;
+              }
+              const reader = new FileReader();
+              reader.onload = () => setSidebarImage(reader.result as string);
+              reader.readAsDataURL(file);
+            }}
+            onClearImage={() => setSidebarImage(null)}
+            examplePrompts={EXAMPLE_PROMPTS}
+            pasteBusy={false}
+            onPasteSubmit={(pasted) => {
+              // Hand the text to the sidebar panel, which owns suggestions,
+              // parameters and apply — and open it so the results are visible.
+              setComposerSeedText(pasted);
+              setSidebarTab('text');
+              setSidebarOpen(true);
+            }}
+          />
           <div className="h-full flex items-center justify-center p-6">
             <div
               className="relative rounded-xl border border-border bg-white shadow-[0_8px_30px_rgba(0,0,0,0.04)] overflow-hidden transition-all duration-300"

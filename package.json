@@ -135,6 +135,7 @@
     "stripe": "^17.6.0",
     "swiper": "^11.2.5",
     "tailwind-merge": "^3.0.2",
+    "thinking-orbs": "^0.2.0",
     "unist-util-visit": "^5.0.0",
     "use-intl": "^3.26.5",
     "use-media": "^1.5.0",
