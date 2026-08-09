@@ -159,22 +159,34 @@ function sanitiseSuggestion(raw: any, index: number): VisualSuggestion | null {
 
 export async function POST(req: Request) {
   try {
+    // The most expensive call in the app (long input, several variants per
+    // request). It requires an account — previously an unauthenticated caller
+    // skipped both the quota check and the usage record entirely.
     const session = await getSession();
     const userId = session?.user?.id;
 
-    if (userId) {
-      const usageCheck = await canUserUseAI(userId);
-      if (!usageCheck.canUse) {
-        return new Response(
-          JSON.stringify({
-            error: 'Usage limit exceeded',
-            message:
-              usageCheck.reason ??
-              'You have reached your AI usage limit. Upgrade for more generations.',
-          }),
-          { status: 429, headers: { 'Content-Type': 'application/json' } }
-        );
-      }
+    if (!userId) {
+      return new Response(
+        JSON.stringify({
+          error: 'Unauthorized',
+          message: 'Please sign in to turn text into visuals.',
+        }),
+        { status: 401, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const usageCheck = await canUserUseAI(userId);
+    if (!usageCheck.canUse) {
+      return new Response(
+        JSON.stringify({
+          error: 'Usage limit exceeded',
+          message:
+            usageCheck.reason ??
+            'You have reached your AI usage limit. Upgrade for more generations.',
+          usageInfo: usageCheck,
+        }),
+        { status: 429, headers: { 'Content-Type': 'application/json' } }
+      );
     }
 
     const body = await req.json();
@@ -260,19 +272,18 @@ export async function POST(req: Request) {
       throw new Error('Could not extract visual structures from this text');
     }
 
-    if (userId) {
-      await recordAIUsage(userId, 'flowchart_generation', {
-        tokensUsed: 0,
-        model: 'google/gemini-2.5-flash',
-        success: true,
-        metadata: {
-          mode: 'text_to_visual',
-          category: category || 'auto',
-          detail,
-          illustration,
-        },
-      });
-    }
+    // Billed server-side, immediately after a successful model call.
+    await recordAIUsage(userId, 'flowchart_generation', {
+      tokensUsed: 0,
+      model: 'google/gemini-2.5-flash',
+      success: true,
+      metadata: {
+        mode: 'text_to_visual',
+        category: category || 'auto',
+        detail,
+        illustration,
+      },
+    });
 
     return new Response(JSON.stringify({ suggestions }), {
       status: 200,

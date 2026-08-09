@@ -80,18 +80,17 @@ function drawWatermark(ctx: CanvasRenderingContext2D, w: number, h: number) {
 // ─── finalise (preset + resolution + watermark) ───────────────────────────────
 
 /**
- * Per-export options. Defaults match the free tier (1080p, watermark on); paid
- * plans pass a higher `resolutionScale` (2K/4K) and `watermark: false`.
+ * Per-export options. Every plan exports at the same size and quality — the
+ * only difference paid plans make is dropping the watermark. There is
+ * deliberately no resolution tier to pick: the presets below already emit
+ * 1080-class dimensions, which is what social and slides want.
  */
 export interface ExportOptions {
-  /** Multiplier on the preset dimensions: 1 = 1080p, 1.34 = 2K, 2 = 4K. */
-  resolutionScale: number;
   /** Whether to stamp the infogiph.com watermark. */
   watermark: boolean;
 }
 
 const DEFAULT_EXPORT_OPTIONS: ExportOptions = {
-  resolutionScale: 1,
   watermark: true,
 };
 
@@ -127,13 +126,11 @@ function targetSize(
   preset: ExportPreset,
   sourceW: number,
   sourceH: number,
-  opts: ExportOptions,
   evenDims = false
 ): { w: number; h: number } {
   const p = EXPORT_PRESETS[preset];
-  const res = Math.max(1, opts.resolutionScale || 1);
-  let w = Math.round((p.w ?? sourceW) * res);
-  let h = Math.round((p.h ?? sourceH) * res);
+  let w = Math.round(p.w ?? sourceW);
+  let h = Math.round(p.h ?? sourceH);
   if (evenDims) {
     // yuv420 (H.264) requires even dimensions.
     w -= w % 2;
@@ -147,7 +144,7 @@ function finaliseCanvas(
   preset: ExportPreset,
   opts: ExportOptions = DEFAULT_EXPORT_OPTIONS
 ): HTMLCanvasElement {
-  const { w, h } = targetSize(preset, source.width, source.height, opts);
+  const { w, h } = targetSize(preset, source.width, source.height);
   const target = document.createElement('canvas');
   target.width = w;
   target.height = h;
@@ -259,10 +256,7 @@ export function useFlowchartExport(
     setExportStage('rendering');
     setExportProgress(20);
     try {
-      const raw = await capture(
-        containerRef.current,
-        Math.round(3 * Math.max(1, opts.resolutionScale))
-      );
+      const raw = await capture(containerRef.current, 3);
       const out = finaliseCanvas(raw, preset, opts);
       setExportProgress(100);
       download(out.toDataURL('image/png'), `${title || 'infogiph'}.png`);
@@ -292,7 +286,7 @@ export function useFlowchartExport(
     setExportProgress(40);
     try {
       const dataUrl = await domToDataUrl(containerRef.current, {
-        scale: Math.round(2 * Math.max(1, opts.resolutionScale)),
+        scale: 2,
         backgroundColor: '#ffffff',
       });
       const img = new Image();
@@ -359,7 +353,6 @@ export function useFlowchartExport(
         preset,
         rect.width * 2,
         rect.height * 2,
-        opts,
         format === 'mp4'
       );
       // Rasterize the composite at exactly the scale the target needs — the
@@ -462,7 +455,6 @@ export function useFlowchartExport(
           preset,
           rect.width * 2,
           rect.height * 2,
-          opts,
           true
         );
         const { canEncodeMp4, createMp4Encoder } = await import(

@@ -8,7 +8,7 @@ const PATH = '/free-infographic-maker';
 export const metadata: Metadata = constructMetadata({
   title: 'Free Infographic Maker — Make Infographics Online Free | Infogiph',
   description:
-    'A genuinely free online infographic maker. Type a sentence and Infogiph builds an animated infographic in seconds — no design skills, no credit card. Export to PNG, SVG, GIF, and MP4 for free.',
+    'A genuinely free online infographic maker. Type a sentence and Infogiph builds an animated infographic in seconds — no design skills, no credit card. Export unlimited GIF, MP4, and PNG files for free.',
   canonicalUrl: `${getBaseUrl()}${PATH}`,
   image: `/api/og?title=${encodeURIComponent('Free Infographic Maker')}&subtitle=${encodeURIComponent('Make infographics online, free — no credit card.')}`,
 });
@@ -28,7 +28,7 @@ export default function FreeInfographicMakerPage() {
         },
         {
           title: 'Real exports on the free plan',
-          body: 'Download finished infographics as PNG, SVG, GIF, or MP4. Share them in decks, docs, blog posts, and social — no broken, half-finished free files.',
+          body: 'Download finished infographics as an animated GIF, an MP4 video, or a static PNG — as many times as you like. Share them in decks, docs, blog posts, and social — no broken, half-finished free files.',
         },
         {
           title: 'AI does the design work',
@@ -44,15 +44,15 @@ export default function FreeInfographicMakerPage() {
         },
         {
           title: 'Upgrade only if you need more',
-          body: 'The free plan covers everyday use. When you need higher volume, watermark-free files, or 2K/4K exports, paid plans start small.',
+          body: 'The free plan covers everyday use. When you need watermark-free files or hundreds more AI generations a month, paid plans start small.',
         },
       ]}
       body={[
         {
           heading: 'What "free" actually means with Infogiph',
           paragraphs: [
-            'Plenty of free infographic makers let you design something for free, then lock the download behind a paywall. Infogiph keeps the free plan genuinely useful: free AI generations, the full editor, and real exports in every format — PNG, SVG, GIF, and MP4 at 1080p.',
-            'You only need a paid plan when you outgrow the free limits — for example, generating dozens of infographics a week, removing the small Infogiph watermark, or exporting 2K and 4K video.',
+            'Plenty of free infographic makers let you design something for free, then lock the download behind a paywall. Infogiph keeps the free plan genuinely useful: free AI generations, the full editor, and unlimited real exports in every format — animated GIF, MP4 video, and static PNG.',
+            'You only need a paid plan for two things: removing the small Infogiph watermark from your exports, and generating far more infographics than the five AI generations the free plan includes — for example, dozens a week.',
           ],
         },
         {
@@ -72,15 +72,15 @@ export default function FreeInfographicMakerPage() {
       faqs={[
         {
           q: 'Is Infogiph really a free infographic maker?',
-          a: 'Yes. The free plan includes 5 AI generations, the full editor, and 5 real exports — PNG, SVG, GIF, and MP4 — with no credit card required to start.',
+          a: 'Yes. The free plan includes 5 AI generations, the full editor, and unlimited real exports — animated GIF, MP4 video, and static PNG — with no credit card required to start.',
         },
         {
           q: 'Do free infographics have a watermark?',
-          a: 'Free exports carry a small Infogiph watermark. Upgrading to a paid plan removes it and unlocks 2K/4K resolution.',
+          a: 'Free exports carry a small Infogiph watermark. Upgrading to a paid plan removes it from every export and raises your monthly AI generation limit.',
         },
         {
           q: 'What is the catch with the free plan?',
-          a: 'The free plan is capped at 5 AI generations and 5 exports, at 1080p with a small watermark. If you make infographics regularly, you can upgrade — but trying it properly costs nothing.',
+          a: 'The free plan is capped at 5 AI generations, and exports carry a small Infogiph watermark. Exports themselves are unlimited. If you make infographics regularly, you can upgrade — but trying it properly costs nothing.',
         },
         {
           q: 'Can I make infographics online without downloading software?',

@@ -89,7 +89,7 @@ export default function InfographicVideoMakerPage() {
         },
         {
           q: 'Is the infographic video maker free?',
-          a: 'You can start free — the free plan includes GIF and MP4 exports at 1080p with a small Infogiph watermark. Paid plans add unlimited exports, watermark removal, and 2K/4K video.',
+          a: 'You can start free — the free plan includes 5 AI generations and unlimited GIF and MP4 exports, each carrying a small Infogiph watermark. Paid plans remove the watermark and add hundreds of AI generations a month.',
         },
         {
           q: 'What aspect ratios are supported?',

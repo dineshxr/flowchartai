@@ -16,23 +16,32 @@ interface DiagramData {
 
 export async function POST(req: Request) {
   try {
+    // Generation costs real money on every call, so it requires an account.
+    // Without this the route served unlimited free generations to anyone who
+    // could reach the URL — no session, no quota, no record of it happening.
     const session = await getSession();
     const userId = session?.user?.id;
 
-    if (userId) {
-      const usageCheck = await canUserUseAI(userId);
-      if (!usageCheck.canUse) {
-        return new Response(
-          JSON.stringify({
-            error: 'Usage limit exceeded',
-            message: `You have reached your AI usage limit. ${usageCheck.remainingUsage} of ${usageCheck.limit} requests remaining.`,
-          }),
-          {
-            status: 429,
-            headers: { 'Content-Type': 'application/json' },
-          }
-        );
-      }
+    if (!userId) {
+      return new Response(
+        JSON.stringify({
+          error: 'Unauthorized',
+          message: 'Please sign in to generate a diagram.',
+        }),
+        { status: 401, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const usageCheck = await canUserUseAI(userId);
+    if (!usageCheck.canUse) {
+      return new Response(
+        JSON.stringify({
+          error: 'Usage limit exceeded',
+          message: `You've used all ${usageCheck.limit} of your AI generations.`,
+          usageInfo: usageCheck,
+        }),
+        { status: 429, headers: { 'Content-Type': 'application/json' } }
+      );
     }
 
     const { topic, image } = await req.json();
@@ -140,15 +149,14 @@ Return STRICT minified JSON ONLY — no markdown, no code fences, no commentary 
         .slice(0, 7);
     }
 
-    // Record the usage securely if logged in
-    if (userId) {
-      await recordAIUsage(userId, 'flowchart_generation', {
-        tokensUsed: 0,
-        model: 'google/gemini-2.5-flash',
-        success: true,
-        metadata: { mode: 'flowviz' },
-      });
-    }
+    // Bill the generation here, on the server, immediately after the model
+    // call succeeded. The client is never asked to report its own usage.
+    await recordAIUsage(userId, 'flowchart_generation', {
+      tokensUsed: 0,
+      model: 'google/gemini-2.5-flash',
+      success: true,
+      metadata: { mode: 'flowviz' },
+    });
 
     return new Response(JSON.stringify(parsedData), {
       status: 200,

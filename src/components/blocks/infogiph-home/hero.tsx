@@ -274,7 +274,7 @@ export function Hero() {
       </form>
 
       <p className="-mt-4 mb-2 text-center text-xs text-muted-foreground">
-        Free to start · No credit card · Export to SVG, PNG, GIF &amp; MP4
+        Free to start · No credit card · Export to GIF, MP4 &amp; PNG
       </p>
     </section>
   );

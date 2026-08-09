@@ -1,21 +1,16 @@
 'use client';
 
-import { LoginForm } from '@/components/auth/login-form';
 import { LoginWrapper } from '@/components/auth/login-wrapper';
+import { SignInTakeover } from '@/components/auth/signin-takeover';
 import { UpgradeDialog } from '@/components/pricing/upgrade-dialog';
 import { AIUsageLimitCard } from '@/components/shared/ai-usage-limit-card';
 import { CreditsCounter } from '@/components/shared/credits-counter';
 import { GuestUsageIndicator } from '@/components/shared/guest-usage-indicator';
 import MarkdownRenderer from '@/components/shared/markdown-renderer';
+import { AgentThinkingOrb } from '@/components/shared/thinking-orb';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
@@ -693,29 +688,11 @@ const AiChatSidebar: React.FC<AiChatSidebarProps> = ({
         generatedAt: Date.now(),
       };
 
-      // ✅ 只有流程图成功渲染后才计费
-      try {
-        await fetch('/api/ai/usage/record', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            type: 'flowchart_generation',
-            success: true,
-            metadata: {
-              mode: mode,
-              mermaidLength: mermaidCode.length,
-              elementCount: result.elements?.length || 0,
-              // 添加图片模式标识，这样计费记录能区分来源
-              isImageMode: aiMode === 'image_to_flowchart',
-              sourceMode: aiMode,
-            },
-          }),
-        });
-      } catch (recordError) {
-        console.error('Failed to record AI usage:', recordError);
-      }
+      // Usage is billed server-side in /api/ai/chat/flowchart at the moment the
+      // diagram is generated. It used to be reported from here, which meant
+      // blocking this one request — or closing the tab — made the generation
+      // free. Refresh the local counter so the UI matches the server.
+      refreshUsageData();
 
       toast({
         title: toastTitle,
@@ -1495,19 +1472,14 @@ const AiChatSidebar: React.FC<AiChatSidebarProps> = ({
                 </div>
               ))}
 
-              {/* Typing indicator before streaming starts */}
+              {/* Thinking indicator before streaming starts */}
               {isStreamingResponse && !streamingMessageIdRef.current && (
                 <div className="max-w-full">
-                  <div className="flex items-center gap-1 py-2">
-                    <div className="h-2 w-2 bg-gray-400 rounded-full animate-bounce" />
-                    <div
-                      className="h-2 w-2 bg-gray-400 rounded-full animate-bounce"
-                      style={{ animationDelay: '0.1s' }}
-                    />
-                    <div
-                      className="h-2 w-2 bg-gray-400 rounded-full animate-bounce"
-                      style={{ animationDelay: '0.2s' }}
-                    />
+                  <div className="flex items-center gap-2 py-2">
+                    <AgentThinkingOrb size={20} label="Thinking" />
+                    <span className="text-xs text-muted-foreground">
+                      Thinking…
+                    </span>
                   </div>
                 </div>
               )}
@@ -1644,18 +1616,14 @@ const AiChatSidebar: React.FC<AiChatSidebarProps> = ({
         </div>
       </div>
 
-      {/* Login Modal for Guest Users - Direct login modal */}
-      <Dialog open={showLoginModal} onOpenChange={setShowLoginModal}>
-        <DialogContent className="sm:max-w-[400px] p-0">
-          <DialogHeader className="hidden">
-            <DialogTitle>Sign In</DialogTitle>
-          </DialogHeader>
-          <LoginForm
-            callbackUrl={loginCallbackUrl || currentPath}
-            className="border-none"
-          />
-        </DialogContent>
-      </Dialog>
+      {/* Login gate for guests — same full-screen takeover as every other. */}
+      <SignInTakeover
+        open={showLoginModal}
+        onOpenChange={setShowLoginModal}
+        callbackUrl={loginCallbackUrl || currentPath}
+        title="Sign in to use the AI assistant"
+        subtitle="Create a free account in one click — your conversation and canvas are kept exactly as they are."
+      />
 
       {/* AI Usage Limit Card */}
       {showUsageLimitCard && usageData && (

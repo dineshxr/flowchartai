@@ -1,26 +1,29 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // Plan model — the single source of truth for the pricing page AND feature
-// gating (AI credits, exports, watermark, resolution).
+// gating (AI credits, watermark).
 //
-// Payments are wired later (Stripe). The `stripePriceId*` fields are
-// placeholders; nothing here calls a payment provider. Amounts are easy to
-// change — they live only in this file.
+// The paid tiers differ from free on exactly two axes: exports carry no
+// watermark, and you get more AI generations. Export format, size and quality
+// are identical on every plan — there are deliberately no resolution tiers to
+// choose from, because a resolution picker made the export flow confusing and
+// gated the wrong thing.
+//
+// Price IDs are resolved from env at request time (see src/lib/stripe/prices.ts),
+// not from this file.
 // ─────────────────────────────────────────────────────────────────────────────
 
 export type PlanId = 'free' | 'pro' | 'max';
-export type ResolutionTier = '1080p' | '2k' | '4k';
 
 export interface PlanLimits {
   /** AI generations allowed; 'unlimited' for the top tier. */
   aiGenerations: number | 'unlimited';
   /** Whether the credit allowance resets monthly or is a one-time lifetime grant. */
   aiPeriod: 'lifetime' | 'month';
-  /** Exports allowed; 'unlimited' for paid. */
+  /** Exports allowed. Unlimited on every plan — the watermark is the free-tier
+   *  constraint, not a download cap. */
   exports: number | 'unlimited';
   /** Whether exports carry the "infogiph.com" watermark. */
   watermark: boolean;
-  /** Highest export resolution this plan can produce. */
-  maxResolution: ResolutionTier;
 }
 
 export interface Plan {
@@ -53,16 +56,14 @@ export const PLANS: Plan[] = [
     limits: {
       aiGenerations: 5,
       aiPeriod: 'lifetime',
-      exports: 5,
+      exports: 'unlimited',
       watermark: true,
-      maxResolution: '1080p',
     },
     features: [
       '5 AI generations (lifetime)',
-      '5 exports',
+      'Unlimited exports',
       'All 98 templates & the full editor',
-      'PNG, SVG, GIF & MP4 export',
-      '1080p resolution',
+      'GIF, MP4 & static image export',
       'Infogiph watermark on exports',
     ],
   },
@@ -80,13 +81,12 @@ export const PLANS: Plan[] = [
       aiPeriod: 'month',
       exports: 'unlimited',
       watermark: false,
-      maxResolution: '4k',
     },
     features: [
+      'No watermark on any export',
       '500 AI generations / month',
       'Unlimited exports',
-      'No watermark',
-      '2K & 4K video, GIF & image export',
+      'GIF, MP4 & static image export',
       'Priority AI generation',
       'Commercial usage license',
     ],
@@ -104,7 +104,6 @@ export const PLANS: Plan[] = [
       aiPeriod: 'month',
       exports: 'unlimited',
       watermark: false,
-      maxResolution: '4k',
     },
     features: [
       'Unlimited AI generations',
@@ -131,43 +130,7 @@ export function planRank(id: PlanId): number {
   return PLAN_RANK[id] ?? 0;
 }
 
-// ── Export resolutions ──────────────────────────────────────────────────────
-
-export interface ResolutionOption {
-  id: ResolutionTier;
-  label: string;
-  /** Short descriptor, e.g. "Full HD". */
-  note: string;
-  /** Multiplier applied to the base (~1080p) export dimensions. */
-  scale: number;
-  /** Minimum plan that can produce this resolution. */
-  minPlan: PlanId;
-}
-
-export const RESOLUTIONS: ResolutionOption[] = [
-  { id: '1080p', label: '1080p', note: 'Full HD', scale: 1, minPlan: 'free' },
-  { id: '2k', label: '2K', note: 'QHD · sharp', scale: 1.34, minPlan: 'pro' },
-  { id: '4k', label: '4K', note: 'Ultra HD', scale: 2, minPlan: 'pro' },
-];
-
-export const RESOLUTION_BY_ID: Record<ResolutionTier, ResolutionOption> =
-  RESOLUTIONS.reduce(
-    (acc, r) => {
-      acc[r.id] = r;
-      return acc;
-    },
-    {} as Record<ResolutionTier, ResolutionOption>
-  );
-
-/** Can a plan export at the given resolution? */
-export function canUseResolution(
-  plan: PlanId,
-  resolution: ResolutionTier
-): boolean {
-  return planRank(plan) >= planRank(RESOLUTION_BY_ID[resolution].minPlan);
-}
-
-/** The headline value props, shown in the upgrade dialog. */
+/** The headline value props, shown in the upgrade dialog and the export modal. */
 export const UPGRADE_VALUE_PROPS: {
   icon: 'sparkles' | 'image-off' | 'gauge' | 'film' | 'palette' | 'badge';
   title: string;
@@ -179,18 +142,18 @@ export const UPGRADE_VALUE_PROPS: {
     desc: 'Clean, professional exports with no “infogiph.com” badge.',
   },
   {
-    icon: 'film',
-    title: '2K & 4K video and GIF',
-    desc: 'Crisp, high-resolution MP4 and GIF for any screen or deck.',
-  },
-  {
     icon: 'sparkles',
-    title: 'Up to unlimited AI',
+    title: 'More AI generations',
     desc: '500 generations / month on Pro — unlimited on Max.',
   },
   {
     icon: 'gauge',
-    title: 'Unlimited exports + priority',
-    desc: 'Export as much as you want, generated first in the queue.',
+    title: 'Priority generation',
+    desc: 'Your diagrams are generated first in the queue.',
+  },
+  {
+    icon: 'badge',
+    title: 'Commercial license',
+    desc: 'Use everything you make in client and commercial work.',
   },
 ];

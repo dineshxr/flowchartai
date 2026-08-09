@@ -14,7 +14,7 @@ import type { Metadata } from 'next';
 export const metadata: Metadata = constructMetadata({
   title: 'AI Infographic Generator — Make Infographics from Text | Infogiph',
   description:
-    'Infogiph is an AI infographic generator that turns plain text into polished, animated infographics in seconds. Create, edit, and export infographics as PNG, SVG, GIF, or MP4 — free to start, no design skills needed.',
+    'Infogiph is an AI infographic generator that turns plain text into polished, animated infographics in seconds. Create, edit, and export infographics as GIF, MP4, or PNG — free to start, no design skills needed.',
   canonicalUrl: `${getBaseUrl()}/`,
   image: `/api/og?title=${encodeURIComponent('AI Infographic Generator')}&subtitle=${encodeURIComponent('Turn text into polished, animated infographics in seconds.')}`,
 });

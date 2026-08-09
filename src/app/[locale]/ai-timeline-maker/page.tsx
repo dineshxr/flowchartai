@@ -8,7 +8,7 @@ const PATH = '/ai-timeline-maker';
 export const metadata: Metadata = constructMetadata({
   title: 'Free Online Timeline Maker: Create AI Timeline Infographics',
   description:
-    "Make timeline infographics online in seconds. List your events and dates — Infogiph's AI timeline maker designs a clean, editable timeline you can export as PNG, SVG, GIF, or MP4. Free to start.",
+    "Make timeline infographics online in seconds. List your events and dates — Infogiph's AI timeline maker designs a clean, editable timeline you can export as an animated GIF, an MP4, or a PNG. Free to start.",
   canonicalUrl: `${getBaseUrl()}${PATH}`,
   image: `/api/og?title=${encodeURIComponent('AI Timeline Maker')}&subtitle=${encodeURIComponent('Turn events and dates into timeline infographics.')}`,
 });
@@ -36,7 +36,7 @@ export default function AiTimelineMakerPage() {
         },
         {
           title: 'Animated timelines',
-          body: 'Export a GIF or MP4 (paid plans) where events appear in sequence — ideal for anniversary posts, product recaps, and history explainers.',
+          body: 'Export a GIF or MP4 — free plan included — where events appear in sequence, ideal for anniversary posts, product recaps, and history explainers.',
         },
         {
           title: 'Edit every event',
@@ -58,14 +58,14 @@ export default function AiTimelineMakerPage() {
         {
           heading: 'How to make a timeline online in seconds',
           paragraphs: [
-            'Write your events with rough dates in the canvas chat, or paste text that contains them. The AI generates a timeline infographic with markers, labels, and consistent styling. Edit whatever needs adjusting, then export — PNG and SVG are free.',
+            'Write your events with rough dates in the canvas chat, or paste text that contains them. The AI generates a timeline infographic with markers, labels, and consistent styling. Edit whatever needs adjusting, then export — GIF, MP4, and PNG are all free.',
             'Timelines stay live on your account: when the next milestone lands, add it with one sentence and re-export, instead of digging out an old design file.',
           ],
         },
         {
           heading: 'Static or animated: choose how the story unfolds',
           paragraphs: [
-            'A static timeline works for docs and print. But chronology is inherently sequential, and animation makes that visible — events appearing one after another turn a diagram into a story. Infogiph timelines animate natively, and paid plans export those animations as GIF or MP4 for social media, product updates, and presentations.',
+            'A static timeline works for docs and print. But chronology is inherently sequential, and animation makes that visible — events appearing one after another turn a diagram into a story. Infogiph timelines animate natively, and every plan exports those animations as GIF or MP4 for social media, product updates, and presentations.',
             'If your "timeline" is really a forward-looking plan with phases and priorities, the AI roadmap maker is the better structure — and it works from the same plain-text input.',
           ],
         },
@@ -73,7 +73,7 @@ export default function AiTimelineMakerPage() {
       faqs={[
         {
           q: 'Is the timeline maker free to use?',
-          a: 'Yes — AI generation, editing, and PNG/SVG exports are free with a daily generation limit. GIF and MP4 animated exports come with paid plans.',
+          a: 'Yes — editing and unlimited GIF, MP4, and PNG exports are free, with 5 AI generations included. Paid plans remove the Infogiph watermark and add far more generations.',
         },
         {
           q: 'How do I create a timeline infographic with AI?',
@@ -89,7 +89,7 @@ export default function AiTimelineMakerPage() {
         },
         {
           q: 'Can I animate my timeline?',
-          a: 'Yes. Timelines animate on the canvas, and paid plans export animated GIF/MP4 where milestones appear in sequence.',
+          a: 'Yes. Timelines animate on the canvas, and every plan exports animated GIF/MP4 where milestones appear in sequence.',
         },
         {
           q: 'Where do people use these timelines?',

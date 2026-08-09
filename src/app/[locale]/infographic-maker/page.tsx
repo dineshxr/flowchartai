@@ -8,7 +8,7 @@ const PATH = '/infographic-maker';
 export const metadata: Metadata = constructMetadata({
   title: 'Infographic Maker — Create Infographics Online Free | Infogiph',
   description:
-    'Infogiph is an online infographic maker that turns plain text into polished, animated infographics in seconds. Create infographics free — no design skills, no fiddly templates. Export to PNG, SVG, GIF, and MP4.',
+    'Infogiph is an online infographic maker that turns plain text into polished, animated infographics in seconds. Create infographics free — no design skills, no fiddly templates. Export to GIF, MP4, and PNG.',
   canonicalUrl: `${getBaseUrl()}${PATH}`,
   image: `/api/og?title=${encodeURIComponent('Infographic Maker')}&subtitle=${encodeURIComponent('Create infographics online from a single sentence.')}`,
 });
@@ -44,7 +44,7 @@ export default function InfographicMakerPage() {
         },
         {
           title: 'Export anywhere',
-          body: 'Download as PNG and SVG for decks and docs, or GIF and MP4 for social and video. Multiple aspect ratios for every channel.',
+          body: 'Download a PNG for decks and docs, or a GIF and MP4 for social and video. Multiple aspect ratios for every channel.',
         },
       ]}
       body={[
@@ -65,14 +65,14 @@ export default function InfographicMakerPage() {
         {
           heading: 'Create infographics free, then scale up',
           paragraphs: [
-            'You can start making infographics for free — no credit card required. The free plan includes a daily AI generation, full editing, and standard exports. Paid plans unlock hundreds of generations per month plus premium exports for teams that create infographics at volume.',
+            'You can start making infographics for free — no credit card required. The free plan includes 5 AI generations, full editing, and unlimited exports with a small Infogiph watermark. Paid plans remove that watermark and unlock hundreds of generations per month for teams that create infographics at volume.',
           ],
         },
       ]}
       faqs={[
         {
           q: 'Is Infogiph a free infographic maker?',
-          a: 'Yes. You can create infographics free with a daily AI generation, full editing, and standard exports. Paid plans add hundreds of generations per month and premium exports.',
+          a: 'Yes. You can create infographics free with 5 AI generations, full editing, and unlimited exports carrying a small watermark. Paid plans add hundreds of generations per month and remove the watermark.',
         },
         {
           q: 'How do I create an infographic with Infogiph?',
@@ -88,7 +88,7 @@ export default function InfographicMakerPage() {
         },
         {
           q: 'What formats can I export?',
-          a: 'PNG and SVG for documents and presentations, plus GIF and MP4 for social and video — with multiple aspect ratios for each channel.',
+          a: 'PNG for documents and presentations, plus GIF and MP4 for social and video — with multiple aspect ratios for each channel.',
         },
         {
           q: 'Can I edit the infographic after it is generated?',
