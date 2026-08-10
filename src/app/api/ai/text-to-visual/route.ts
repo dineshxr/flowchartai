@@ -26,7 +26,7 @@ function iconGuidance(illustration: VisualIllustration): string {
     return `icon: ONE lowercase key from this flat-glyph set only: ${CONCEPT_ICONS}. Keep labels conceptual — no product/brand names.`;
   }
   if (illustration === 'concrete') {
-    return `icon: ONE lowercase key, preferring the vivid 3D set: ${GLYPH_ICONS} (fallback: ${CONCEPT_ICONS}). When the text names a real product (Stripe, Slack, GitHub, OpenAI…), use its name as the label so its logo shows.`;
+    return `icon: ONE lowercase key, preferring the vivid 3D set: ${GLYPH_ICONS} (fallback: ${CONCEPT_ICONS}). When the text names a real product (Stripe, Slack, GitHub, OpenAI…), use its EXACT official name as the label — real logos are rendered automatically for 600+ products when the label matches the official name.`;
   }
   return `icon: ONE lowercase key from ${CONCEPT_ICONS} or, when a node deserves emphasis, from the 3D set ${GLYPH_ICONS}.`;
 }

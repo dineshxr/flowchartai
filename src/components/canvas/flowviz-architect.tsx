@@ -38,6 +38,11 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   Select,
@@ -59,6 +64,7 @@ import {
 import { useFlowchart } from '@/hooks/use-flowchart';
 import { useUserPlan } from '@/hooks/use-user-plan';
 import { useLocalePathname } from '@/i18n/navigation';
+import { fetchSvglDataUrl, matchLogosForNodes } from '@/lib/svgl';
 import {
   accentForCategory,
   allTemplates,
@@ -92,6 +98,7 @@ import {
   Orbit,
   PanelLeftClose,
   PanelLeftOpen,
+  Pipette,
   Search,
   Send,
   Share2,
@@ -399,6 +406,46 @@ function indexSpecNodes(
   }
   return out;
 }
+
+// Auto-resolve real brand logos (svgl.app catalog, 665+ brands) for a spec's
+// node labels. Confident label matches become image icon-overrides — the same
+// mechanism as user-uploaded logos, so they render in the preview, survive
+// export rasterization (data: URLs), and persist with the saved diagram.
+// Labels without a match keep their registry resolution (brand/concept/letter).
+async function autoLogoOverrides(
+  spec: PreviewSpec | null
+): Promise<Record<string, IconOverride>> {
+  if (!spec) return {};
+  const nodes = Object.entries(indexSpecNodes(spec)).map(([key, n]) => ({
+    key,
+    label: n.label,
+  }));
+  const logos = await matchLogosForNodes(nodes);
+  return Object.fromEntries(
+    Object.entries(logos).map(([key, url]) => [
+      key,
+      { kind: 'image', url } satisfies IconOverride,
+    ])
+  );
+}
+
+// Preset swatches for the connection-color picker (dots / beams / pulses /
+// arrows all draw from the spec's single accent). Mirrors the accents used
+// across the template catalog so picked colors feel native.
+const ACCENT_PRESETS = [
+  '#6366f1',
+  '#8b5cf6',
+  '#ec4899',
+  '#ff5b8a',
+  '#ef4444',
+  '#f97316',
+  '#f59e0b',
+  '#10b981',
+  '#14b8a6',
+  '#0ea5e9',
+  '#3b82f6',
+  '#64748b',
+];
 
 // Build aspect-aware canvas dims from the measured frame so AnimatedPreview's
 // layout recomputes for the current orientation. Without this it always lays
@@ -1134,6 +1181,22 @@ export default function FlowVizArchitect({
     () => applyElementEdits(renderSpec, new Set(deletedKeys), iconOverrides),
     [renderSpec, deletedKeys, iconOverrides]
   );
+  // The user's picked connection color (savedStyle.accent) wins over the
+  // template's baked-in accent — recolors dots/beams/pulses/arrows live, and
+  // saveFlowchart already persists savedStyle.accent so it round-trips.
+  const styledSpec = useMemo(
+    () =>
+      editedSpec &&
+      savedStyle.accent &&
+      (editedSpec as any).accent !== savedStyle.accent
+        ? ({ ...(editedSpec as any), accent: savedStyle.accent } as PreviewSpec)
+        : editedSpec,
+    [editedSpec, savedStyle.accent]
+  );
+  // What the connections are actually drawn with right now — mirrors
+  // AnimatedPreview's `spec.accent || '#ff5b8a'` fallback for the swatch UI.
+  const currentAccent =
+    savedStyle.accent || (editedSpec as any)?.accent || '#ff5b8a';
   const nodeIndex = useMemo(() => indexSpecNodes(editedSpec), [editedSpec]);
   const selectedNode = useMemo(() => {
     if (!selectedKey) return null;
@@ -1159,6 +1222,13 @@ export default function FlowVizArchitect({
     }
     setIconOverrides({});
     setDeletedKeys([]);
+  }, [activePreview]);
+
+  // Identity of the spec currently on canvas — lets async svgl logo enrichment
+  // discard its result if the user has already moved to another preview.
+  const activePreviewIdRef = useRef<PreviewSpec | null>(null);
+  useEffect(() => {
+    activePreviewIdRef.current = activePreview;
   }, [activePreview]);
 
   // Export is gated behind sign-in. These drive the "progress saved" dialog and
@@ -1540,11 +1610,19 @@ export default function FlowVizArchitect({
       }
       if (!response.ok) throw new Error('Generation failed');
       const result = await response.json();
-      setDiagramData(result);
       // Keep the active template's layout/mode; swap icons + labels using the
       // AI-generated satellites so the animated-beam preview stays consistent.
       const nextPreview = buildPreviewFromAI(result, activeTemplate);
+      // Pull real brand logos from the svgl catalog for any node label the
+      // local registry can't brand — awaited (3s-guarded) before first paint
+      // so the diagram lands fully branded instead of logos popping in.
+      const autoLogos = await autoLogoOverrides(nextPreview);
+      setDiagramData(result);
+      if (nextPreview) skipEditResetRef.current = true; // seeding fresh edits
       setActivePreview(nextPreview);
+      setSelectedKey(null);
+      setIconOverrides(autoLogos);
+      setDeletedKeys([]);
       setPositionOverrides({});
       setLabelOverrides({});
       setSavedStyle({});
@@ -1554,13 +1632,13 @@ export default function FlowVizArchitect({
         setCurrentTitle(userPrompt);
         setTempTitle(userPrompt);
       }
-      // A freshly generated diagram has no element edits yet — save with cleared
-      // overrides (this render's override state may still hold the prior diagram's).
+      // A freshly generated diagram starts from the auto logo overrides only —
+      // never this render's override state, which may hold the prior diagram's.
       saveFlowchart(result, userPrompt, {
         mode: animationType,
         positionOverrides: {},
         labelOverrides: {},
-        iconOverrides: {},
+        iconOverrides: autoLogos,
         deletedKeys: [],
       });
     } catch (err: any) {
@@ -1621,11 +1699,21 @@ export default function FlowVizArchitect({
     setSavedStyle({ layout: v.layout, accent: v.accent });
     if (v.orientation === 'portrait') setExportPreset('portrait');
     else if (v.orientation === 'landscape') setExportPreset('landscape');
+    // Brand-logo enrichment lands async (fast — svgl responses are cached).
+    // Yield a tick so the edit-reset effect for this preview swap runs FIRST,
+    // then apply only if this spec is still the one on canvas; any overrides
+    // the user managed to make meanwhile win over the automatic ones.
+    void autoLogoOverrides(v.spec).then(async (auto) => {
+      if (Object.keys(auto).length === 0) return;
+      await new Promise((r) => setTimeout(r, 0));
+      if (activePreviewIdRef.current !== v.spec) return;
+      setIconOverrides((prev) => ({ ...auto, ...prev }));
+    });
   };
 
   // "Save and Apply": commit the chosen visual — title it and persist with its
   // pinned layout/accent so it reloads exactly as applied.
-  const applyVisual = (v: AppliedVisual) => {
+  const applyVisual = async (v: AppliedVisual) => {
     previewVisual(v);
     if (currentTitle === 'Untitled') {
       setCurrentTitle(v.title);
@@ -1635,11 +1723,14 @@ export default function FlowVizArchitect({
       toast.success('Applied to canvas — sign in to save it to your library');
       return;
     }
+    // Same enrichment previewVisual applied on canvas (cached — near-instant
+    // here), so the saved document reloads with its real brand logos.
+    const autoLogos = await autoLogoOverrides(v.spec);
     saveFlowchart(v.data, v.title, {
       mode: v.mode,
       positionOverrides: {},
       labelOverrides: {},
-      iconOverrides: {},
+      iconOverrides: autoLogos,
       deletedKeys: [],
       previewLayout: v.layout,
       accent: v.accent,
@@ -1742,6 +1833,20 @@ export default function FlowVizArchitect({
     } finally {
       setUploadingLogo(false);
     }
+  };
+
+  // Apply a brand logo picked from the svgl catalog in the inspector. The SVG
+  // is inlined as a data: URL — same contract as an uploaded logo, so it
+  // renders everywhere and never taints export rasterization.
+  const handlePickLogo = async (logo: { title: string; url: string }) => {
+    if (!selectedKey) return;
+    const key = selectedKey;
+    const dataUrl = await fetchSvglDataUrl(logo.url);
+    if (!dataUrl) {
+      toast.error('Could not load that logo — try another.');
+      return;
+    }
+    setIconOverrides((p) => ({ ...p, [key]: { kind: 'image', url: dataUrl } }));
   };
 
   const handleDeleteSelected = () => {
@@ -1904,6 +2009,73 @@ export default function FlowVizArchitect({
               <ArrowRight size={14} /> Arrows
             </ToggleGroupItem>
           </ToggleGroup>
+
+          {/* Connection color — recolors the dots/beams/pulses/arrows. One
+              click on a preset applies live; Save persists it (same field the
+              text-to-visuals accent already uses). */}
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                variant="ghost"
+                size="sm"
+                aria-label="Connection color"
+                title="Connection color"
+                className="h-9 gap-2 rounded-lg border border-border bg-white px-2.5 text-xs hover:bg-[#fafafa]"
+              >
+                <span
+                  className="h-4 w-4 rounded-full border border-black/10"
+                  style={{ backgroundColor: currentAccent }}
+                />
+                Color
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent align="start" className="w-56 p-3">
+              <p className="mb-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                Connection color
+              </p>
+              <div className="grid grid-cols-6 gap-1.5">
+                {ACCENT_PRESETS.map((c) => (
+                  <button
+                    key={c}
+                    type="button"
+                    aria-label={`Use ${c}`}
+                    onClick={() => setSavedStyle((s) => ({ ...s, accent: c }))}
+                    className="flex h-7 w-7 items-center justify-center rounded-full transition-transform hover:scale-110"
+                    style={{ backgroundColor: c }}
+                  >
+                    {currentAccent.toLowerCase() === c.toLowerCase() && (
+                      <CheckCircle2 size={14} className="text-white" />
+                    )}
+                  </button>
+                ))}
+              </div>
+              <div className="mt-3 flex items-center gap-2">
+                <label className="relative flex h-8 flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-md border border-border text-xs font-medium hover:bg-[#fafafa]">
+                  <Pipette size={13} />
+                  Custom
+                  <input
+                    type="color"
+                    value={currentAccent}
+                    onChange={(e) =>
+                      setSavedStyle((s) => ({ ...s, accent: e.target.value }))
+                    }
+                    className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+                  />
+                </label>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 px-2.5 text-xs text-muted-foreground"
+                  onClick={() =>
+                    setSavedStyle((s) => ({ ...s, accent: undefined }))
+                  }
+                >
+                  Auto
+                </Button>
+              </div>
+            </PopoverContent>
+          </Popover>
 
           <div className="mx-1 h-6 w-px bg-border" />
 
@@ -2264,6 +2436,7 @@ export default function FlowVizArchitect({
                 [selectedKey]: { kind: 'key', key: iconKey },
               }))
             }
+            onPickLogo={handlePickLogo}
             onUploadLogo={handleLogoUpload}
             onDelete={handleDeleteSelected}
           />
@@ -2337,9 +2510,9 @@ export default function FlowVizArchitect({
                 className="w-full h-full flex items-center justify-center p-8"
               >
                 <div ref={canvasFrameRef} className="relative h-full w-full">
-                  {editedSpec ? (
+                  {styledSpec ? (
                     <AnimatedPreview
-                      {...(editedSpec as any)}
+                      {...(styledSpec as any)}
                       variant="canvas"
                       dims={canvasDims}
                       modeOverride={animationType}
@@ -2362,7 +2535,11 @@ export default function FlowVizArchitect({
                   )}
                   {loading && (
                     <ProcessingOverlay
-                      accent={(activePreview as any)?.accent || '#6366f1'}
+                      accent={
+                        savedStyle.accent ||
+                        (activePreview as any)?.accent ||
+                        '#6366f1'
+                      }
                     />
                   )}
                 </div>
