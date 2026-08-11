@@ -8,16 +8,27 @@ import { Heading, Text } from '@react-email/components';
 interface WelcomeProps extends BaseEmailProps {
   name: string;
   url: string;
+  unsubscribeUrl?: string;
 }
 
 /**
  * Day-0 welcome. Goal: get the first AI generation to happen — the funnel
  * shows users who never generate never come back.
  */
-export function Welcome({ name, url, locale, messages }: WelcomeProps) {
+export function Welcome({
+  name,
+  url,
+  unsubscribeUrl,
+  locale,
+  messages,
+}: WelcomeProps) {
   const first = name?.split(' ')[0] || 'there';
   return (
-    <EmailLayout locale={locale} messages={messages}>
+    <EmailLayout
+      locale={locale}
+      messages={messages}
+      unsubscribeUrl={unsubscribeUrl}
+    >
       <Heading className="text-xl">Welcome to Infogiph, {first} 👋</Heading>
       <Text>
         You have 5 free AI generations waiting. The fastest way to see what

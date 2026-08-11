@@ -8,13 +8,24 @@ import { Heading, Text } from '@react-email/components';
 interface CreditsLowProps extends BaseEmailProps {
   name: string;
   url: string;
+  unsubscribeUrl?: string;
 }
 
 /** Sent when a free user has exactly 1 AI generation left. */
-export function CreditsLow({ name, url, locale, messages }: CreditsLowProps) {
+export function CreditsLow({
+  name,
+  url,
+  unsubscribeUrl,
+  locale,
+  messages,
+}: CreditsLowProps) {
   const first = name?.split(' ')[0] || 'there';
   return (
-    <EmailLayout locale={locale} messages={messages}>
+    <EmailLayout
+      locale={locale}
+      messages={messages}
+      unsubscribeUrl={unsubscribeUrl}
+    >
       <Heading className="text-xl">
         {first}, you have 1 free generation left
       </Heading>

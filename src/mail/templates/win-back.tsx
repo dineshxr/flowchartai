@@ -10,6 +10,7 @@ interface WinBackProps extends BaseEmailProps {
   url: string;
   /** How many free generations the user still has. */
   creditsLeft: number;
+  unsubscribeUrl?: string;
 }
 
 /** Sent 7 days after signup to free users who went quiet. */
@@ -17,6 +18,7 @@ export function WinBack({
   name,
   url,
   creditsLeft,
+  unsubscribeUrl,
   locale,
   messages,
 }: WinBackProps) {
@@ -26,7 +28,11 @@ export function WinBack({
       ? `You still have ${creditsLeft} free AI generation${creditsLeft === 1 ? '' : 's'} on your account — they don't expire.`
       : 'Your saved work is still in your dashboard, ready to edit and export.';
   return (
-    <EmailLayout locale={locale} messages={messages}>
+    <EmailLayout
+      locale={locale}
+      messages={messages}
+      unsubscribeUrl={unsubscribeUrl}
+    >
       <Heading className="text-xl">One sentence → one infographic</Heading>
       <Text>
         Hi {first} — {credits}

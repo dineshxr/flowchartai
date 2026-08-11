@@ -8,16 +8,27 @@ import { Heading, Text } from '@react-email/components';
 interface CapHitProps extends BaseEmailProps {
   name: string;
   url: string;
+  unsubscribeUrl?: string;
 }
 
 /**
  * Sent ~24h after a free user burns their last credit. The in-product cap
  * modal already pitched once; this is the considered second touch.
  */
-export function CapHit({ name, url, locale, messages }: CapHitProps) {
+export function CapHit({
+  name,
+  url,
+  unsubscribeUrl,
+  locale,
+  messages,
+}: CapHitProps) {
   const first = name?.split(' ')[0] || 'there';
   return (
-    <EmailLayout locale={locale} messages={messages}>
+    <EmailLayout
+      locale={locale}
+      messages={messages}
+      unsubscribeUrl={unsubscribeUrl}
+    >
       <Heading className="text-xl">
         {first}, your diagrams are still here
       </Heading>

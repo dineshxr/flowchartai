@@ -542,7 +542,8 @@
   "Mail": {
     "common": {
       "team": "{name} Team",
-      "copyright": "©️ {year} All Rights Reserved."
+      "copyright": "©️ {year} All Rights Reserved.",
+      "unsubscribe": "Unsubscribe from product & tips emails"
     },
     "verifyEmail": {
       "title": "Hi, {name}.",
@@ -577,6 +578,21 @@
     },
     "winBack": {
       "subject": "Turn one sentence into an infographic"
+    },
+    "firstWin": {
+      "subject": "Your first diagram is one paste away"
+    },
+    "templatesTour": {
+      "subject": "100+ diagram layouts you can put your name on"
+    },
+    "linkedinPlaybook": {
+      "subject": "The LinkedIn post format that stops the scroll"
+    },
+    "upgradeNudge": {
+      "subject": "Remove the watermark before your next post"
+    },
+    "weeklyDigest": {
+      "subject": "This week: 3 templates + a format worth stealing"
     }
   },
   "HomePage": {
