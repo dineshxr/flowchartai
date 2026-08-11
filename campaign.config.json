@@ -1,0 +1,64 @@
+{
+  "$comment": "Consumed by the global social-campaign skill (~/.claude/skills/social-campaign). See that skill's reference/infogiph.md for the harness details and the full icon-key list.",
+
+  "source": {
+    "urlTemplate": "http://localhost:3000/en/dev-social?show={slug}&w={w}&h={h}",
+    "selector": ".infogiph-home",
+    "itemsFile": "concepts.json",
+    "$warning": "Never use ?run=1 — the harness's own capture path emits byte-identical frames and produces videos that look static."
+  },
+
+  "brand": {
+    "name": "Infogiph",
+    "url": "https://infogiph.com",
+    "creditLine": "Animated with Infogiph."
+  },
+
+  "watermark": {
+    "text": "infogiph.com",
+    "fontFile": "/System/Library/Fonts/Supplemental/Arial Bold.ttf"
+  },
+
+  "format": "linkedin",
+
+  "targets": [
+    {
+      "platform": "linkedin",
+      "accountId": 2607,
+      "handle": "Neelesh Kumar",
+      "format": "linkedin",
+      "slotsUtc": ["12:30", "19:30"],
+      "enabled": true
+    },
+    {
+      "platform": "linkedin",
+      "accountId": 15962,
+      "handle": "Infogiph",
+      "format": "linkedin",
+      "slotsUtc": ["14:00"],
+      "enabled": false
+    },
+    {
+      "platform": "tiktok",
+      "accountId": 75750,
+      "handle": "submithunt",
+      "format": "vertical",
+      "slotsUtc": ["17:00"],
+      "enabled": false
+    },
+    {
+      "platform": "twitter",
+      "accountId": 75728,
+      "handle": "submithunt",
+      "format": "square",
+      "slotsUtc": ["15:00"],
+      "enabled": false,
+      "$comment": "X strips URLs from captions — use platform_configurations.twitter.first_comment."
+    }
+  ],
+
+  "workDir": "/private/tmp/claude-501/-Users-dinesh-Infogiph/f1e81643-0ec1-4c9b-9a8c-7da0b602b958/scratchpad",
+  "framesPerClip": 56,
+  "settleMs": 2500,
+  "padColor": "white"
+}
