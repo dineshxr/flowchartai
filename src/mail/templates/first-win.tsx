@@ -33,13 +33,13 @@ export function FirstWin({
         The blank canvas is the only hard part
       </Heading>
       <Text>
-        Hi {first} — most people who make sharp-looking diagrams don&apos;t
-        start from nothing. They start from a sentence. Paste any one of these
-        into the canvas and watch it become an animated diagram in about 60
-        seconds:
+        Hi {first} — the people posting sharp diagrams to LinkedIn every week
+        aren&apos;t starting from nothing. They start from a sentence. Paste any
+        one of these into the canvas and watch it become an animated diagram in
+        about 60 seconds:
       </Text>
       <Text className="text-sm text-gray-600">
-        &quot;How our product turns a signup into a paying customer&quot;
+        &quot;How a cold lead becomes a paying client in my business&quot;
       </Text>
       <Text className="text-sm text-gray-600">
         &quot;The 5 tools in my daily workflow and how they connect&quot;
@@ -50,7 +50,8 @@ export function FirstWin({
       <EmailButton href={url}>Paste one and watch it build</EmailButton>
       <Text className="text-xs text-gray-500">
         Each one costs a single free generation, and everything it makes is
-        yours to edit, restyle, and export.
+        yours to edit, restyle, and export — and if it&apos;s good, it&apos;s
+        tomorrow&apos;s LinkedIn post.
       </Text>
     </EmailLayout>
   );

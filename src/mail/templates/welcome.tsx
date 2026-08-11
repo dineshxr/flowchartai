@@ -41,9 +41,9 @@ export function Welcome({
       </Text>
       <EmailButton href={url}>Create your first infographic</EmailButton>
       <Text className="text-xs text-gray-500">
-        Prefer to start from something ready-made? There are 98 editable
-        templates — flowcharts, timelines, org charts and more — one click from
-        the same canvas.
+        Prefer to start from something ready-made? There are 100+ editable
+        templates — the same structures people use to grow an audience on
+        LinkedIn — one click from the same canvas.
       </Text>
     </EmailLayout>
   );

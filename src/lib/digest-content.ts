@@ -93,6 +93,8 @@ const RECIPES: string[] = [
   'Portrait exports take up more phone screen in the feed. Same diagram, more pixels, more watch time.',
   "Name the boxes with your audience's words, not your internal jargon. 'Billing' beats 'Payments Service Layer' everywhere except your architecture review.",
   'Post the diagram of a mistake — the funnel that leaked, the pipeline that broke. Failure diagrams earn more trust than victory laps.',
+  'Diagram how you do the thing you are known for. Your own workflow is the one post format nobody can copy.',
+  'One diagram post a week for twelve weeks beats one lucky viral hit. The feed rewards the habit, and so do followers.',
 ];
 
 export interface DigestContent {

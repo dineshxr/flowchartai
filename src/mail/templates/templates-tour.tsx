@@ -36,16 +36,18 @@ export function TemplatesTour({
         Experts don&apos;t start from scratch
       </Heading>
       <Text>
-        {first}, the polished diagrams you see in decks and LinkedIn posts
-        aren&apos;t designed from zero. They reuse structures that already work:
-        the funnel, the pipeline, the orbit, the org chart. The design thinking
-        is done — the ideas are the only original part.
+        {first}, the people who post polished diagrams every week aren&apos;t
+        designing from zero, and they aren&apos;t guessing what to post. They
+        reuse structures that already work: the funnel, the pipeline, the orbit,
+        the org chart. The design thinking is done — their ideas are the only
+        original part.
       </Text>
       <Text>
         Infogiph has {templateCount} of these structures ready to put your name
         on: system architectures, launch timelines, marketing funnels, decision
-        trees. Open one, rename the boxes, and it reads like you spent an
-        afternoon on it.
+        trees. Read the library as a content calendar — every template is a post
+        you haven&apos;t written yet. Open one, rename the boxes, and it reads
+        like you spent an afternoon on it.
       </Text>
       <Text>
         One habit worth stealing: pick the layout that matches the{' '}

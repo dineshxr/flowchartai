@@ -53,6 +53,13 @@ export function LinkedinPlaybook({
         3. First line names the problem. The diagram carries the insight. The
         last line asks a question so the comments do your distribution.
       </Text>
+      <Text>
+        Then make it a cadence, not a one-off. One diagram post a week
+        compounds: the diagrams do the reaching, your profile does the
+        converting. And when you run out of ideas, diagram your own systems —
+        how you plan, ship, or sell. Your workflow is the one post nobody can
+        copy.
+      </Text>
       <EmailButton href={url}>Turn an idea into a post</EmailButton>
       <Text className="text-xs text-gray-500">
         Posting for a mobile audience? Use the portrait export preset — it takes

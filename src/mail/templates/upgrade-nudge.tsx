@@ -36,8 +36,8 @@ export function UpgradeNudge({
       <Text>
         {first}, you made five diagrams — the thinking in them is yours. But if
         they&apos;re going in front of clients, your team, or your LinkedIn
-        audience, the watermark in the corner gives us the credit for your
-        ideas. That&apos;s backwards.
+        audience, the watermark in the corner gives us the credit on posts that
+        are supposed to build your brand. That&apos;s backwards.
       </Text>
       <Text>
         Pro removes the watermark from every export, raises you to 500

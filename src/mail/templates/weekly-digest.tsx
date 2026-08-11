@@ -49,8 +49,9 @@ export function WeeklyDigest({
     >
       <Heading className="text-xl">This week on Infogiph</Heading>
       <Text>
-        {first}, three things worth two minutes — a format to learn, templates
-        to steal, and one posting habit that compounds.
+        {first}, your next post is in here somewhere: a format worth learning,
+        three templates worth stealing, and one habit that compounds.
+        Consistency is the whole game — this email is the cadence.
       </Text>
 
       <Section>
