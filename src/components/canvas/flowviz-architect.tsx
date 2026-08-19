@@ -177,6 +177,8 @@ const buildPreviewFromAI = (
       svgIcon: sv.node,
       letter: sv.letter,
       tint: sv.tint,
+      value: typeof s.value === 'number' ? s.value : undefined,
+      unit: s.unit || undefined,
     };
   });
 
@@ -219,6 +221,9 @@ const buildPreviewFromAI = (
     case 'columns':
     case 'timeline':
     case 'iceberg':
+    case 'bars':
+    case 'chart-line':
+    case 'donut':
       return {
         layout: spec.layout,
         mode: spec.mode,
@@ -299,16 +304,22 @@ const overrideIcon = (node: any, ov: IconOverride | undefined) => {
   };
 };
 
-// Apply the user's element edits (deletions + icon swaps) to the spec before it
-// renders. Node keys are stable (center, sat-N) so edits survive layout changes.
+// Apply the user's element edits (deletions + icon swaps + chart values) to the
+// spec before it renders. Node keys are stable (center, sat-N) so edits survive
+// layout changes.
 function applyElementEdits(
   spec: PreviewSpec | null,
   deleted: Set<string>,
-  iconOverrides: Record<string, IconOverride>
+  iconOverrides: Record<string, IconOverride>,
+  valueOverrides: Record<string, number> = {}
 ): PreviewSpec | null {
   if (!spec) return spec;
   const keep = (n: any) => !deleted.has(n.key);
-  const tn = (n: any) => overrideIcon(n, iconOverrides[n.key]);
+  const tn = (n: any) => {
+    const withIcon = overrideIcon(n, iconOverrides[n.key]);
+    const v = valueOverrides[n.key];
+    return typeof v === 'number' ? { ...withIcon, value: v } : withIcon;
+  };
   switch (spec.layout) {
     case 'hub-lr':
       return {
@@ -335,6 +346,9 @@ function applyElementEdits(
     case 'pyramid':
     case 'timeline':
     case 'iceberg':
+    case 'bars':
+    case 'chart-line':
+    case 'donut':
       return {
         ...spec,
         satellites: spec.satellites.filter(keep).map(tn),
@@ -361,15 +375,27 @@ function applyElementEdits(
   return spec;
 }
 
-// Flatten the spec into a key -> { label, isCenter } index so the inspector can
-// describe the selected node regardless of layout.
+// Flatten the spec into a key -> { label, isCenter, value } index so the
+// inspector can describe the selected node regardless of layout.
 function indexSpecNodes(
   spec: PreviewSpec | null
-): Record<string, { label: string; isCenter: boolean }> {
-  const out: Record<string, { label: string; isCenter: boolean }> = {};
+): Record<
+  string,
+  { label: string; isCenter: boolean; value?: number; unit?: string }
+> {
+  const out: Record<
+    string,
+    { label: string; isCenter: boolean; value?: number; unit?: string }
+  > = {};
   if (!spec) return out;
   const add = (n: any, isCenter = false) => {
-    if (n) out[n.key] = { label: n.label ?? '', isCenter };
+    if (n)
+      out[n.key] = {
+        label: n.label ?? '',
+        isCenter,
+        value: n.value,
+        unit: n.unit,
+      };
   };
   switch (spec.layout) {
     case 'hub-lr':
@@ -390,6 +416,9 @@ function indexSpecNodes(
     case 'columns':
     case 'timeline':
     case 'iceberg':
+    case 'bars':
+    case 'chart-line':
+    case 'donut':
       spec.satellites.forEach((n: any) => add(n));
       add(spec.center, true);
       break;
@@ -1045,16 +1074,89 @@ const TEMPLATES: Array<{
       },
     },
   },
+  {
+    id: 'bar-chart',
+    label: 'Bar Chart',
+    icon: <LineChart size={18} />,
+    topic: 'Quarterly results bar chart with four quarters',
+    data: {
+      center: { label: '2026 Results', icon: 'chart3d' },
+      satellites: [
+        { label: 'Q1', icon: 'analytics', value: 42 },
+        { label: 'Q2', icon: 'analytics', value: 68 },
+        { label: 'Q3', icon: 'analytics', value: 55 },
+        { label: 'Q4', icon: 'analytics', value: 84 },
+      ],
+    },
+    preview: {
+      layout: 'bars',
+      mode: 'pulses',
+      accent: '#3b82f6',
+      center: {
+        key: 'center',
+        label: '2026 Results',
+        icon: <LineChart className="w-full h-full text-white" />,
+      },
+      satellites: [
+        {
+          key: 'sat-0',
+          label: 'Q1',
+          value: 42,
+          icon: <Activity className="w-full h-full text-[#3b82f6]" />,
+        },
+        {
+          key: 'sat-1',
+          label: 'Q2',
+          value: 68,
+          icon: <Activity className="w-full h-full text-[#8b5cf6]" />,
+        },
+        {
+          key: 'sat-2',
+          label: 'Q3',
+          value: 55,
+          icon: <Activity className="w-full h-full text-[#ec4899]" />,
+        },
+        {
+          key: 'sat-3',
+          label: 'Q4',
+          value: 84,
+          icon: <Activity className="w-full h-full text-[#f59e0b]" />,
+        },
+      ],
+    },
+  },
 ];
 
 // One-tap starting points for the generator, so users aren't staring at a blank
 // box wondering what to type.
-const EXAMPLE_PROMPTS = [
-  'SaaS architecture with auth, billing & analytics',
-  'Customer onboarding journey',
-  'CI/CD pipeline with tests and deploy',
-  'Marketing funnel from ads to signups',
-  'Microservices with API gateway & message bus',
+// Each chip shows a short label; clicking fills the full prompt (ported from
+// the old chat sidebar's example-prompt empty state — the labels are curated
+// instead of machine-truncated, so the chips read as real suggestions).
+const EXAMPLE_PROMPTS: { label: string; prompt: string }[] = [
+  {
+    label: 'SaaS architecture',
+    prompt: 'SaaS architecture with auth, billing & analytics',
+  },
+  {
+    label: 'Ad-spend bar chart',
+    prompt: 'Bar chart of ad spend: Google 42k, Meta 31k, TikTok 18k',
+  },
+  {
+    label: 'Onboarding journey',
+    prompt: 'Customer onboarding journey from signup to activation',
+  },
+  {
+    label: 'CI/CD pipeline',
+    prompt: 'CI/CD pipeline with tests and deploy',
+  },
+  {
+    label: 'Marketing funnel',
+    prompt: 'Marketing funnel from ads to signups',
+  },
+  {
+    label: 'Microservices',
+    prompt: 'Microservices with API gateway & message bus',
+  },
 ];
 
 export default function FlowVizArchitect({
@@ -1122,6 +1224,10 @@ export default function FlowVizArchitect({
   const [iconOverrides, setIconOverrides] = useState<
     Record<string, IconOverride>
   >({});
+  // Chart layouts only: per-node numeric value edits (bar heights / donut shares).
+  const [valueOverrides, setValueOverrides] = useState<Record<string, number>>(
+    {}
+  );
   const [deletedKeys, setDeletedKeys] = useState<string[]>([]);
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [animationSpeed, setAnimationSpeed] = useState(1);
@@ -1129,6 +1235,10 @@ export default function FlowVizArchitect({
   // Export is a two-step flow: pick a file type in the toolbar, then confirm
   // size (and see the watermark/upgrade pitch) in the dialog.
   const [exportFormat, setExportFormat] = useState<ExportFormat>('gif');
+  // Quality tier (1 = standard, 2 = HD; the dialog gates HD to plans with
+  // hdExport) and the PNG/SVG transparent-background toggle.
+  const [exportScale, setExportScale] = useState(1);
+  const [exportTransparent, setExportTransparent] = useState(false);
   const [exportDialogOpen, setExportDialogOpen] = useState(false);
   const [upgradeOpen, setUpgradeOpen] = useState(false);
   const [upgradeReason, setUpgradeReason] = useState<string | undefined>();
@@ -1178,8 +1288,14 @@ export default function FlowVizArchitect({
   // Element edits (icon/logo swaps + deletions) layer on top of the rendered
   // spec; the inspector reads node info from the same edited spec.
   const editedSpec = useMemo(
-    () => applyElementEdits(renderSpec, new Set(deletedKeys), iconOverrides),
-    [renderSpec, deletedKeys, iconOverrides]
+    () =>
+      applyElementEdits(
+        renderSpec,
+        new Set(deletedKeys),
+        iconOverrides,
+        valueOverrides
+      ),
+    [renderSpec, deletedKeys, iconOverrides, valueOverrides]
   );
   // The user's picked connection color (savedStyle.accent) wins over the
   // template's baked-in accent — recolors dots/beams/pulses/arrows live, and
@@ -1206,8 +1322,10 @@ export default function FlowVizArchitect({
       key: selectedKey,
       label: labelOverrides[selectedKey] ?? info.label,
       isCenter: info.isCenter,
+      value: valueOverrides[selectedKey] ?? info.value,
+      unit: info.unit,
     };
-  }, [selectedKey, nodeIndex, labelOverrides]);
+  }, [selectedKey, nodeIndex, labelOverrides, valueOverrides]);
 
   // When a saved flowchart is loaded we restore element edits, then set this so
   // the effect below doesn't immediately wipe them on the activePreview swap.
@@ -1221,6 +1339,7 @@ export default function FlowVizArchitect({
       return;
     }
     setIconOverrides({});
+    setValueOverrides({});
     setDeletedKeys([]);
   }, [activePreview]);
 
@@ -1271,6 +1390,7 @@ export default function FlowVizArchitect({
         setPositionOverrides(parsed.positionOverrides || {});
         setLabelOverrides(parsed.labelOverrides || {});
         setIconOverrides(parsed.iconOverrides || {});
+        setValueOverrides(parsed.valueOverrides || {});
         setDeletedKeys(parsed.deletedKeys || []);
         setSavedStyle({ layout: pinnedLayout, accent: pinnedAccent });
       }
@@ -1365,6 +1485,9 @@ export default function FlowVizArchitect({
     const spec = derivePreviewSpec(tpl, accentForCategory(tpl.category));
     setDiagramData(tpl.data);
     setActivePreview(spec);
+    // Respect the template's pinned animation mode (charts tune theirs —
+    // pulses for bars/donut, beams for line) instead of the toolbar default.
+    if (spec.mode) setAnimationType(spec.mode);
     setActiveTemplate({
       id: tpl.slug,
       label: tpl.title,
@@ -1418,6 +1541,8 @@ export default function FlowVizArchitect({
       }
       if (saved.preset) setExportPreset(saved.preset);
       if (saved.mode) setAnimationType(saved.mode);
+      if (saved.scale === 2) setExportScale(2);
+      if (saved.transparent) setExportTransparent(true);
       if (saved.format) {
         setPendingExportFormat(saved.format);
         toast.success('Welcome back — picking up your export…');
@@ -1508,6 +1633,7 @@ export default function FlowVizArchitect({
       positionOverrides?: Record<string, { x: number; y: number }>;
       labelOverrides?: Record<string, string>;
       iconOverrides?: Record<string, IconOverride>;
+      valueOverrides?: Record<string, number>;
       deletedKeys?: string[];
       previewLayout?: TemplateLayout;
       accent?: string;
@@ -1527,6 +1653,7 @@ export default function FlowVizArchitect({
         positionOverrides: snapshot?.positionOverrides ?? positionOverrides,
         labelOverrides: snapshot?.labelOverrides ?? labelOverrides,
         iconOverrides: snapshot?.iconOverrides ?? iconOverrides,
+        valueOverrides: snapshot?.valueOverrides ?? valueOverrides,
         deletedKeys: snapshot?.deletedKeys ?? deletedKeys,
         previewLayout: snapshot?.previewLayout ?? savedStyle.layout,
         accent: snapshot?.accent ?? savedStyle.accent,
@@ -1622,6 +1749,7 @@ export default function FlowVizArchitect({
       setActivePreview(nextPreview);
       setSelectedKey(null);
       setIconOverrides(autoLogos);
+      setValueOverrides({});
       setDeletedKeys([]);
       setPositionOverrides({});
       setLabelOverrides({});
@@ -1669,6 +1797,7 @@ export default function FlowVizArchitect({
     const spec = derivePreviewSpec(tpl, accentForCategory(tpl.category));
     setDiagramData(tpl.data);
     setActivePreview(spec);
+    if (spec.mode) setAnimationType(spec.mode);
     setActiveTemplate({
       id: tpl.slug,
       label: tpl.title,
@@ -1756,10 +1885,17 @@ export default function FlowVizArchitect({
     setUpgradeOpen(true);
   };
 
-  // Runs the actual download. Every plan exports at the same size and quality;
-  // the only thing the plan changes is whether the watermark is stamped.
+  // Runs the actual download. The plan gates two things: the watermark stamp
+  // and the HD 2× resolution tier (clamped here so a stale HD selection can
+  // never leak past a downgrade). Per-format clamps (GIF 1×, video opaque)
+  // live in the hook.
   const runExport = (format: ExportFormat | 'svg') => {
-    const opts = { watermark: PLAN_BY_ID[userPlan].limits.watermark };
+    const limits = PLAN_BY_ID[userPlan].limits;
+    const opts = {
+      watermark: limits.watermark,
+      scale: limits.hdExport ? exportScale : 1,
+      transparent: exportTransparent,
+    };
     if (format === 'png') exportPNG(currentTitle, exportPreset, opts);
     else if (format === 'svg') exportSVG(currentTitle, exportPreset, opts);
     else if (format === 'gif') exportGIF(currentTitle, exportPreset, opts);
@@ -1781,6 +1917,8 @@ export default function FlowVizArchitect({
             title: currentTitle,
             preset: exportPreset,
             mode: animationType,
+            scale: exportScale,
+            transparent: exportTransparent,
           })
         );
       } catch {
@@ -1969,6 +2107,9 @@ export default function FlowVizArchitect({
                   <SelectItem value="columns">Columns</SelectItem>
                   <SelectItem value="iceberg">Iceberg</SelectItem>
                   <SelectItem value="tree">Tree</SelectItem>
+                  <SelectItem value="bars">Bar chart</SelectItem>
+                  <SelectItem value="chart-line">Line chart</SelectItem>
+                  <SelectItem value="donut">Donut chart</SelectItem>
                 </SelectContent>
               </Select>
 
@@ -2124,7 +2265,7 @@ export default function FlowVizArchitect({
               <DropdownMenuLabel className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
                 Choose a file type
               </DropdownMenuLabel>
-              {(['gif', 'mp4', 'png'] as ExportFormat[]).map((f) => {
+              {(['gif', 'mp4', 'png', 'svg'] as ExportFormat[]).map((f) => {
                 const meta = EXPORT_FORMATS[f];
                 const Icon = meta.icon;
                 return (
@@ -2224,6 +2365,10 @@ export default function FlowVizArchitect({
         format={exportFormat}
         preset={exportPreset}
         onPresetChange={setExportPreset}
+        scale={exportScale}
+        onScaleChange={setExportScale}
+        transparent={exportTransparent}
+        onTransparentChange={setExportTransparent}
         plan={userPlan}
         isExporting={isExporting}
         exportProgress={exportProgress}
@@ -2423,11 +2568,21 @@ export default function FlowVizArchitect({
         <div className="flex-1 relative overflow-hidden bg-white">
           <ElementInspector
             node={selectedNode}
+            isChartLayout={
+              !!styledSpec &&
+              ['bars', 'chart-line', 'donut'].includes(
+                (styledSpec as any).layout
+              )
+            }
             uploading={uploadingLogo}
             onClose={() => setSelectedKey(null)}
             onLabelChange={(label) =>
               selectedKey &&
               setLabelOverrides((p) => ({ ...p, [selectedKey]: label }))
+            }
+            onValueChange={(v) =>
+              selectedKey &&
+              setValueOverrides((p) => ({ ...p, [selectedKey]: v }))
             }
             onIconChange={(iconKey) =>
               selectedKey &&
@@ -2440,6 +2595,45 @@ export default function FlowVizArchitect({
             onUploadLogo={handleLogoUpload}
             onDelete={handleDeleteSelected}
           />
+          {/* Floating canvas-aspect switcher (Swishy-style) — the same presets
+              the export dialog uses, switchable while editing instead of only
+              at export time. The canvas frame + layout re-adapt live. */}
+          <div className="absolute left-1/2 top-3 z-20 flex -translate-x-1/2 items-center gap-0.5 rounded-full border border-border bg-white/95 px-1.5 py-1 shadow-sm backdrop-blur">
+            {(Object.keys(EXPORT_PRESETS) as ExportPreset[]).map((p) => {
+              const preset = EXPORT_PRESETS[p];
+              const active = exportPreset === p;
+              const ratio = preset.w && preset.h ? preset.w / preset.h : 16 / 9;
+              const boxW = ratio >= 1 ? 14 : Math.max(8, 14 * ratio);
+              const boxH = ratio >= 1 ? Math.max(8, 14 / ratio) : 14;
+              return (
+                <button
+                  key={p}
+                  type="button"
+                  title={preset.label}
+                  aria-label={`Canvas aspect: ${preset.label}`}
+                  aria-pressed={active}
+                  onClick={() => setExportPreset(p)}
+                  className={
+                    'flex h-7 w-8 items-center justify-center rounded-full transition-colors ' +
+                    (active
+                      ? 'bg-foreground text-background'
+                      : 'text-foreground/55 hover:bg-muted hover:text-foreground')
+                  }
+                >
+                  {p === 'original' ? (
+                    <span className="text-[9px] font-semibold tracking-wide">
+                      Auto
+                    </span>
+                  ) : (
+                    <span
+                      className="block rounded-[3px] border-[1.5px] border-current"
+                      style={{ width: boxW, height: boxH }}
+                    />
+                  )}
+                </button>
+              );
+            })}
+          </div>
           {/* On-canvas brand watermark. Exports get their own watermark baked
               in by finaliseCanvas(), so this stays outside exportContainerRef
               to avoid doubling up in downloads. */}

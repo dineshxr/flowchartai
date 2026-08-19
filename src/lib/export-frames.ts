@@ -86,6 +86,7 @@ const SMIL_BAKE_PROPS = [
   'stroke-opacity',
   'stroke-dashoffset',
   'stroke-dasharray',
+  'stroke-width',
   'r',
   'cx',
   'cy',

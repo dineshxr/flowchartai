@@ -40,13 +40,21 @@ export const ICON_KEYS = [
 export interface DiagramNode {
   label: string;
   icon: IconKey;
+  /**
+   * Numeric magnitude for chart layouts (bars, chart-line, donut). Optional —
+   * non-chart layouts ignore it, and chart layouts synthesize a pleasing
+   * deterministic series when values are absent.
+   */
+  value?: number;
+  /** Display unit for `value` — "%", "$", "k", "M", "users"… */
+  unit?: string;
   children?: DiagramNode[];
 }
 
 /** Hub-and-spoke diagram — a central node connected to satellites. */
 export interface HubDiagramData {
   center: { label: string; icon: IconKey };
-  satellites: { label: string; icon: IconKey }[];
+  satellites: { label: string; icon: IconKey; value?: number; unit?: string }[];
 }
 
 /** Hierarchical (tree) diagram — a root with nested children. */
@@ -71,7 +79,10 @@ export type TemplateLayout =
   | 'quadrant'
   | 'columns'
   | 'timeline'
-  | 'iceberg';
+  | 'iceberg'
+  | 'bars'
+  | 'chart-line'
+  | 'donut';
 /** Animated preview motion styles (mirrors PreviewMode). */
 export type TemplateMode = 'dots' | 'beams' | 'pulses' | 'arrows';
 
@@ -107,7 +118,7 @@ export interface RawTemplate {
   layout: 'hub' | 'tree';
   centerLabel: string;
   centerIcon: IconKey;
-  satellites: { label: string; icon: IconKey }[];
+  satellites: { label: string; icon: IconKey; value?: number; unit?: string }[];
   treeChildren?: {
     label: string;
     icon: IconKey;

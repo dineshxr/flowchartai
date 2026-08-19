@@ -23,13 +23,20 @@ export interface InspectorNode {
   key: string;
   label: string;
   isCenter: boolean;
+  /** Chart layouts: the node's current numeric value (bar height / share). */
+  value?: number;
+  unit?: string;
 }
 
 interface ElementInspectorProps {
   node: InspectorNode | null;
+  /** Whether the canvas currently renders a chart layout (bars/line/donut). */
+  isChartLayout?: boolean;
   uploading?: boolean;
   onClose: () => void;
   onLabelChange: (label: string) => void;
+  /** Chart layouts: commit a new numeric value for the node. */
+  onValueChange?: (value: number) => void;
   onIconChange: (iconKey: string) => void;
   /** A real brand logo picked from the svgl catalog (url = svg route URL). */
   onPickLogo: (logo: { title: string; url: string }) => void;
@@ -79,9 +86,11 @@ function LogoSwatch({ item, onPick }: { item: SvglItem; onPick: () => void }) {
  */
 export function ElementInspector({
   node,
+  isChartLayout,
   uploading,
   onClose,
   onLabelChange,
+  onValueChange,
   onIconChange,
   onPickLogo,
   onUploadLogo,
@@ -90,6 +99,17 @@ export function ElementInspector({
   const [query, setQuery] = useState('');
   const [svglItems, setSvglItems] = useState<SvglItem[]>([]);
   const fileRef = useRef<HTMLInputElement>(null);
+
+  // Local draft for the numeric value so partial input ("4.", "") doesn't
+  // thrash the chart; commits on every parseable change.
+  const [valueDraft, setValueDraft] = useState('');
+  useEffect(() => {
+    setValueDraft(
+      typeof node?.value === 'number' && Number.isFinite(node.value)
+        ? String(node.value)
+        : ''
+    );
+  }, [node?.key, node?.value]);
 
   // The full svgl catalog (cached module-wide + server-side); powers the
   // "Popular logos" grid and logo search. On failure it stays empty and the
@@ -165,6 +185,30 @@ export function ElementInspector({
             className="h-9 text-sm"
           />
         </div>
+
+        {isChartLayout && !node.isCenter && onValueChange ? (
+          <div className="space-y-1.5">
+            <span className="text-xs font-medium text-foreground/80">
+              Value{node.unit ? ` (${node.unit})` : ''}
+            </span>
+            <Input
+              type="number"
+              inputMode="decimal"
+              min={0}
+              value={valueDraft}
+              onChange={(e) => {
+                setValueDraft(e.target.value);
+                const v = Number.parseFloat(e.target.value);
+                if (Number.isFinite(v) && v >= 0) onValueChange(v);
+              }}
+              placeholder="42"
+              className="h-9 text-sm"
+            />
+            <p className="text-[11px] text-muted-foreground">
+              Drives the bar height, line point or donut share.
+            </p>
+          </div>
+        ) : null}
 
         <div className="space-y-1.5">
           <span className="text-xs font-medium text-foreground/80">Logo</span>

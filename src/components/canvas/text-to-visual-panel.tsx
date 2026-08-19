@@ -130,6 +130,8 @@ export function specFromSuggestion(
       svgIcon: sv.node,
       letter: sv.letter,
       tint: sv.tint,
+      value: sat.value,
+      unit: sat.unit,
     };
   });
   const base = { mode: modeForLayout(cat, layout), accent: cat.accent };
@@ -201,6 +203,12 @@ export function specFromSuggestion(
       return { ...base, layout: 'timeline', center, satellites: sats };
     case 'iceberg':
       return { ...base, layout: 'iceberg', center, satellites: sats };
+    case 'bars':
+      return { ...base, layout: 'bars', center, satellites: sats };
+    case 'chart-line':
+      return { ...base, layout: 'chart-line', center, satellites: sats };
+    case 'donut':
+      return { ...base, layout: 'donut', center, satellites: sats };
     default:
       return { ...base, layout: 'radial', center, satellites: sats };
   }
@@ -221,6 +229,11 @@ function thumbSpec(spec: PreviewSpec): PreviewSpec {
       return { ...spec, satellites: spec.satellites.slice(0, 4) };
     case 'timeline':
     case 'iceberg':
+      return { ...spec, satellites: spec.satellites.slice(0, 5) };
+    case 'bars':
+    case 'chart-line':
+      return { ...spec, satellites: spec.satellites.slice(0, 5) };
+    case 'donut':
       return { ...spec, satellites: spec.satellites.slice(0, 5) };
     case 'quadrant':
     case 'columns':

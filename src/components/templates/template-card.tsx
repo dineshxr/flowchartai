@@ -18,7 +18,11 @@ export function TemplateCard({ template }: { template: Template }) {
     >
       <div className="relative mb-3 overflow-hidden rounded-xl">
         <div className="relative aspect-[3/4] w-full overflow-hidden rounded-xl border border-border bg-muted">
-          <StaticDiagramThumb data={template.data} accent={accent} />
+          <StaticDiagramThumb
+            data={template.data}
+            accent={accent}
+            layout={template.style?.layout}
+          />
         </div>
       </div>
       <h3 className="line-clamp-1 text-sm font-semibold text-foreground transition-colors group-hover:text-black sm:text-base">
