@@ -165,16 +165,21 @@ export default async function BillingPage() {
           </p>
           <ul className="mt-2 space-y-1.5 text-sm text-foreground/80">
             <li>
+              AI generations:{' '}
+              {meta.limits.aiGenerations === 'unlimited'
+                ? 'Unlimited'
+                : `${meta.limits.aiGenerations} / ${
+                    meta.limits.aiPeriod === 'month' ? 'month' : 'lifetime'
+                  }`}
+            </li>
+            <li>
               Exports:{' '}
               {meta.limits.exports === 'unlimited'
                 ? 'Unlimited'
                 : meta.limits.exports}
             </li>
             <li>Watermark: {meta.limits.watermark ? 'Yes' : 'No'}</li>
-            <li>
-              Max resolution: {meta.limits.maxResolution.toUpperCase()}
-              {meta.limits.maxResolution !== '1080p' ? ' (2K/4K)' : ''}
-            </li>
+            <li>Export formats: GIF, MP4 &amp; static image</li>
           </ul>
         </div>
       </div>

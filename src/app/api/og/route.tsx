@@ -92,7 +92,7 @@ export async function GET(request: Request) {
       {/* footer row: export formats + domain */}
       <div style={{ display: 'flex', alignItems: 'center', marginTop: 44 }}>
         <div style={{ display: 'flex', gap: 12 }}>
-          {['SVG', 'PNG', 'GIF', 'MP4'].map((f) => (
+          {['GIF', 'MP4', 'PNG'].map((f) => (
             <div
               key={f}
               style={{

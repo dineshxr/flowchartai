@@ -8,7 +8,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: 'About Infogiph — AI Infographic Generator',
     description:
-      'Turn ideas into animated infographics with AI. Export as PNG, SVG, GIF, or MP4.',
+      'Turn ideas into animated infographics with AI. Export as GIF, MP4, or PNG.',
   },
 };
 
@@ -56,9 +56,8 @@ export default function AboutPage() {
           icons, adjust animation speed.
         </li>
         <li>
-          <strong>Export anywhere</strong> — PNG for decks, SVG for editors,
-          GIF for social, MP4 for video. Multiple aspect ratios (1:1, 9:16,
-          16:9, 4:5, 4:3).
+          <strong>Export anywhere</strong> — PNG for decks, GIF for social, MP4
+          for video. Multiple aspect ratios (1:1, 9:16, 16:9, 4:5, 4:3).
         </li>
       </ul>
 
@@ -66,9 +65,10 @@ export default function AboutPage() {
       <p className="text-base text-muted-foreground leading-relaxed mb-8">
         Infogiph is designed for product managers, engineers, marketers,
         educators, and founders — anyone who needs to communicate a system
-        visually. No design background required. The free tier includes one AI
-        generation per day; paid plans unlock hundreds of generations per
-        month, premium exports, and priority support.
+        visually. No design background required. The free tier includes 5 AI
+        generations and unlimited exports with a small watermark; paid plans
+        remove the watermark and unlock hundreds of generations per month, plus
+        priority support.
       </p>
 
       <h2 className="text-2xl font-semibold mb-4">Open source</h2>

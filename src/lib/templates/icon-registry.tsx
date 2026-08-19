@@ -422,6 +422,88 @@ export function iconNode(
   return resolveIcon(key, label, white).node;
 }
 
+// ---- 6. SVG-embeddable icons (orbit satellites) -----------------------------
+// Orbit satellites are drawn INSIDE the preview <svg> — they carry SMIL orbital
+// motion, and the export pipeline re-rasterizes only the SVG layer per frame.
+// A serialized SVG has no Tailwind/CSS, so nodes returned here must be pure SVG
+// with presentation attributes only. The 3D squircles are CSS constructs; map
+// them to their closest concept glyph. Anything unresolvable falls back to a
+// letter tile the orbit renderer draws itself from `letter` + `tint`.
+
+const THREE_D_CONCEPT: Record<string, string> = {
+  cube3d: 'layers',
+  bot3d: 'bot',
+  brain3d: 'bot',
+  spark3d: 'automation',
+  rocket3d: 'automation',
+  chart3d: 'analytics',
+  database3d: 'database',
+  db3d: 'database',
+  cloud3d: 'cloud',
+  shield3d: 'security',
+  gear3d: 'process',
+  bolt3d: 'automation',
+  globe3d: 'web',
+  layers3d: 'layers',
+  funnel3d: 'analytics',
+  heart3d: 'chat',
+  dollar3d: 'payment',
+  mega3d: 'social',
+  bag3d: 'payment',
+  lock3d: 'security',
+  users3d: 'social',
+  flow3d: 'process',
+  box3d: 'layers',
+  truck3d: 'process',
+  factory3d: 'process',
+  store3d: 'payment',
+  terminal3d: 'code',
+  cpu3d: 'code',
+};
+
+export interface SvgSafeIcon {
+  /** Pure-SVG node (brand logo or tinted lucide glyph); null → letter tile. */
+  node: ReactNode | null;
+  /** Fallback initial for the renderer's own letter tile. */
+  letter: string;
+  /** Tint for the letter tile (or the glyph color when a concept matched). */
+  tint: string;
+}
+
+/**
+ * Resolve an icon to something safe to embed inside a serialized `<svg>`:
+ * brand logos and lucide glyphs are SVG components (nested `<svg>` sizes to
+ * 100% of its wrapper with no CSS); everything else degrades to letter data.
+ */
+export function resolveSvgIcon(key?: string, label?: string): SvgSafeIcon {
+  const k = norm(key);
+  const text = (label || key || '?').trim();
+  const letter = text.charAt(0).toUpperCase() || '?';
+  const fallbackTint = LETTER_PALETTE[hashCode(text) % LETTER_PALETTE.length];
+
+  const brandKey = (k && BRAND[k] && k) || brandFromLabel(label);
+  if (brandKey && BRAND[brandKey])
+    return { node: BRAND[brandKey](), letter, tint: fallbackTint };
+
+  const conceptKey = k && THREE_D[k] ? THREE_D_CONCEPT[k] : k;
+  const match = conceptKey
+    ? CONCEPT[conceptKey] ||
+      CONCEPT[Object.keys(CONCEPT).find((c) => conceptKey.includes(c)) ?? '']
+    : undefined;
+  if (match) {
+    // Lucide takes arbitrary SVG props; width/height must be attributes (not
+    // classes) so the glyph fills its wrapper in the serialized export SVG.
+    const Icon = match.Icon as ComponentType<Record<string, unknown>>;
+    return {
+      node: <Icon width="100%" height="100%" style={{ color: match.color }} />,
+      letter,
+      tint: match.color,
+    };
+  }
+
+  return { node: null, letter, tint: fallbackTint };
+}
+
 // ---- Picker catalog --------------------------------------------------------
 // Curated, de-duplicated key lists for the in-canvas icon/logo picker. Each key
 // renders its swatch via resolveIcon(key) and is stored as the node's icon

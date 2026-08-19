@@ -1,6 +1,7 @@
 'use client';
 
 import { UserAvatar } from '@/components/layout/user-avatar';
+import { PlanBadge } from '@/components/shared/plan-badge';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -58,7 +59,10 @@ export function UserButton({ user }: UserButtonProps) {
       <DropdownMenuContent align="end">
         <div className="flex items-center justify-start gap-2 p-2">
           <div className="flex flex-col space-y-1 leading-none">
-            <p className="font-medium">{user.name ?? ''}</p>
+            <div className="flex items-center gap-2">
+              <p className="font-medium">{user.name ?? ''}</p>
+              <PlanBadge />
+            </div>
             <p className="w-[200px] truncate text-sm text-muted-foreground">
               {user.email ?? ''}
             </p>

@@ -542,7 +542,8 @@
   "Mail": {
     "common": {
       "team": "{name} Team",
-      "copyright": "©️ {year} All Rights Reserved."
+      "copyright": "©️ {year} All Rights Reserved.",
+      "unsubscribe": "Unsubscribe from product & tips emails"
     },
     "verifyEmail": {
       "title": "Hi, {name}.",
@@ -565,6 +566,33 @@
       "email": "Email: {email}",
       "message": "Message: {message}",
       "subject": "Contact Message from Website"
+    },
+    "welcome": {
+      "subject": "Welcome to Infogiph — your first infographic is one sentence away"
+    },
+    "creditsLow": {
+      "subject": "You have 1 free AI generation left"
+    },
+    "capHit": {
+      "subject": "Your diagrams are saved — here’s how to keep going"
+    },
+    "winBack": {
+      "subject": "Turn one sentence into an infographic"
+    },
+    "firstWin": {
+      "subject": "Your first diagram is one paste away"
+    },
+    "templatesTour": {
+      "subject": "Never guess what to post again"
+    },
+    "linkedinPlaybook": {
+      "subject": "The LinkedIn post format that stops the scroll"
+    },
+    "upgradeNudge": {
+      "subject": "Remove the watermark before your next post"
+    },
+    "weeklyDigest": {
+      "subject": "This week: 3 templates + a format worth stealing"
     }
   },
   "HomePage": {

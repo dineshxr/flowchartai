@@ -18,7 +18,9 @@ function priceLabel(plan: Plan, yearly: boolean) {
 }
 
 export function UpgradePlans() {
-  const [yearly, setYearly] = useState(true);
+  // Monthly preselected: the one organic checkout failure was a yearly
+  // upfront charge — keep the first purchase small; yearly stays a toggle.
+  const [yearly, setYearly] = useState(false);
   const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
 
   const onUpgrade = async (plan: Plan) => {
@@ -38,8 +40,8 @@ export function UpgradePlans() {
           Ship clean, watermark-free infographics
         </h1>
         <p className="mx-auto mt-4 max-w-xl text-base leading-relaxed text-muted-foreground md:text-lg">
-          Start free. Upgrade for no watermark, 2K &amp; 4K video and GIF, and
-          up to unlimited AI generations.
+          Start free. Upgrade for no watermark on any export, and up to
+          unlimited AI generations.
         </p>
       </div>
 
@@ -170,8 +172,8 @@ export function UpgradePlans() {
       </div>
 
       <p className="mt-8 text-center text-xs text-muted-foreground">
-        All plans include the full editor, 98 templates, and PNG · SVG · GIF ·
-        MP4 export. Cancel anytime.
+        All plans include the full editor, 98 templates, and unlimited GIF · MP4
+        · PNG export. Cancel anytime.
       </p>
     </section>
   );

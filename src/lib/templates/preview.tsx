@@ -9,11 +9,13 @@
 
 import type {
   PreviewMode,
+  PreviewNode,
   PreviewSpec,
   TreeNode,
 } from '@/components/blocks/infogiph-home/animated-preview';
 import type { ReactNode } from 'react';
-import { iconNode, resolveIcon } from './icon-registry';
+import { VARIANT_MODE } from '../text-to-visual';
+import { iconNode, resolveIcon, resolveSvgIcon } from './icon-registry';
 import type { DiagramData, IconKey, Template } from './types';
 
 /**
@@ -101,15 +103,36 @@ export function derivePreviewSpec(
     icon: ci.node,
     flush: centerFlush(ci),
   };
-  const sats = hub.satellites.map((s, i) => {
+  const sats: PreviewNode[] = hub.satellites.map((s, i) => {
     const si = resolveIcon(s.icon, s.label);
-    return { key: `sat-${i}`, label: s.label, icon: si.node, flush: si.flush };
+    // Also carry the SVG-embeddable variant — the orbit layout draws its
+    // satellites inside the animated <svg>, where HTML icons can't go.
+    const sv = resolveSvgIcon(s.icon, s.label);
+    return {
+      key: `sat-${i}`,
+      label: s.label,
+      icon: si.node,
+      flush: si.flush,
+      svgIcon: sv.node,
+      letter: sv.letter,
+      tint: sv.tint,
+      value: s.value,
+      unit: s.unit,
+    };
   });
 
-  // `tree` from style is only valid with tree data (handled above); for hub
-  // data, fall back to radial.
-  const styleLayout =
-    style?.layout && style.layout !== 'tree' ? style.layout : undefined;
+  // Pinned `tree` on FLAT hub data renders satellites as level-1 branches
+  // (the mindmap tree variant) — hierarchy still requires real tree data.
+  if (style?.layout === 'tree') {
+    return {
+      layout: 'tree',
+      mode: style?.mode || 'pulses',
+      accent: acc,
+      bg,
+      root: { ...center, key: 'root', children: sats },
+    };
+  }
+  const styleLayout = style?.layout;
   const layout = styleLayout || HUB_LAYOUTS[seed % HUB_LAYOUTS.length];
   const mode = style?.mode || MODES[seed % MODES.length];
 
@@ -137,6 +160,40 @@ export function derivePreviewSpec(
       bg,
       nodes,
     };
+  }
+
+  if (layout === 'orbit') {
+    return {
+      layout: 'orbit',
+      mode: style?.mode || 'beams',
+      accent: acc,
+      bg,
+      center,
+      satellites: sats,
+    };
+  }
+
+  if (
+    layout === 'cycle' ||
+    layout === 'steps' ||
+    layout === 'funnel' ||
+    layout === 'pyramid' ||
+    layout === 'quadrant' ||
+    layout === 'columns' ||
+    layout === 'timeline' ||
+    layout === 'iceberg' ||
+    layout === 'bars' ||
+    layout === 'chart-line' ||
+    layout === 'donut'
+  ) {
+    return {
+      layout,
+      mode: style?.mode || VARIANT_MODE[layout] || 'dots',
+      accent: acc,
+      bg,
+      center,
+      satellites: sats,
+    } as PreviewSpec;
   }
 
   return { layout: 'radial', mode, accent: acc, bg, center, satellites: sats };

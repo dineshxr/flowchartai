@@ -1,13 +1,6 @@
 'use client';
 
-import { LoginForm } from '@/components/auth/login-form';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/dialog';
+import { SignInTakeover } from '@/components/auth/signin-takeover';
 import { useLocaleRouter } from '@/i18n/navigation';
 import { Routes } from '@/routes';
 import { useEffect, useState } from 'react';
@@ -50,15 +43,19 @@ export const LoginWrapper = ({
 
   if (mode === 'modal') {
     return (
-      <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-        <DialogTrigger asChild={asChild}>{children}</DialogTrigger>
-        <DialogContent className="sm:max-w-[400px] p-0">
-          <DialogHeader className="hidden">
-            <DialogTitle />
-          </DialogHeader>
-          <LoginForm callbackUrl={callbackUrl} className="border-none" />
-        </DialogContent>
-      </Dialog>
+      <>
+        <span
+          onClick={() => setIsModalOpen(true)}
+          className="contents cursor-pointer"
+        >
+          {children}
+        </span>
+        <SignInTakeover
+          open={isModalOpen}
+          onOpenChange={setIsModalOpen}
+          callbackUrl={callbackUrl}
+        />
+      </>
     );
   }
 

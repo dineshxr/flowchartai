@@ -49,7 +49,7 @@ export async function generateMetadata({
 
   return constructMetadata({
     title: `${titleBase} — Free & Editable | Infogiph`,
-    description: `${template.shortDescription}. ${template.categoryName} template you can customise in seconds and export to PNG, SVG, GIF, or MP4 — free with Infogiph.`,
+    description: `${template.shortDescription}. ${template.categoryName} template you can customise in seconds and export to GIF, MP4, or PNG — free with Infogiph.`,
     canonicalUrl: `${getBaseUrl()}/templates/${template.category}/${template.slug}`,
     image: `/api/og?title=${encodeURIComponent(template.title)}&subtitle=${encodeURIComponent(template.shortDescription)}`,
   });
@@ -158,7 +158,7 @@ export default async function TemplateDetailPage({ params }: PageProps) {
               </Link>
             </div>
             <p className="mt-4 text-xs text-muted-foreground">
-              Free to start · Fully editable · Export to SVG, PNG, GIF &amp; MP4
+              Free to start · Fully editable · Export to GIF, MP4 &amp; PNG
             </p>
           </div>
 

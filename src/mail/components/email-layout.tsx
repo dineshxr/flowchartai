@@ -5,6 +5,7 @@ import {
   Head,
   Hr,
   Html,
+  Link,
   Section,
   Tailwind,
   Text,
@@ -13,6 +14,8 @@ import { createTranslator } from 'use-intl/core';
 
 interface EmailLayoutProps extends BaseEmailProps {
   children: React.ReactNode;
+  /** When set (lifecycle/marketing emails), renders an unsubscribe footer. */
+  unsubscribeUrl?: string;
 }
 
 /**
@@ -24,6 +27,7 @@ export default function EmailLayout({
   locale,
   messages,
   children,
+  unsubscribeUrl,
 }: EmailLayoutProps) {
   const t = createTranslator({
     locale,
@@ -52,6 +56,13 @@ export default function EmailLayout({
             <Text>
               {t('Mail.common.copyright', { year: new Date().getFullYear() })}
             </Text>
+            {unsubscribeUrl ? (
+              <Text className="text-xs text-gray-400">
+                <Link href={unsubscribeUrl} className="text-gray-400 underline">
+                  {t('Mail.common.unsubscribe')}
+                </Link>
+              </Text>
+            ) : null}
           </Container>
         </Section>
       </Tailwind>

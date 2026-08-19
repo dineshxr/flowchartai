@@ -16,23 +16,32 @@ interface DiagramData {
 
 export async function POST(req: Request) {
   try {
+    // Generation costs real money on every call, so it requires an account.
+    // Without this the route served unlimited free generations to anyone who
+    // could reach the URL — no session, no quota, no record of it happening.
     const session = await getSession();
     const userId = session?.user?.id;
 
-    if (userId) {
-      const usageCheck = await canUserUseAI(userId);
-      if (!usageCheck.canUse) {
-        return new Response(
-          JSON.stringify({
-            error: 'Usage limit exceeded',
-            message: `You have reached your AI usage limit. ${usageCheck.remainingUsage} of ${usageCheck.limit} requests remaining.`,
-          }),
-          {
-            status: 429,
-            headers: { 'Content-Type': 'application/json' },
-          }
-        );
-      }
+    if (!userId) {
+      return new Response(
+        JSON.stringify({
+          error: 'Unauthorized',
+          message: 'Please sign in to generate a diagram.',
+        }),
+        { status: 401, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const usageCheck = await canUserUseAI(userId);
+    if (!usageCheck.canUse) {
+      return new Response(
+        JSON.stringify({
+          error: 'Usage limit exceeded',
+          message: `You've used all ${usageCheck.limit} of your AI generations.`,
+          usageInfo: usageCheck,
+        }),
+        { status: 429, headers: { 'Content-Type': 'application/json' } }
+      );
     }
 
     const { topic, image } = await req.json();
@@ -62,7 +71,7 @@ export async function POST(req: Request) {
 REQUIREMENTS
 - Choose EXACTLY 5 to 7 satellites — never more than 7 — so the diagram stays readable and well spaced. Pick the most important, distinct components; no duplicates, no filler.
 - center.label: the single core entity of the topic, 1-3 words.
-- Each satellites[].label: 1-3 words, at most 20 characters. When one specific real product/tool is the obvious choice, use its brand name (e.g. Stripe, PostgreSQL, OpenAI, Slack, Shopify, GitHub, Notion, WhatsApp, Instagram) so its logo can be shown; otherwise use a short plain noun (Auth, Analytics, Payments, Search, Database).
+- Each satellites[].label: 1-3 words, at most 20 characters. When one specific real product/tool is the obvious choice, use its EXACT official name (e.g. Stripe, PostgreSQL, OpenAI, Slack, Shopify, GitHub, Notion, WhatsApp, Next.js, Supabase, Kubernetes, Figma) — real brand logos are rendered automatically for 600+ products when the label matches the official name; otherwise use a short plain noun (Auth, Analytics, Payments, Search, Database).
 - icon: ONE lowercase keyword describing the node, chosen ONLY from this set: bot, database, cloud, web, chat, drive, mobile, mail, search, process, automation, social, payment, analytics, security, api, code, storage. Pick the closest match.
 - Order the satellites in a logical sequence (by flow or importance).
 
@@ -140,15 +149,14 @@ Return STRICT minified JSON ONLY — no markdown, no code fences, no commentary 
         .slice(0, 7);
     }
 
-    // Record the usage securely if logged in
-    if (userId) {
-      await recordAIUsage(userId, 'flowchart_generation', {
-        tokensUsed: 0,
-        model: 'google/gemini-2.5-flash',
-        success: true,
-        metadata: { mode: 'flowviz' },
-      });
-    }
+    // Bill the generation here, on the server, immediately after the model
+    // call succeeded. The client is never asked to report its own usage.
+    await recordAIUsage(userId, 'flowchart_generation', {
+      tokensUsed: 0,
+      model: 'google/gemini-2.5-flash',
+      success: true,
+      metadata: { mode: 'flowviz' },
+    });
 
     return new Response(JSON.stringify(parsedData), {
       status: 200,

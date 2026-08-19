@@ -1,8 +1,17 @@
 import type { Locale, Messages } from 'next-intl';
+import { CapHit } from './templates/cap-hit';
 import { ContactMessage } from './templates/contact-message';
+import { CreditsLow } from './templates/credits-low';
+import { FirstWin } from './templates/first-win';
 import { ForgotPassword } from './templates/forgot-password';
+import { LinkedinPlaybook } from './templates/linkedin-playbook';
 import { SubscribeNewsletter } from './templates/subscribe-newsletter';
+import { TemplatesTour } from './templates/templates-tour';
+import { UpgradeNudge } from './templates/upgrade-nudge';
 import { VerifyEmail } from './templates/verify-email';
+import { WeeklyDigest } from './templates/weekly-digest';
+import { Welcome } from './templates/welcome';
+import { WinBack } from './templates/win-back';
 
 /**
  * list all the email templates here
@@ -12,6 +21,15 @@ export const EmailTemplates = {
   forgotPassword: ForgotPassword,
   subscribeNewsletter: SubscribeNewsletter,
   contactMessage: ContactMessage,
+  welcome: Welcome,
+  creditsLow: CreditsLow,
+  capHit: CapHit,
+  winBack: WinBack,
+  firstWin: FirstWin,
+  templatesTour: TemplatesTour,
+  linkedinPlaybook: LinkedinPlaybook,
+  upgradeNudge: UpgradeNudge,
+  weeklyDigest: WeeklyDigest,
 } as const;
 
 /**
@@ -55,6 +73,10 @@ export interface SendTemplateParams {
   template: EmailTemplate;
   context: Record<string, any>;
   locale?: Locale;
+  /** Overrides the static subject from messages (e.g. the weekly digest). */
+  subject?: string;
+  /** Extra SMTP headers (e.g. List-Unsubscribe). */
+  headers?: Record<string, string>;
 }
 
 /**
@@ -66,6 +88,8 @@ export interface SendRawEmailParams {
   html: string;
   text?: string;
   locale?: Locale;
+  /** Extra SMTP headers (e.g. List-Unsubscribe). */
+  headers?: Record<string, string>;
 }
 
 /**

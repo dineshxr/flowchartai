@@ -1,25 +1,34 @@
 'use client';
 
-import { LoginForm } from '@/components/auth/login-form';
 import { LoginWrapper } from '@/components/auth/login-wrapper';
+import { SignInTakeover } from '@/components/auth/signin-takeover';
 import {
   AnimatedPreview,
   type Dims,
   type PreviewMode,
+  type PreviewNode,
   type PreviewSpec,
 } from '@/components/blocks/infogiph-home/animated-preview';
+import {
+  CanvasComposer,
+  type ComposerMode,
+} from '@/components/canvas/canvas-composer';
 import { ElementInspector } from '@/components/canvas/element-inspector';
+import {
+  EXPORT_FORMATS,
+  ExportDialog,
+  type ExportFormat,
+} from '@/components/canvas/export-dialog';
 import { ProcessingOverlay } from '@/components/canvas/processing-overlay';
+import {
+  type AppliedVisual,
+  TextToVisualPanel,
+} from '@/components/canvas/text-to-visual-panel';
 import { UserButton } from '@/components/layout/user-button';
 import { UpgradeDialog } from '@/components/pricing/upgrade-dialog';
+import { AgentThinkingOrb } from '@/components/shared/thinking-orb';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -29,17 +38,23 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
-import {
-  PLAN_BY_ID,
-  RESOLUTIONS,
-  RESOLUTION_BY_ID,
-  type ResolutionTier,
-  canUseResolution,
-} from '@/config/plans';
+import { PLAN_BY_ID } from '@/config/plans';
 import { useCurrentUserWithStatus } from '@/hooks/use-current-user';
 import {
   EXPORT_PRESETS,
@@ -49,15 +64,16 @@ import {
 import { useFlowchart } from '@/hooks/use-flowchart';
 import { useUserPlan } from '@/hooks/use-user-plan';
 import { useLocalePathname } from '@/i18n/navigation';
+import { fetchSvglDataUrl, matchLogosForNodes } from '@/lib/svgl';
 import {
   accentForCategory,
   allTemplates,
   getTemplateBySlug,
   templateTopicSeed,
 } from '@/lib/templates/catalog';
-import { resolveIcon } from '@/lib/templates/icon-registry';
+import { resolveIcon, resolveSvgIcon } from '@/lib/templates/icon-registry';
 import { derivePreviewSpec } from '@/lib/templates/preview';
-import type { Template } from '@/lib/templates/types';
+import type { Template, TemplateLayout } from '@/lib/templates/types';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
   Activity,
@@ -79,8 +95,10 @@ import {
   Lock,
   Mail,
   MessageSquare,
+  Orbit,
   PanelLeftClose,
   PanelLeftOpen,
+  Pipette,
   Search,
   Send,
   Share2,
@@ -88,6 +106,7 @@ import {
   Sparkles,
   User,
   Users,
+  Wand2,
   Workflow,
   Zap,
 } from 'lucide-react';
@@ -147,13 +166,19 @@ const buildPreviewFromAI = (
     flush: c.flush || c.kind === 'brand',
   };
   const sats: any[] = result.satellites || [];
-  const satNodes = sats.map((s, i) => {
+  const satNodes: PreviewNode[] = sats.map((s, i) => {
     const r = resolveIcon(s.icon, s.label);
+    const sv = resolveSvgIcon(s.icon, s.label);
     return {
       key: `sat-${i}`,
       label: s.label,
       icon: r.node,
       flush: r.flush,
+      svgIcon: sv.node,
+      letter: sv.letter,
+      tint: sv.tint,
+      value: typeof s.value === 'number' ? s.value : undefined,
+      unit: s.unit || undefined,
     };
   });
 
@@ -179,6 +204,34 @@ const buildPreviewFromAI = (
         center,
         satellites: satNodes,
       };
+    case 'orbit':
+      return {
+        layout: 'orbit',
+        mode: spec.mode,
+        accent: (spec as any).accent,
+        bg: spec.bg,
+        center,
+        satellites: satNodes,
+      };
+    case 'cycle':
+    case 'steps':
+    case 'funnel':
+    case 'pyramid':
+    case 'quadrant':
+    case 'columns':
+    case 'timeline':
+    case 'iceberg':
+    case 'bars':
+    case 'chart-line':
+    case 'donut':
+      return {
+        layout: spec.layout,
+        mode: spec.mode,
+        accent: (spec as any).accent,
+        bg: spec.bg,
+        center,
+        satellites: satNodes,
+      } as PreviewSpec;
     case 'pipeline': {
       const mid = Math.floor(satNodes.length / 2);
       const nodes = [...satNodes];
@@ -222,6 +275,16 @@ const overrideIcon = (node: any, ov: IconOverride | undefined) => {
       icon: (
         <img src={ov.url} alt="" className="h-full w-full object-contain" />
       ),
+      // Custom logos are stored as data: URLs, which survive the standalone
+      // SVG serialization — so orbit satellites can carry them too.
+      svgIcon: (
+        <image
+          href={ov.url}
+          width="100%"
+          height="100%"
+          preserveAspectRatio="xMidYMid meet"
+        />
+      ),
       flush: false,
     };
   }
@@ -230,23 +293,33 @@ const overrideIcon = (node: any, ov: IconOverride | undefined) => {
   // label→brand inference can't override the user's choice (e.g. picking the
   // "database" concept for a node still labelled "WhatsApp").
   const r = resolveIcon(ov.key, undefined, isCenter);
+  const sv = resolveSvgIcon(ov.key, undefined);
   return {
     ...node,
     icon: r.node,
     flush: isCenter ? r.flush || r.kind === 'brand' : r.flush,
+    svgIcon: sv.node,
+    letter: sv.letter,
+    tint: sv.tint,
   };
 };
 
-// Apply the user's element edits (deletions + icon swaps) to the spec before it
-// renders. Node keys are stable (center, sat-N) so edits survive layout changes.
+// Apply the user's element edits (deletions + icon swaps + chart values) to the
+// spec before it renders. Node keys are stable (center, sat-N) so edits survive
+// layout changes.
 function applyElementEdits(
   spec: PreviewSpec | null,
   deleted: Set<string>,
-  iconOverrides: Record<string, IconOverride>
+  iconOverrides: Record<string, IconOverride>,
+  valueOverrides: Record<string, number> = {}
 ): PreviewSpec | null {
   if (!spec) return spec;
   const keep = (n: any) => !deleted.has(n.key);
-  const tn = (n: any) => overrideIcon(n, iconOverrides[n.key]);
+  const tn = (n: any) => {
+    const withIcon = overrideIcon(n, iconOverrides[n.key]);
+    const v = valueOverrides[n.key];
+    return typeof v === 'number' ? { ...withIcon, value: v } : withIcon;
+  };
   switch (spec.layout) {
     case 'hub-lr':
       return {
@@ -260,6 +333,33 @@ function applyElementEdits(
         ...spec,
         satellites: spec.satellites.filter(keep).map(tn),
         center: tn(spec.center),
+      };
+    case 'orbit':
+      return {
+        ...spec,
+        satellites: spec.satellites.filter(keep).map(tn),
+        center: tn(spec.center),
+      };
+    case 'cycle':
+    case 'steps':
+    case 'funnel':
+    case 'pyramid':
+    case 'timeline':
+    case 'iceberg':
+    case 'bars':
+    case 'chart-line':
+    case 'donut':
+      return {
+        ...spec,
+        satellites: spec.satellites.filter(keep).map(tn),
+        center: tn(spec.center),
+      };
+    case 'quadrant':
+    case 'columns':
+      return {
+        ...spec,
+        satellites: spec.satellites.filter(keep).map(tn),
+        center: spec.center ? tn(spec.center) : undefined,
       };
     case 'pipeline':
       return { ...spec, nodes: spec.nodes.filter(keep).map(tn) };
@@ -275,15 +375,27 @@ function applyElementEdits(
   return spec;
 }
 
-// Flatten the spec into a key -> { label, isCenter } index so the inspector can
-// describe the selected node regardless of layout.
+// Flatten the spec into a key -> { label, isCenter, value } index so the
+// inspector can describe the selected node regardless of layout.
 function indexSpecNodes(
   spec: PreviewSpec | null
-): Record<string, { label: string; isCenter: boolean }> {
-  const out: Record<string, { label: string; isCenter: boolean }> = {};
+): Record<
+  string,
+  { label: string; isCenter: boolean; value?: number; unit?: string }
+> {
+  const out: Record<
+    string,
+    { label: string; isCenter: boolean; value?: number; unit?: string }
+  > = {};
   if (!spec) return out;
   const add = (n: any, isCenter = false) => {
-    if (n) out[n.key] = { label: n.label ?? '', isCenter };
+    if (n)
+      out[n.key] = {
+        label: n.label ?? '',
+        isCenter,
+        value: n.value,
+        unit: n.unit,
+      };
   };
   switch (spec.layout) {
     case 'hub-lr':
@@ -292,6 +404,21 @@ function indexSpecNodes(
       add(spec.center, true);
       break;
     case 'radial':
+      spec.satellites.forEach((n: any) => add(n));
+      add(spec.center, true);
+      break;
+    case 'orbit':
+    case 'cycle':
+    case 'steps':
+    case 'funnel':
+    case 'pyramid':
+    case 'quadrant':
+    case 'columns':
+    case 'timeline':
+    case 'iceberg':
+    case 'bars':
+    case 'chart-line':
+    case 'donut':
       spec.satellites.forEach((n: any) => add(n));
       add(spec.center, true);
       break;
@@ -308,6 +435,46 @@ function indexSpecNodes(
   }
   return out;
 }
+
+// Auto-resolve real brand logos (svgl.app catalog, 665+ brands) for a spec's
+// node labels. Confident label matches become image icon-overrides — the same
+// mechanism as user-uploaded logos, so they render in the preview, survive
+// export rasterization (data: URLs), and persist with the saved diagram.
+// Labels without a match keep their registry resolution (brand/concept/letter).
+async function autoLogoOverrides(
+  spec: PreviewSpec | null
+): Promise<Record<string, IconOverride>> {
+  if (!spec) return {};
+  const nodes = Object.entries(indexSpecNodes(spec)).map(([key, n]) => ({
+    key,
+    label: n.label,
+  }));
+  const logos = await matchLogosForNodes(nodes);
+  return Object.fromEntries(
+    Object.entries(logos).map(([key, url]) => [
+      key,
+      { kind: 'image', url } satisfies IconOverride,
+    ])
+  );
+}
+
+// Preset swatches for the connection-color picker (dots / beams / pulses /
+// arrows all draw from the spec's single accent). Mirrors the accents used
+// across the template catalog so picked colors feel native.
+const ACCENT_PRESETS = [
+  '#6366f1',
+  '#8b5cf6',
+  '#ec4899',
+  '#ff5b8a',
+  '#ef4444',
+  '#f97316',
+  '#f59e0b',
+  '#10b981',
+  '#14b8a6',
+  '#0ea5e9',
+  '#3b82f6',
+  '#64748b',
+];
 
 // Build aspect-aware canvas dims from the measured frame so AnimatedPreview's
 // layout recomputes for the current orientation. Without this it always lays
@@ -567,8 +734,8 @@ const TEMPLATES: Array<{
       ],
     },
     preview: {
-      layout: 'radial',
-      mode: 'pulses',
+      layout: 'cycle',
+      mode: 'arrows',
       accent: '#f97316',
       center: {
         key: 'shop',
@@ -685,10 +852,10 @@ const TEMPLATES: Array<{
       ],
     },
     preview: {
-      layout: 'hub-lr',
-      mode: 'dots',
+      layout: 'columns',
+      mode: 'beams',
       accent: '#ec4899',
-      left: [
+      satellites: [
         {
           key: 'ig',
           label: 'Instagram',
@@ -714,8 +881,6 @@ const TEMPLATES: Array<{
             />
           ),
         },
-      ],
-      right: [
         {
           key: 'wa',
           label: 'Messaging',
@@ -761,8 +926,8 @@ const TEMPLATES: Array<{
       ],
     },
     preview: {
-      layout: 'radial',
-      mode: 'beams',
+      layout: 'steps',
+      mode: 'dots',
       accent: '#6366f1',
       center: {
         key: 'agent',
@@ -909,16 +1074,89 @@ const TEMPLATES: Array<{
       },
     },
   },
+  {
+    id: 'bar-chart',
+    label: 'Bar Chart',
+    icon: <LineChart size={18} />,
+    topic: 'Quarterly results bar chart with four quarters',
+    data: {
+      center: { label: '2026 Results', icon: 'chart3d' },
+      satellites: [
+        { label: 'Q1', icon: 'analytics', value: 42 },
+        { label: 'Q2', icon: 'analytics', value: 68 },
+        { label: 'Q3', icon: 'analytics', value: 55 },
+        { label: 'Q4', icon: 'analytics', value: 84 },
+      ],
+    },
+    preview: {
+      layout: 'bars',
+      mode: 'pulses',
+      accent: '#3b82f6',
+      center: {
+        key: 'center',
+        label: '2026 Results',
+        icon: <LineChart className="w-full h-full text-white" />,
+      },
+      satellites: [
+        {
+          key: 'sat-0',
+          label: 'Q1',
+          value: 42,
+          icon: <Activity className="w-full h-full text-[#3b82f6]" />,
+        },
+        {
+          key: 'sat-1',
+          label: 'Q2',
+          value: 68,
+          icon: <Activity className="w-full h-full text-[#8b5cf6]" />,
+        },
+        {
+          key: 'sat-2',
+          label: 'Q3',
+          value: 55,
+          icon: <Activity className="w-full h-full text-[#ec4899]" />,
+        },
+        {
+          key: 'sat-3',
+          label: 'Q4',
+          value: 84,
+          icon: <Activity className="w-full h-full text-[#f59e0b]" />,
+        },
+      ],
+    },
+  },
 ];
 
 // One-tap starting points for the generator, so users aren't staring at a blank
 // box wondering what to type.
-const EXAMPLE_PROMPTS = [
-  'SaaS architecture with auth, billing & analytics',
-  'Customer onboarding journey',
-  'CI/CD pipeline with tests and deploy',
-  'Marketing funnel from ads to signups',
-  'Microservices with API gateway & message bus',
+// Each chip shows a short label; clicking fills the full prompt (ported from
+// the old chat sidebar's example-prompt empty state — the labels are curated
+// instead of machine-truncated, so the chips read as real suggestions).
+const EXAMPLE_PROMPTS: { label: string; prompt: string }[] = [
+  {
+    label: 'SaaS architecture',
+    prompt: 'SaaS architecture with auth, billing & analytics',
+  },
+  {
+    label: 'Ad-spend bar chart',
+    prompt: 'Bar chart of ad spend: Google 42k, Meta 31k, TikTok 18k',
+  },
+  {
+    label: 'Onboarding journey',
+    prompt: 'Customer onboarding journey from signup to activation',
+  },
+  {
+    label: 'CI/CD pipeline',
+    prompt: 'CI/CD pipeline with tests and deploy',
+  },
+  {
+    label: 'Marketing funnel',
+    prompt: 'Marketing funnel from ads to signups',
+  },
+  {
+    label: 'Microservices',
+    prompt: 'Microservices with API gateway & message bus',
+  },
 ];
 
 export default function FlowVizArchitect({
@@ -942,6 +1180,21 @@ export default function FlowVizArchitect({
   const [error, setError] = useState<string | null>(null);
   const [animationType, setAnimationType] = useState<PreviewMode>('dots');
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  // Floating bottom composer — the primary way into both AI entry points.
+  const [composerMode, setComposerMode] = useState<ComposerMode>('describe');
+  const [composerCollapsed, setComposerCollapsed] = useState(false);
+  // Text handed from the composer to the Text-to-visuals panel.
+  const [composerSeedText, setComposerSeedText] = useState<string | null>(null);
+  const [sidebarTab, setSidebarTab] = useState<'templates' | 'text'>(
+    'templates'
+  );
+  // Pinned visual style from an applied "text to visuals" suggestion. Persisted
+  // with the flowchart so e.g. a timeline reopens as a pipeline, not a random
+  // hash-derived layout. Cleared when another flow replaces the diagram.
+  const [savedStyle, setSavedStyle] = useState<{
+    layout?: TemplateLayout;
+    accent?: string;
+  }>({});
   const [templateQuery, setTemplateQuery] = useState('');
   const [diagramData, setDiagramData] = useState<any>({
     center: { label: 'AI Engine', icon: 'bot' },
@@ -971,15 +1224,26 @@ export default function FlowVizArchitect({
   const [iconOverrides, setIconOverrides] = useState<
     Record<string, IconOverride>
   >({});
+  // Chart layouts only: per-node numeric value edits (bar heights / donut shares).
+  const [valueOverrides, setValueOverrides] = useState<Record<string, number>>(
+    {}
+  );
   const [deletedKeys, setDeletedKeys] = useState<string[]>([]);
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [animationSpeed, setAnimationSpeed] = useState(1);
   const [exportPreset, setExportPreset] = useState<ExportPreset>('original');
-  const [resolution, setResolution] = useState<ResolutionTier>('1080p');
+  // Export is a two-step flow: pick a file type in the toolbar, then confirm
+  // size (and see the watermark/upgrade pitch) in the dialog.
+  const [exportFormat, setExportFormat] = useState<ExportFormat>('gif');
+  // Quality tier (1 = standard, 2 = HD; the dialog gates HD to plans with
+  // hdExport) and the PNG/SVG transparent-background toggle.
+  const [exportScale, setExportScale] = useState(1);
+  const [exportTransparent, setExportTransparent] = useState(false);
+  const [exportDialogOpen, setExportDialogOpen] = useState(false);
   const [upgradeOpen, setUpgradeOpen] = useState(false);
   const [upgradeReason, setUpgradeReason] = useState<string | undefined>();
-  // Active plan (from the Stripe subscription) — drives watermark, export
-  // resolution and the export limit. Defaults to free until detected.
+  // Active plan (from the Stripe subscription) — the only thing it changes
+  // about an export is the watermark. Defaults to free until detected.
   const userPlan = useUserPlan();
   const [sidebarImage, setSidebarImage] = useState<string | null>(null);
   const sidebarFileRef = useRef<HTMLInputElement>(null);
@@ -1001,6 +1265,8 @@ export default function FlowVizArchitect({
     exportMP4,
     isExporting,
     exportProgress,
+    exportStage,
+    cancelExport,
   } = useFlowchartExport(exportContainerRef);
 
   // Measure the live canvas frame so the diagram layout can be recomputed for
@@ -1022,9 +1288,31 @@ export default function FlowVizArchitect({
   // Element edits (icon/logo swaps + deletions) layer on top of the rendered
   // spec; the inspector reads node info from the same edited spec.
   const editedSpec = useMemo(
-    () => applyElementEdits(renderSpec, new Set(deletedKeys), iconOverrides),
-    [renderSpec, deletedKeys, iconOverrides]
+    () =>
+      applyElementEdits(
+        renderSpec,
+        new Set(deletedKeys),
+        iconOverrides,
+        valueOverrides
+      ),
+    [renderSpec, deletedKeys, iconOverrides, valueOverrides]
   );
+  // The user's picked connection color (savedStyle.accent) wins over the
+  // template's baked-in accent — recolors dots/beams/pulses/arrows live, and
+  // saveFlowchart already persists savedStyle.accent so it round-trips.
+  const styledSpec = useMemo(
+    () =>
+      editedSpec &&
+      savedStyle.accent &&
+      (editedSpec as any).accent !== savedStyle.accent
+        ? ({ ...(editedSpec as any), accent: savedStyle.accent } as PreviewSpec)
+        : editedSpec,
+    [editedSpec, savedStyle.accent]
+  );
+  // What the connections are actually drawn with right now — mirrors
+  // AnimatedPreview's `spec.accent || '#ff5b8a'` fallback for the swatch UI.
+  const currentAccent =
+    savedStyle.accent || (editedSpec as any)?.accent || '#ff5b8a';
   const nodeIndex = useMemo(() => indexSpecNodes(editedSpec), [editedSpec]);
   const selectedNode = useMemo(() => {
     if (!selectedKey) return null;
@@ -1034,8 +1322,10 @@ export default function FlowVizArchitect({
       key: selectedKey,
       label: labelOverrides[selectedKey] ?? info.label,
       isCenter: info.isCenter,
+      value: valueOverrides[selectedKey] ?? info.value,
+      unit: info.unit,
     };
-  }, [selectedKey, nodeIndex, labelOverrides]);
+  }, [selectedKey, nodeIndex, labelOverrides, valueOverrides]);
 
   // When a saved flowchart is loaded we restore element edits, then set this so
   // the effect below doesn't immediately wipe them on the activePreview swap.
@@ -1049,15 +1339,25 @@ export default function FlowVizArchitect({
       return;
     }
     setIconOverrides({});
+    setValueOverrides({});
     setDeletedKeys([]);
+  }, [activePreview]);
+
+  // Identity of the spec currently on canvas — lets async svgl logo enrichment
+  // discard its result if the user has already moved to another preview.
+  const activePreviewIdRef = useRef<PreviewSpec | null>(null);
+  useEffect(() => {
+    activePreviewIdRef.current = activePreview;
   }, [activePreview]);
 
   // Export is gated behind sign-in. These drive the "progress saved" dialog and
   // the resume-after-login flow.
   const [showExportAuth, setShowExportAuth] = useState(false);
-  const [pendingExportFormat, setPendingExportFormat] = useState<
-    'png' | 'svg' | 'gif' | 'mp4' | null
-  >(null);
+  const [authGateReason, setAuthGateReason] = useState<'export' | 'generate'>(
+    'export'
+  );
+  const [pendingExportFormat, setPendingExportFormat] =
+    useState<ExportFormat | null>(null);
   const exportResumeTriggered = useRef(false);
 
   useEffect(() => {
@@ -1076,6 +1376,12 @@ export default function FlowVizArchitect({
       if (!diagram || typeof diagram !== 'object' || !(isHub || isTree)) return;
 
       setDiagramData(diagram);
+      const pinnedLayout = (isV2 ? parsed.previewLayout : undefined) as
+        | TemplateLayout
+        | undefined;
+      const pinnedAccent = (isV2 ? parsed.accent : undefined) as
+        | string
+        | undefined;
       if (isV2) {
         // Restore the saved element edits and tell the edit-reset effect to skip
         // the wipe it would otherwise run when activePreview changes below.
@@ -1084,7 +1390,9 @@ export default function FlowVizArchitect({
         setPositionOverrides(parsed.positionOverrides || {});
         setLabelOverrides(parsed.labelOverrides || {});
         setIconOverrides(parsed.iconOverrides || {});
+        setValueOverrides(parsed.valueOverrides || {});
         setDeletedKeys(parsed.deletedKeys || []);
+        setSavedStyle({ layout: pinnedLayout, accent: pinnedAccent });
       }
       // Derive an animated spec so a reopened flowchart renders through
       // AnimatedPreview + the shared icon registry (real brand/3D icons). Node
@@ -1103,8 +1411,14 @@ export default function FlowVizArchitect({
           data: diagram,
           faqs: [],
           useCases: [],
+          // A visual applied from "text to visuals" pins its layout + accent so
+          // it reopens exactly as applied (e.g. a timeline stays a pipeline).
+          style:
+            pinnedLayout || pinnedAccent
+              ? { layout: pinnedLayout, accent: pinnedAccent }
+              : undefined,
         } as Template,
-        '#6366f1'
+        pinnedAccent || '#6366f1'
       );
       setActivePreview(spec);
     } catch (e) {
@@ -1147,6 +1461,15 @@ export default function FlowVizArchitect({
     return () => ro.disconnect();
   }, []);
 
+  // Deep link: /canvas?tab=text opens the editor on the "Text to visuals"
+  // tab (used by the site header/footer nav).
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (new URLSearchParams(window.location.search).get('tab') === 'text') {
+      setSidebarTab('text');
+    }
+  }, []);
+
   // Deep link: /canvas?template=<slug> opens the editor with that catalog
   // template's diagram pre-loaded (used by the /templates collection pages).
   const templateDeepLinkTriggered = useRef(false);
@@ -1162,6 +1485,9 @@ export default function FlowVizArchitect({
     const spec = derivePreviewSpec(tpl, accentForCategory(tpl.category));
     setDiagramData(tpl.data);
     setActivePreview(spec);
+    // Respect the template's pinned animation mode (charts tune theirs —
+    // pulses for bars/donut, beams for line) instead of the toolbar default.
+    if (spec.mode) setAnimationType(spec.mode);
     setActiveTemplate({
       id: tpl.slug,
       label: tpl.title,
@@ -1215,6 +1541,8 @@ export default function FlowVizArchitect({
       }
       if (saved.preset) setExportPreset(saved.preset);
       if (saved.mode) setAnimationType(saved.mode);
+      if (saved.scale === 2) setExportScale(2);
+      if (saved.transparent) setExportTransparent(true);
       if (saved.format) {
         setPendingExportFormat(saved.format);
         toast.success('Welcome back — picking up your export…');
@@ -1224,17 +1552,29 @@ export default function FlowVizArchitect({
     }
   }, [authLoading, isAuthenticated]);
 
-  // Once the restored diagram has rendered, trigger the saved export.
+  // Once the restored diagram has rendered, reopen the export dialog on the
+  // format they were attempting. It stops short of downloading on purpose:
+  // they've just signed in, so this is the right moment to show what the
+  // export will look like — watermark included — before it runs.
   useEffect(() => {
     if (!pendingExportFormat || !isAuthenticated || !activePreview) return;
     if (isExporting) return;
     const fmt = pendingExportFormat;
     const id = setTimeout(() => {
-      runExport(fmt);
+      setExportFormat(fmt);
+      setExportDialogOpen(true);
       setPendingExportFormat(null);
     }, 900);
     return () => clearTimeout(id);
   }, [pendingExportFormat, isAuthenticated, activePreview, isExporting]);
+
+  // Close the export dialog once a run finishes (or is canceled). The hook
+  // owns `isExporting`, so watch its falling edge rather than guessing.
+  const wasExporting = useRef(false);
+  useEffect(() => {
+    if (wasExporting.current && !isExporting) setExportDialogOpen(false);
+    wasExporting.current = isExporting;
+  }, [isExporting]);
 
   const handleTitleChange = async (newTitle: string) => {
     setCurrentTitle(newTitle);
@@ -1252,6 +1592,39 @@ export default function FlowVizArchitect({
     }
   };
 
+  // Re-layout the current hub diagram in a different visual style (radial /
+  // orbit / hub-lr / pipeline). Node keys are stable (center, sat-N) so label
+  // and icon edits survive; drag positions don't transfer between layouts.
+  const switchLayout = (l: TemplateLayout) => {
+    if (!diagramData || !('center' in diagramData)) return;
+    const accent =
+      (activePreview as any)?.accent || savedStyle.accent || '#6366f1';
+    const bg = (activePreview as any)?.bg;
+    skipEditResetRef.current = true;
+    setSavedStyle((s) => ({ ...s, layout: l }));
+    setPositionOverrides({});
+    setActivePreview(
+      derivePreviewSpec(
+        {
+          slug: 'restyled',
+          title: currentTitle,
+          shortDescription: '',
+          longDescription: '',
+          category: '',
+          categoryName: '',
+          tags: [],
+          keywords: [],
+          layout: 'hub',
+          data: diagramData,
+          faqs: [],
+          useCases: [],
+          style: { layout: l, mode: animationType, accent, bg },
+        },
+        accent
+      )
+    );
+  };
+
   const saveFlowchart = async (
     dataToSave: any,
     customTitle?: string,
@@ -1260,7 +1633,10 @@ export default function FlowVizArchitect({
       positionOverrides?: Record<string, { x: number; y: number }>;
       labelOverrides?: Record<string, string>;
       iconOverrides?: Record<string, IconOverride>;
+      valueOverrides?: Record<string, number>;
       deletedKeys?: string[];
+      previewLayout?: TemplateLayout;
+      accent?: string;
     }
   ) => {
     if (!currentUser) return;
@@ -1277,7 +1653,10 @@ export default function FlowVizArchitect({
         positionOverrides: snapshot?.positionOverrides ?? positionOverrides,
         labelOverrides: snapshot?.labelOverrides ?? labelOverrides,
         iconOverrides: snapshot?.iconOverrides ?? iconOverrides,
+        valueOverrides: snapshot?.valueOverrides ?? valueOverrides,
         deletedKeys: snapshot?.deletedKeys ?? deletedKeys,
+        previewLayout: snapshot?.previewLayout ?? savedStyle.layout,
+        accent: snapshot?.accent ?? savedStyle.accent,
       });
       const titleToSave =
         currentTitle !== 'Untitled'
@@ -1291,19 +1670,20 @@ export default function FlowVizArchitect({
           body: JSON.stringify({ content, title: titleToSave }),
         });
         toast.success('Flowchart saved successfully');
-      } else {
-        const response = await fetch('/api/flowcharts', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ content, title: titleToSave }),
-        });
-        if (response.ok) {
-          const newFlowchart = await response.json();
-          toast.success('Created new flowchart');
-          if (newFlowchart.id) {
-            setLocalFlowchartId(newFlowchart.id);
-            window.history.replaceState(null, '', `/canvas/${newFlowchart.id}`);
-          }
+        return idToUse;
+      }
+      const response = await fetch('/api/flowcharts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content, title: titleToSave }),
+      });
+      if (response.ok) {
+        const newFlowchart = await response.json();
+        toast.success('Created new flowchart');
+        if (newFlowchart.id) {
+          setLocalFlowchartId(newFlowchart.id);
+          window.history.replaceState(null, '', `/canvas/${newFlowchart.id}`);
+          return newFlowchart.id as string;
         }
       }
     } catch (err) {
@@ -1311,6 +1691,7 @@ export default function FlowVizArchitect({
     } finally {
       setIsSaving(false);
     }
+    return undefined;
   };
 
   const generateDiagram = async (
@@ -1338,38 +1719,54 @@ export default function FlowVizArchitect({
         body: JSON.stringify(body),
       });
       if (response.status === 401) {
-        toast.error('Please sign in to use this feature');
         setLoading(false);
+        setAuthGateReason('generate');
+        setShowExportAuth(true);
         return;
       }
       if (response.status === 429) {
-        const data = await response.json();
-        toast.error(data.message || 'Usage limit exceeded');
+        // Out of credits on the main generate box — the highest-intent moment
+        // in the product. Show the upgrade dialog, not a toast that vanishes.
+        const data = await response.json().catch(() => ({}) as any);
         setLoading(false);
+        openUpgrade(
+          data.message ||
+            "You've used all your free AI generations. Upgrade for 500 a month and watermark-free exports."
+        );
         return;
       }
       if (!response.ok) throw new Error('Generation failed');
       const result = await response.json();
-      setDiagramData(result);
       // Keep the active template's layout/mode; swap icons + labels using the
       // AI-generated satellites so the animated-beam preview stays consistent.
       const nextPreview = buildPreviewFromAI(result, activeTemplate);
+      // Pull real brand logos from the svgl catalog for any node label the
+      // local registry can't brand — awaited (3s-guarded) before first paint
+      // so the diagram lands fully branded instead of logos popping in.
+      const autoLogos = await autoLogoOverrides(nextPreview);
+      setDiagramData(result);
+      if (nextPreview) skipEditResetRef.current = true; // seeding fresh edits
       setActivePreview(nextPreview);
+      setSelectedKey(null);
+      setIconOverrides(autoLogos);
+      setValueOverrides({});
+      setDeletedKeys([]);
       setPositionOverrides({});
       setLabelOverrides({});
+      setSavedStyle({});
       localStorage.removeItem('flowchart_auto_generate');
       localStorage.removeItem('flowchart_auto_input');
       if (currentTitle === 'Untitled') {
         setCurrentTitle(userPrompt);
         setTempTitle(userPrompt);
       }
-      // A freshly generated diagram has no element edits yet — save with cleared
-      // overrides (this render's override state may still hold the prior diagram's).
+      // A freshly generated diagram starts from the auto logo overrides only —
+      // never this render's override state, which may hold the prior diagram's.
       saveFlowchart(result, userPrompt, {
         mode: animationType,
         positionOverrides: {},
         labelOverrides: {},
-        iconOverrides: {},
+        iconOverrides: autoLogos,
         deletedKeys: [],
       });
     } catch (err: any) {
@@ -1387,6 +1784,7 @@ export default function FlowVizArchitect({
     setActiveTemplate(template);
     setPositionOverrides({});
     setLabelOverrides({});
+    setSavedStyle({});
     if (currentTitle === 'Untitled') {
       setCurrentTitle(template.label);
       setTempTitle(template.label);
@@ -1399,6 +1797,7 @@ export default function FlowVizArchitect({
     const spec = derivePreviewSpec(tpl, accentForCategory(tpl.category));
     setDiagramData(tpl.data);
     setActivePreview(spec);
+    if (spec.mode) setAnimationType(spec.mode);
     setActiveTemplate({
       id: tpl.slug,
       label: tpl.title,
@@ -1409,11 +1808,62 @@ export default function FlowVizArchitect({
     });
     setPositionOverrides({});
     setLabelOverrides({});
+    setSavedStyle({});
     setTopic('');
     if (currentTitle === 'Untitled') {
       setCurrentTitle(tpl.title);
       setTempTitle(tpl.title);
     }
+  };
+
+  // ---- Text → visuals (long-form text, Napkin-style) ------------------------
+  // Live-preview a suggestion on the canvas. Selecting different suggestions
+  // swaps the diagram; the edit-reset effect clears element edits each time.
+  const previewVisual = (v: AppliedVisual) => {
+    setDiagramData(v.data);
+    setActivePreview(v.spec);
+    setAnimationType(v.mode);
+    setPositionOverrides({});
+    setLabelOverrides({});
+    setSavedStyle({ layout: v.layout, accent: v.accent });
+    if (v.orientation === 'portrait') setExportPreset('portrait');
+    else if (v.orientation === 'landscape') setExportPreset('landscape');
+    // Brand-logo enrichment lands async (fast — svgl responses are cached).
+    // Yield a tick so the edit-reset effect for this preview swap runs FIRST,
+    // then apply only if this spec is still the one on canvas; any overrides
+    // the user managed to make meanwhile win over the automatic ones.
+    void autoLogoOverrides(v.spec).then(async (auto) => {
+      if (Object.keys(auto).length === 0) return;
+      await new Promise((r) => setTimeout(r, 0));
+      if (activePreviewIdRef.current !== v.spec) return;
+      setIconOverrides((prev) => ({ ...auto, ...prev }));
+    });
+  };
+
+  // "Save and Apply": commit the chosen visual — title it and persist with its
+  // pinned layout/accent so it reloads exactly as applied.
+  const applyVisual = async (v: AppliedVisual) => {
+    previewVisual(v);
+    if (currentTitle === 'Untitled') {
+      setCurrentTitle(v.title);
+      setTempTitle(v.title);
+    }
+    if (!currentUser) {
+      toast.success('Applied to canvas — sign in to save it to your library');
+      return;
+    }
+    // Same enrichment previewVisual applied on canvas (cached — near-instant
+    // here), so the saved document reloads with its real brand logos.
+    const autoLogos = await autoLogoOverrides(v.spec);
+    saveFlowchart(v.data, v.title, {
+      mode: v.mode,
+      positionOverrides: {},
+      labelOverrides: {},
+      iconOverrides: autoLogos,
+      deletedKeys: [],
+      previewLayout: v.layout,
+      accent: v.accent,
+    });
   };
 
   // Catalog search for the sidebar (matches title, description, category, tags).
@@ -1435,23 +1885,16 @@ export default function FlowVizArchitect({
     setUpgradeOpen(true);
   };
 
-  // 2K/4K are Pro — selecting them on a free plan opens the upgrade prompt.
-  const selectResolution = (r: ResolutionTier) => {
-    if (!canUseResolution(userPlan, r)) {
-      openUpgrade(
-        'Export in 2K & 4K with Pro — crisp video, GIF and images for any screen.'
-      );
-      return;
-    }
-    setResolution(r);
-  };
-
-  const runExport = (format: 'png' | 'svg' | 'gif' | 'mp4') => {
-    const plan = PLAN_BY_ID[userPlan];
-    const res = canUseResolution(userPlan, resolution) ? resolution : '1080p';
+  // Runs the actual download. The plan gates two things: the watermark stamp
+  // and the HD 2× resolution tier (clamped here so a stale HD selection can
+  // never leak past a downgrade). Per-format clamps (GIF 1×, video opaque)
+  // live in the hook.
+  const runExport = (format: ExportFormat | 'svg') => {
+    const limits = PLAN_BY_ID[userPlan].limits;
     const opts = {
-      resolutionScale: RESOLUTION_BY_ID[res].scale,
-      watermark: plan.limits.watermark,
+      watermark: limits.watermark,
+      scale: limits.hdExport ? exportScale : 1,
+      transparent: exportTransparent,
     };
     if (format === 'png') exportPNG(currentTitle, exportPreset, opts);
     else if (format === 'svg') exportSVG(currentTitle, exportPreset, opts);
@@ -1459,9 +1902,11 @@ export default function FlowVizArchitect({
     else exportMP4(currentTitle, exportPreset, opts);
   };
 
-  // Exporting requires an account. If the user is signed out, stash their work
-  // and prompt sign-in; the resume effect picks the export back up afterwards.
-  const handleExport = (format: 'png' | 'svg' | 'gif' | 'mp4') => {
+  // Step 1 of export: pick a file type. Exporting requires an account — if the
+  // user is signed out, stash their work and prompt sign-in; the resume effect
+  // picks the export back up afterwards. Otherwise open the export dialog,
+  // which is where size is chosen and the run is confirmed.
+  const handleExport = (format: ExportFormat) => {
     if (!isAuthenticated) {
       try {
         localStorage.setItem(
@@ -1472,33 +1917,20 @@ export default function FlowVizArchitect({
             title: currentTitle,
             preset: exportPreset,
             mode: animationType,
+            scale: exportScale,
+            transparent: exportTransparent,
           })
         );
       } catch {
         // storage may be unavailable; still prompt for sign-in
       }
       // Defer so the export dropdown can close before the dialog takes focus.
+      setAuthGateReason('export');
       setTimeout(() => setShowExportAuth(true), 30);
       return;
     }
-    // Free plan: limited exports (see plans.ts). Soft, localStorage-based until
-    // Stripe + per-user server enforcement lands.
-    const exportsAllowed = PLAN_BY_ID[userPlan].limits.exports;
-    if (typeof exportsAllowed === 'number') {
-      const used = Number(localStorage.getItem('ig_free_exports') || '0');
-      if (used >= exportsAllowed) {
-        openUpgrade(
-          `You've used all ${exportsAllowed} free exports. Upgrade for unlimited, watermark-free exports.`
-        );
-        return;
-      }
-      try {
-        localStorage.setItem('ig_free_exports', String(used + 1));
-      } catch {
-        // storage unavailable — allow the export
-      }
-    }
-    runExport(format);
+    setExportFormat(format);
+    setTimeout(() => setExportDialogOpen(true), 30);
   };
 
   const handleManualSave = () => {
@@ -1539,6 +1971,20 @@ export default function FlowVizArchitect({
     } finally {
       setUploadingLogo(false);
     }
+  };
+
+  // Apply a brand logo picked from the svgl catalog in the inspector. The SVG
+  // is inlined as a data: URL — same contract as an uploaded logo, so it
+  // renders everywhere and never taints export rasterization.
+  const handlePickLogo = async (logo: { title: string; url: string }) => {
+    if (!selectedKey) return;
+    const key = selectedKey;
+    const dataUrl = await fetchSvglDataUrl(logo.url);
+    if (!dataUrl) {
+      toast.error('Could not load that logo — try another.');
+      return;
+    }
+    setIconOverrides((p) => ({ ...p, [key]: { kind: 'image', url: dataUrl } }));
   };
 
   const handleDeleteSelected = () => {
@@ -1631,6 +2077,46 @@ export default function FlowVizArchitect({
         </div>
 
         <div className="flex items-center gap-2">
+          {diagramData && 'center' in diagramData && activePreview ? (
+            <>
+              <Select
+                value={(activePreview as any).layout ?? 'radial'}
+                onValueChange={(v) => v && switchLayout(v as TemplateLayout)}
+              >
+                <SelectTrigger
+                  size="sm"
+                  className="h-9 w-[132px] rounded-lg bg-white text-xs font-medium"
+                  aria-label="Diagram style"
+                >
+                  <span className="flex items-center gap-1.5 truncate">
+                    <Orbit size={14} className="shrink-0 opacity-70" />
+                    <SelectValue placeholder="Style" />
+                  </span>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="radial">Radial</SelectItem>
+                  <SelectItem value="orbit">Orbit</SelectItem>
+                  <SelectItem value="cycle">Cycle</SelectItem>
+                  <SelectItem value="hub-lr">Hub</SelectItem>
+                  <SelectItem value="pipeline">Pipeline</SelectItem>
+                  <SelectItem value="timeline">Timeline</SelectItem>
+                  <SelectItem value="steps">Steps</SelectItem>
+                  <SelectItem value="funnel">Funnel</SelectItem>
+                  <SelectItem value="pyramid">Pyramid</SelectItem>
+                  <SelectItem value="quadrant">Quadrant</SelectItem>
+                  <SelectItem value="columns">Columns</SelectItem>
+                  <SelectItem value="iceberg">Iceberg</SelectItem>
+                  <SelectItem value="tree">Tree</SelectItem>
+                  <SelectItem value="bars">Bar chart</SelectItem>
+                  <SelectItem value="chart-line">Line chart</SelectItem>
+                  <SelectItem value="donut">Donut chart</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <div className="mx-1 h-6 w-px bg-border" />
+            </>
+          ) : null}
+
           <ToggleGroup
             type="single"
             value={animationType}
@@ -1665,6 +2151,73 @@ export default function FlowVizArchitect({
             </ToggleGroupItem>
           </ToggleGroup>
 
+          {/* Connection color — recolors the dots/beams/pulses/arrows. One
+              click on a preset applies live; Save persists it (same field the
+              text-to-visuals accent already uses). */}
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                variant="ghost"
+                size="sm"
+                aria-label="Connection color"
+                title="Connection color"
+                className="h-9 gap-2 rounded-lg border border-border bg-white px-2.5 text-xs hover:bg-[#fafafa]"
+              >
+                <span
+                  className="h-4 w-4 rounded-full border border-black/10"
+                  style={{ backgroundColor: currentAccent }}
+                />
+                Color
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent align="start" className="w-56 p-3">
+              <p className="mb-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                Connection color
+              </p>
+              <div className="grid grid-cols-6 gap-1.5">
+                {ACCENT_PRESETS.map((c) => (
+                  <button
+                    key={c}
+                    type="button"
+                    aria-label={`Use ${c}`}
+                    onClick={() => setSavedStyle((s) => ({ ...s, accent: c }))}
+                    className="flex h-7 w-7 items-center justify-center rounded-full transition-transform hover:scale-110"
+                    style={{ backgroundColor: c }}
+                  >
+                    {currentAccent.toLowerCase() === c.toLowerCase() && (
+                      <CheckCircle2 size={14} className="text-white" />
+                    )}
+                  </button>
+                ))}
+              </div>
+              <div className="mt-3 flex items-center gap-2">
+                <label className="relative flex h-8 flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-md border border-border text-xs font-medium hover:bg-[#fafafa]">
+                  <Pipette size={13} />
+                  Custom
+                  <input
+                    type="color"
+                    value={currentAccent}
+                    onChange={(e) =>
+                      setSavedStyle((s) => ({ ...s, accent: e.target.value }))
+                    }
+                    className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+                  />
+                </label>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 px-2.5 text-xs text-muted-foreground"
+                  onClick={() =>
+                    setSavedStyle((s) => ({ ...s, accent: undefined }))
+                  }
+                >
+                  Auto
+                </Button>
+              </div>
+            </PopoverContent>
+          </Popover>
+
           <div className="mx-1 h-6 w-px bg-border" />
 
           <div className="flex items-center gap-2 rounded-lg border border-border bg-white px-2.5 py-1.5">
@@ -1689,40 +2242,8 @@ export default function FlowVizArchitect({
 
           <div className="mx-1 h-6 w-px bg-border" />
 
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="outline"
-                size="sm"
-                className="gap-1.5 text-xs rounded-lg border-border hover:bg-[#fafafa]"
-              >
-                <LayoutGrid className="h-3.5 w-3.5" />
-                {EXPORT_PRESETS[exportPreset].label.split(' (')[0]}
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56">
-              {(Object.keys(EXPORT_PRESETS) as ExportPreset[]).map((k) => (
-                <DropdownMenuItem
-                  key={k}
-                  onClick={() => setExportPreset(k)}
-                  className={
-                    exportPreset === k ? 'bg-accent text-accent-foreground' : ''
-                  }
-                >
-                  <span className="flex items-center gap-2 w-full">
-                    <span
-                      className={
-                        'h-1.5 w-1.5 rounded-full ' +
-                        (exportPreset === k ? 'bg-foreground' : 'bg-border')
-                      }
-                    />
-                    {EXPORT_PRESETS[k].label}
-                  </span>
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
-
+          {/* Export — pick a file type here, everything else (size, watermark,
+              upgrade) lives in the dialog this opens. */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
@@ -1740,73 +2261,31 @@ export default function FlowVizArchitect({
                 {isExporting && exportProgress > 0 ? ` ${exportProgress}%` : ''}
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-60">
+            <DropdownMenuContent align="end" className="w-64">
               <DropdownMenuLabel className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                Resolution
+                Choose a file type
               </DropdownMenuLabel>
-              {RESOLUTIONS.map((r) => {
-                const locked = !canUseResolution(userPlan, r.id);
-                const active = resolution === r.id;
+              {(['gif', 'mp4', 'png', 'svg'] as ExportFormat[]).map((f) => {
+                const meta = EXPORT_FORMATS[f];
+                const Icon = meta.icon;
                 return (
                   <DropdownMenuItem
-                    key={r.id}
-                    onSelect={(e) => {
-                      e.preventDefault();
-                      selectResolution(r.id);
-                    }}
-                    className="flex items-center justify-between gap-2"
+                    key={f}
+                    onClick={() => handleExport(f)}
+                    className="flex items-start gap-2.5 py-2"
                   >
-                    <span className="flex items-center gap-2">
-                      <span
-                        className={
-                          'h-1.5 w-1.5 rounded-full ' +
-                          (active ? 'bg-foreground' : 'bg-border')
-                        }
-                      />
-                      <span className="font-medium">{r.label}</span>
-                      <span className="text-[11px] text-muted-foreground">
-                        {r.note}
+                    <Icon className="mt-0.5 h-4 w-4 shrink-0 text-foreground/70" />
+                    <span className="min-w-0">
+                      <span className="block text-sm font-medium">
+                        {meta.label}
+                      </span>
+                      <span className="block text-[11px] leading-snug text-muted-foreground">
+                        {meta.blurb}
                       </span>
                     </span>
-                    {locked && (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-foreground/5 px-1.5 py-0.5 text-[10px] font-semibold text-foreground/70">
-                        <Lock className="h-2.5 w-2.5" />
-                        Pro
-                      </span>
-                    )}
                   </DropdownMenuItem>
                 );
               })}
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => handleExport('png')}>
-                Download as PNG
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleExport('svg')}>
-                Download as SVG
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleExport('gif')}>
-                Download as GIF
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleExport('mp4')}>
-                Download as MP4
-              </DropdownMenuItem>
-              {PLAN_BY_ID[userPlan].limits.watermark && (
-                <>
-                  <DropdownMenuSeparator />
-                  <button
-                    type="button"
-                    onClick={() =>
-                      openUpgrade(
-                        'Remove the watermark and unlock 2K & 4K with Pro.'
-                      )
-                    }
-                    className="flex w-full items-center gap-1.5 px-2 py-1.5 text-left text-[11px] text-muted-foreground transition-colors hover:text-foreground"
-                  >
-                    <Lock className="h-3 w-3 shrink-0" />
-                    Watermark on free — remove with Pro →
-                  </button>
-                </>
-              )}
             </DropdownMenuContent>
           </DropdownMenu>
 
@@ -1836,7 +2315,7 @@ export default function FlowVizArchitect({
               size="sm"
               onClick={() =>
                 openUpgrade(
-                  'Unlock Pro — unlimited generations, watermark-free exports, and 2K/4K downloads.'
+                  'Unlock Pro — watermark-free exports and 500 AI generations a month.'
                 )
               }
               className="ig-gradient text-xs gap-1.5 rounded-lg text-white shadow-[0_2px_10px_rgba(255,107,157,0.35)] hover:opacity-95"
@@ -1862,231 +2341,226 @@ export default function FlowVizArchitect({
         </div>
       </div>
 
-      {/* Sign-in gate for exports */}
-      <Dialog open={showExportAuth} onOpenChange={setShowExportAuth}>
-        <DialogContent className="sm:max-w-[420px] p-0 overflow-hidden">
-          <DialogHeader className="px-6 pt-6">
-            <DialogTitle>Sign in to export</DialogTitle>
-          </DialogHeader>
-          <div className="px-6 pt-2">
-            <div className="flex items-start gap-2 rounded-lg border border-border bg-muted/50 p-3 text-sm text-muted-foreground">
-              <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" />
-              <span>
-                Your progress is saved. We&apos;ll pick up right where you left
-                off after you sign in.
-              </span>
-            </div>
-          </div>
-          <LoginForm callbackUrl={currentPath} className="border-none" />
-        </DialogContent>
-      </Dialog>
+      {/* Sign-in gate — shown before an export, and before a generation (which
+          costs a credit and so needs an account to bill it to). */}
+      <SignInTakeover
+        open={showExportAuth}
+        onOpenChange={setShowExportAuth}
+        callbackUrl={currentPath}
+        title={
+          authGateReason === 'generate'
+            ? 'Sign in to generate your diagram'
+            : 'Sign in to export your diagram'
+        }
+        subtitle={
+          authGateReason === 'generate'
+            ? 'Create a free account in one click — your prompt is waiting for you on the other side.'
+            : 'Create a free account in one click and your download starts right after.'
+        }
+      />
+
+      <ExportDialog
+        open={exportDialogOpen}
+        onOpenChange={setExportDialogOpen}
+        format={exportFormat}
+        preset={exportPreset}
+        onPresetChange={setExportPreset}
+        scale={exportScale}
+        onScaleChange={setExportScale}
+        transparent={exportTransparent}
+        onTransparentChange={setExportTransparent}
+        plan={userPlan}
+        isExporting={isExporting}
+        exportProgress={exportProgress}
+        exportStage={exportStage}
+        onExport={() => runExport(exportFormat)}
+        onCancelExport={cancelExport}
+        returnTo={
+          localFlowchartId || flowchartId
+            ? `/canvas/${localFlowchartId || flowchartId}`
+            : currentPath
+        }
+        onBeforeCheckout={async () => {
+          if (!currentUser || !diagramData) return undefined;
+          const id = await saveFlowchart(diagramData);
+          return id ? `/canvas/${id}` : undefined;
+        }}
+      />
 
       <UpgradeDialog
         open={upgradeOpen}
         onOpenChange={setUpgradeOpen}
         reason={upgradeReason}
+        returnTo={
+          localFlowchartId || flowchartId
+            ? `/canvas/${localFlowchartId || flowchartId}`
+            : currentPath
+        }
+        onBeforeCheckout={async () => {
+          // Save first so checkout genuinely returns to this exact diagram —
+          // a first save mints the /canvas/[id] URL we hand to Stripe.
+          if (!currentUser || !diagramData) return undefined;
+          const id = await saveFlowchart(diagramData);
+          return id ? `/canvas/${id}` : undefined;
+        }}
       />
 
       {/* Main Content Area */}
       <div className="flex flex-1 overflow-hidden">
-        {/* Sidebar - Template Picker */}
+        {/* Sidebar - Template Picker / Text to visuals */}
         {sidebarOpen && (
-          <div className="flex w-[280px] shrink-0 flex-col border-r border-border bg-[#fafafa]">
-            {/* Templates header + search */}
-            <div className="px-4 pb-3 pt-4">
-              <div className="flex items-center justify-between gap-2">
-                <h2 className="text-sm font-semibold text-foreground">
-                  Templates
-                </h2>
-                <a
-                  href="/templates"
-                  target="_blank"
-                  rel="noreferrer"
-                  className="shrink-0 text-[11px] font-medium text-foreground/55 transition-colors hover:text-foreground"
+          <div
+            className={`flex ${
+              sidebarTab === 'text' ? 'w-[340px]' : 'w-[280px]'
+            } shrink-0 flex-col border-r border-border bg-[#fafafa] transition-[width] duration-200`}
+          >
+            {/* Mode tabs */}
+            <div className="px-3 pt-3">
+              <div className="flex rounded-lg border border-border bg-white p-0.5">
+                <button
+                  type="button"
+                  onClick={() => setSidebarTab('templates')}
+                  className={`flex flex-1 items-center justify-center gap-1.5 rounded-md py-1.5 text-xs font-medium transition-colors ${
+                    sidebarTab === 'templates'
+                      ? 'bg-foreground text-background'
+                      : 'text-foreground/60 hover:text-foreground'
+                  }`}
                 >
-                  Browse all {allTemplates.length} →
-                </a>
-              </div>
-              <div className="relative mt-2.5">
-                <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  value={templateQuery}
-                  onChange={(e) => setTemplateQuery(e.target.value)}
-                  placeholder={`Search ${allTemplates.length} templates…`}
-                  className="h-9 rounded-lg border-border bg-white pl-8 text-xs focus-visible:border-foreground/40 focus-visible:ring-0"
-                />
+                  <LayoutGrid size={13} /> Templates
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSidebarTab('text')}
+                  className={`flex flex-1 items-center justify-center gap-1.5 rounded-md py-1.5 text-xs font-medium transition-colors ${
+                    sidebarTab === 'text'
+                      ? 'bg-foreground text-background'
+                      : 'text-foreground/60 hover:text-foreground'
+                  }`}
+                >
+                  <Wand2 size={13} /> Text to visuals
+                </button>
               </div>
             </div>
 
-            <ScrollArea className="flex-1">
-              <div className="space-y-1.5 px-3 pb-3">
-                {templateQuery.trim() ? (
-                  templateResults.length > 0 ? (
-                    templateResults.map((t) => (
-                      <button
-                        key={t.slug}
-                        type="button"
-                        onClick={() => loadCatalogTemplate(t)}
-                        className="group flex w-full items-center gap-3 rounded-xl border border-transparent bg-white px-3 py-2.5 text-left transition-all hover:border-border hover:shadow-sm"
-                      >
-                        <span
-                          className="h-9 w-9 shrink-0 rounded-lg"
-                          style={{
-                            background: `${accentForCategory(t.category)}1a`,
-                            border: `1px solid ${accentForCategory(t.category)}40`,
-                          }}
-                        />
-                        <div className="min-w-0">
-                          <div className="truncate text-xs font-medium text-foreground">
-                            {t.title}
-                          </div>
-                          <div className="mt-0.5 truncate text-[11px] text-muted-foreground">
-                            {t.categoryName}
-                          </div>
-                        </div>
-                      </button>
-                    ))
-                  ) : (
-                    <div className="px-3 py-8 text-center">
-                      <p className="text-xs text-muted-foreground">
-                        No templates match “{templateQuery.trim()}”.
-                      </p>
-                      <a
-                        href="/templates"
-                        target="_blank"
-                        rel="noreferrer"
-                        className="mt-1 inline-block text-xs font-medium text-foreground hover:underline"
-                      >
-                        Browse all templates →
-                      </a>
-                    </div>
-                  )
-                ) : (
-                  <>
-                    <p className="px-1 pb-0.5 pt-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                      Quick start
-                    </p>
-                    {TEMPLATES.map((template) => (
-                      <button
-                        key={template.id}
-                        type="button"
-                        onClick={() => handleTemplateSelect(template)}
-                        className="group flex w-full items-center gap-3 rounded-xl border border-transparent bg-white px-3 py-2.5 text-left text-sm transition-all hover:border-border hover:shadow-sm"
-                      >
-                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border bg-white text-foreground/70 transition-colors group-hover:text-foreground">
-                          {template.icon}
-                        </div>
-                        <div className="min-w-0">
-                          <div className="truncate text-xs font-medium text-foreground">
-                            {template.label}
-                          </div>
-                          <div className="mt-0.5 truncate text-[11px] text-muted-foreground">
-                            {template.data.satellites?.length ||
-                              template.data.root?.children?.length ||
-                              0}{' '}
-                            nodes
-                          </div>
-                        </div>
-                      </button>
-                    ))}
-                  </>
-                )}
-              </div>
-            </ScrollArea>
-
-            {/* Generator */}
-            <div className="border-t border-border bg-white p-3">
-              <div className="mb-2 flex items-center gap-1.5">
-                <Sparkles className="h-3.5 w-3.5 text-foreground" />
-                <span className="text-xs font-semibold text-foreground">
-                  Generate with AI
-                </span>
-              </div>
-              <div className="mb-2 flex flex-wrap gap-1.5">
-                {EXAMPLE_PROMPTS.slice(0, 4).map((ex) => (
-                  <button
-                    key={ex}
-                    type="button"
-                    onClick={() => setTopic(ex)}
-                    title={ex}
-                    className="rounded-full border border-border bg-[#fafafa] px-2 py-1 text-[10px] font-medium text-foreground/65 transition-colors hover:border-foreground/30 hover:text-foreground"
-                  >
-                    {ex.split(' ').slice(0, 3).join(' ')}…
-                  </button>
-                ))}
-              </div>
-              <form
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  generateDiagram(
-                    undefined,
-                    undefined,
-                    sidebarImage || undefined
-                  );
-                }}
-                className="space-y-2"
-              >
-                <Textarea
-                  value={topic}
-                  onChange={(e) => setTopic(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && !e.shiftKey) {
-                      e.preventDefault();
-                      generateDiagram(
-                        undefined,
-                        undefined,
-                        sidebarImage || undefined
-                      );
-                    }
-                  }}
-                  placeholder="Describe what you want to visualize…"
-                  rows={2}
-                  className="resize-none rounded-lg border-border bg-white text-xs focus-visible:border-foreground/40 focus-visible:ring-0"
-                />
-                <div className="flex items-center gap-2">
-                  <input
-                    ref={sidebarFileRef}
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (!file) return;
-                      if (file.size > 4 * 1024 * 1024) {
-                        toast.error('Image must be under 4 MB');
-                        return;
-                      }
-                      const reader = new FileReader();
-                      reader.onload = () =>
-                        setSidebarImage(reader.result as string);
-                      reader.readAsDataURL(file);
-                    }}
-                  />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="h-9 shrink-0 rounded-lg border-border text-xs hover:bg-[#fafafa]"
-                    onClick={() => sidebarFileRef.current?.click()}
-                  >
-                    {sidebarImage ? '✓ Image' : '+ Image'}
-                  </Button>
-                  <Button
-                    type="submit"
-                    disabled={loading || (!topic.trim() && !sidebarImage)}
-                    className="h-9 flex-1 gap-2 rounded-lg bg-foreground text-xs text-background hover:bg-neutral-800 disabled:opacity-50"
-                    size="sm"
-                  >
-                    {loading ? (
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    ) : (
-                      <Sparkles className="h-3.5 w-3.5" />
-                    )}
-                    Generate
-                  </Button>
+            {/* Kept mounted (hidden) so pasted text + suggestions survive tab
+                switches; `contents` delegates layout to the panel itself. */}
+            <div className={sidebarTab === 'text' ? 'contents' : 'hidden'}>
+              <TextToVisualPanel
+                onPreview={previewVisual}
+                onApply={applyVisual}
+                seedText={composerSeedText}
+                onSeedConsumed={() => setComposerSeedText(null)}
+              />
+            </div>
+            {sidebarTab === 'templates' && (
+              <>
+                {/* Templates header + search */}
+                <div className="px-4 pb-3 pt-4">
+                  <div className="flex items-center justify-between gap-2">
+                    <h2 className="text-sm font-semibold text-foreground">
+                      Templates
+                    </h2>
+                    <a
+                      href="/templates"
+                      target="_blank"
+                      rel="noreferrer"
+                      className="shrink-0 text-[11px] font-medium text-foreground/55 transition-colors hover:text-foreground"
+                    >
+                      Browse all {allTemplates.length} →
+                    </a>
+                  </div>
+                  <div className="relative mt-2.5">
+                    <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      value={templateQuery}
+                      onChange={(e) => setTemplateQuery(e.target.value)}
+                      placeholder={`Search ${allTemplates.length} templates…`}
+                      className="h-9 rounded-lg border-border bg-white pl-8 text-xs focus-visible:border-foreground/40 focus-visible:ring-0"
+                    />
+                  </div>
                 </div>
-              </form>
-            </div>
+
+                <ScrollArea className="flex-1">
+                  <div className="space-y-1.5 px-3 pb-3">
+                    {templateQuery.trim() ? (
+                      templateResults.length > 0 ? (
+                        templateResults.map((t) => (
+                          <button
+                            key={t.slug}
+                            type="button"
+                            onClick={() => loadCatalogTemplate(t)}
+                            className="group flex w-full items-center gap-3 rounded-xl border border-transparent bg-white px-3 py-2.5 text-left transition-all hover:border-border hover:shadow-sm"
+                          >
+                            <span
+                              className="h-9 w-9 shrink-0 rounded-lg"
+                              style={{
+                                background: `${accentForCategory(t.category)}1a`,
+                                border: `1px solid ${accentForCategory(t.category)}40`,
+                              }}
+                            />
+                            <div className="min-w-0">
+                              <div className="truncate text-xs font-medium text-foreground">
+                                {t.title}
+                              </div>
+                              <div className="mt-0.5 truncate text-[11px] text-muted-foreground">
+                                {t.categoryName}
+                              </div>
+                            </div>
+                          </button>
+                        ))
+                      ) : (
+                        <div className="px-3 py-8 text-center">
+                          <p className="text-xs text-muted-foreground">
+                            No templates match “{templateQuery.trim()}”.
+                          </p>
+                          <a
+                            href="/templates"
+                            target="_blank"
+                            rel="noreferrer"
+                            className="mt-1 inline-block text-xs font-medium text-foreground hover:underline"
+                          >
+                            Browse all templates →
+                          </a>
+                        </div>
+                      )
+                    ) : (
+                      <>
+                        <p className="px-1 pb-0.5 pt-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                          Quick start
+                        </p>
+                        {TEMPLATES.map((template) => (
+                          <button
+                            key={template.id}
+                            type="button"
+                            onClick={() => handleTemplateSelect(template)}
+                            className="group flex w-full items-center gap-3 rounded-xl border border-transparent bg-white px-3 py-2.5 text-left text-sm transition-all hover:border-border hover:shadow-sm"
+                          >
+                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border bg-white text-foreground/70 transition-colors group-hover:text-foreground">
+                              {template.icon}
+                            </div>
+                            <div className="min-w-0">
+                              <div className="truncate text-xs font-medium text-foreground">
+                                {template.label}
+                              </div>
+                              <div className="mt-0.5 truncate text-[11px] text-muted-foreground">
+                                {template.data.satellites?.length ||
+                                  template.data.root?.children?.length ||
+                                  0}{' '}
+                                nodes
+                              </div>
+                            </div>
+                          </button>
+                        ))}
+                      </>
+                    )}
+                  </div>
+                </ScrollArea>
+
+                {/* The AI generator used to live here, below the template
+                    list and under the fold. It's now the floating composer
+                    docked at the bottom of the canvas — see <CanvasComposer>. */}
+              </>
+            )}
           </div>
         )}
 
@@ -2094,11 +2568,21 @@ export default function FlowVizArchitect({
         <div className="flex-1 relative overflow-hidden bg-white">
           <ElementInspector
             node={selectedNode}
+            isChartLayout={
+              !!styledSpec &&
+              ['bars', 'chart-line', 'donut'].includes(
+                (styledSpec as any).layout
+              )
+            }
             uploading={uploadingLogo}
             onClose={() => setSelectedKey(null)}
             onLabelChange={(label) =>
               selectedKey &&
               setLabelOverrides((p) => ({ ...p, [selectedKey]: label }))
+            }
+            onValueChange={(v) =>
+              selectedKey &&
+              setValueOverrides((p) => ({ ...p, [selectedKey]: v }))
             }
             onIconChange={(iconKey) =>
               selectedKey &&
@@ -2107,15 +2591,91 @@ export default function FlowVizArchitect({
                 [selectedKey]: { kind: 'key', key: iconKey },
               }))
             }
+            onPickLogo={handlePickLogo}
             onUploadLogo={handleLogoUpload}
             onDelete={handleDeleteSelected}
           />
+          {/* Floating canvas-aspect switcher (Swishy-style) — the same presets
+              the export dialog uses, switchable while editing instead of only
+              at export time. The canvas frame + layout re-adapt live. */}
+          <div className="absolute left-1/2 top-3 z-20 flex -translate-x-1/2 items-center gap-0.5 rounded-full border border-border bg-white/95 px-1.5 py-1 shadow-sm backdrop-blur">
+            {(Object.keys(EXPORT_PRESETS) as ExportPreset[]).map((p) => {
+              const preset = EXPORT_PRESETS[p];
+              const active = exportPreset === p;
+              const ratio = preset.w && preset.h ? preset.w / preset.h : 16 / 9;
+              const boxW = ratio >= 1 ? 14 : Math.max(8, 14 * ratio);
+              const boxH = ratio >= 1 ? Math.max(8, 14 / ratio) : 14;
+              return (
+                <button
+                  key={p}
+                  type="button"
+                  title={preset.label}
+                  aria-label={`Canvas aspect: ${preset.label}`}
+                  aria-pressed={active}
+                  onClick={() => setExportPreset(p)}
+                  className={
+                    'flex h-7 w-8 items-center justify-center rounded-full transition-colors ' +
+                    (active
+                      ? 'bg-foreground text-background'
+                      : 'text-foreground/55 hover:bg-muted hover:text-foreground')
+                  }
+                >
+                  {p === 'original' ? (
+                    <span className="text-[9px] font-semibold tracking-wide">
+                      Auto
+                    </span>
+                  ) : (
+                    <span
+                      className="block rounded-[3px] border-[1.5px] border-current"
+                      style={{ width: boxW, height: boxH }}
+                    />
+                  )}
+                </button>
+              );
+            })}
+          </div>
           {/* On-canvas brand watermark. Exports get their own watermark baked
               in by finaliseCanvas(), so this stays outside exportContainerRef
               to avoid doubling up in downloads. */}
           <div className="pointer-events-none absolute bottom-4 right-4 z-10 select-none rounded-md bg-[rgba(15,23,42,0.72)] px-2.5 py-1 text-xs font-semibold tracking-tight text-white shadow-sm">
             infogiph.com
           </div>
+          {/* Export progress lives in the export dialog, which stays open for
+              the duration of a run — see <ExportDialog>. Nothing here. */}
+
+          {/* Both AI entry points, docked over the canvas where they're seen. */}
+          <CanvasComposer
+            mode={composerMode}
+            onModeChange={setComposerMode}
+            collapsed={composerCollapsed}
+            onCollapsedChange={setComposerCollapsed}
+            topic={topic}
+            onTopicChange={setTopic}
+            onGenerate={() =>
+              generateDiagram(undefined, undefined, sidebarImage || undefined)
+            }
+            generating={loading}
+            hasImage={!!sidebarImage}
+            onPickImage={(file) => {
+              if (file.size > 4 * 1024 * 1024) {
+                toast.error('Image must be under 4 MB');
+                return;
+              }
+              const reader = new FileReader();
+              reader.onload = () => setSidebarImage(reader.result as string);
+              reader.readAsDataURL(file);
+            }}
+            onClearImage={() => setSidebarImage(null)}
+            examplePrompts={EXAMPLE_PROMPTS}
+            pasteBusy={false}
+            onPasteSubmit={(pasted) => {
+              // Hand the text to the sidebar panel, which owns suggestions,
+              // parameters and apply — and open it so the results are visible.
+              setComposerSeedText(pasted);
+              setSidebarTab('text');
+              setSidebarOpen(true);
+            }}
+          />
           <div className="h-full flex items-center justify-center p-6">
             <div
               className="relative rounded-xl border border-border bg-white shadow-[0_8px_30px_rgba(0,0,0,0.04)] overflow-hidden transition-all duration-300"
@@ -2144,9 +2704,9 @@ export default function FlowVizArchitect({
                 className="w-full h-full flex items-center justify-center p-8"
               >
                 <div ref={canvasFrameRef} className="relative h-full w-full">
-                  {editedSpec ? (
+                  {styledSpec ? (
                     <AnimatedPreview
-                      {...(editedSpec as any)}
+                      {...(styledSpec as any)}
                       variant="canvas"
                       dims={canvasDims}
                       modeOverride={animationType}
@@ -2169,7 +2729,11 @@ export default function FlowVizArchitect({
                   )}
                   {loading && (
                     <ProcessingOverlay
-                      accent={(activePreview as any)?.accent || '#6366f1'}
+                      accent={
+                        savedStyle.accent ||
+                        (activePreview as any)?.accent ||
+                        '#6366f1'
+                      }
                     />
                   )}
                 </div>

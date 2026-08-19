@@ -513,25 +513,30 @@ export async function POST(req: Request) {
 
     console.log('✅ OpenRouter API call successful, starting stream');
 
-    // 6. 记录AI使用情况 - 移除这里的计费，改为在流程图成功生成后计费
-    // if (isGuestUser) {
-    //   await recordGuestAIUsage(req, 'flowchart_generation', true);
-    // } else {
-    //   await recordAIUsage(userId!, 'flowchart_generation', {
-    //     tokensUsed: 0,
-    //     model: model,
-    //     success: true,
-    //     metadata: {
-    //       messageCount: messages.length,
-    //       mode: requestedMode,
-    //     },
-    //   });
-    // }
+    // 6. Usage is billed inside the stream below, at the moment a diagram is
+    // actually produced — not here (a plain chat reply shouldn't cost a credit)
+    // and not from the browser (a client that never sends the record request,
+    // or sends success:false, would generate for free).
 
     // 7. 创建流式响应
     const encoder = new TextEncoder();
     const stream = new ReadableStream({
       async start(controller) {
+        let billed = false;
+        const billOnce = async (mode: string) => {
+          if (billed || !userId) return;
+          billed = true;
+          try {
+            await recordAIUsage(userId, 'flowchart_generation', {
+              tokensUsed: 0,
+              model: model,
+              success: true,
+              metadata: { messageCount: messages.length, mode },
+            });
+          } catch (err) {
+            console.error('[ai-usage] failed to record chat generation', err);
+          }
+        };
         try {
           const toolCalls: any[] = [];
           let accumulatedContent = '';
@@ -583,6 +588,8 @@ export async function POST(req: Request) {
                       args: args,
                     });
                     controller.enqueue(encoder.encode(`data: ${data}\n\n`));
+                    // A diagram was produced — bill it here, server-side.
+                    await billOnce(requestedMode ?? 'chat');
                   } catch (error) {
                     console.error('Error parsing flowchart args:', error);
                   }

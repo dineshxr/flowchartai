@@ -9,7 +9,9 @@ import { Menu, X } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 
-const NAV_LINKS = [
+const NAV_LINKS: Array<{ label: string; href: string; badge?: string }> = [
+  { label: 'AI Infographics', href: '/canvas' },
+  { label: 'Text to Visuals', href: '/canvas?tab=text', badge: 'New' },
   { label: 'Templates', href: '/templates' },
   { label: 'Pricing', href: '/pricing' },
   { label: 'Blog', href: '/blog' },
@@ -51,9 +53,14 @@ export function SiteHeader() {
               <Link
                 key={n.label}
                 href={n.href}
-                className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+                className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
               >
                 {n.label}
+                {n.badge && (
+                  <span className="rounded-full bg-foreground px-1.5 py-0.5 text-[9px] font-semibold leading-none text-background">
+                    {n.badge}
+                  </span>
+                )}
               </Link>
             ))}
           </nav>
@@ -92,9 +99,14 @@ export function SiteHeader() {
               key={n.label}
               href={n.href}
               onClick={() => setOpen(false)}
-              className="rounded-lg px-2 py-2.5 text-sm text-foreground/80 transition-colors hover:bg-[#f5f5f5] hover:text-foreground"
+              className="flex items-center gap-1.5 rounded-lg px-2 py-2.5 text-sm text-foreground/80 transition-colors hover:bg-[#f5f5f5] hover:text-foreground"
             >
               {n.label}
+              {n.badge && (
+                <span className="rounded-full bg-foreground px-1.5 py-0.5 text-[9px] font-semibold leading-none text-background">
+                  {n.badge}
+                </span>
+              )}
             </Link>
           ))}
         </nav>

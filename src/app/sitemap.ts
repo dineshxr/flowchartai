@@ -13,12 +13,28 @@ type Href = Parameters<typeof getLocalePathname>[0]['href'];
 /**
  * 根据功能开关动态生成静态路由列表
  */
+// SEO landing pages for the AI diagram makers (high-priority commercial pages)
+const makerRoutes = [
+  '/ai-comparison-chart-maker',
+  '/ai-concept-map-maker',
+  '/ai-flow-chart-maker',
+  '/ai-genogram-maker',
+  '/ai-mind-map-maker',
+  '/ai-roadmap-maker',
+  '/ai-timeline-maker',
+  '/ai-org-chart-maker',
+  '/ai-venn-diagram-maker',
+];
+
 function getEnabledStaticRoutes(): string[] {
   const baseRoutes = [
     '/',
     '/infographic-maker',
     '/free-infographic-maker',
     '/infographic-video-maker',
+    '/free-infographic-video-maker',
+    '/animated-infographic-maker',
+    ...makerRoutes,
     '/pricing',
     '/about',
     '/contact',
@@ -72,7 +88,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         route === '/infographic-maker' ||
         route === '/free-infographic-maker' ||
         route === '/infographic-video-maker' ||
-        route === '/templates'
+        route === '/free-infographic-video-maker' ||
+        route === '/animated-infographic-maker' ||
+        route === '/templates' ||
+        makerRoutes.includes(route)
       ) {
         priority = 0.9; // high priority for key commercial pages
         changeFrequency = 'weekly';
