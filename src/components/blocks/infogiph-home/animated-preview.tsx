@@ -30,6 +30,13 @@ export interface PreviewNode {
   svgIcon?: ReactNode;
   letter?: string;
   tint?: string;
+  /**
+   * Numeric magnitude for the chart layouts (bars / chart-line / donut).
+   * Optional — when absent those layouts synthesize a deterministic series.
+   */
+  value?: number;
+  /** Display unit for `value` — "%", "$", "k", "users"… */
+  unit?: string;
 }
 
 export interface TreeNode extends PreviewNode {
@@ -112,6 +119,24 @@ export type PreviewSpec =
   | (SpecBase & {
       /** Iceberg — surface items above the waterline, the hidden mass below; center = the tip. */
       layout: 'iceberg';
+      center: PreviewNode;
+      satellites: PreviewNode[];
+    })
+  | (SpecBase & {
+      /** Animated bar chart — one bar per satellite, values drive heights; center = the subject chip. */
+      layout: 'bars';
+      center: PreviewNode;
+      satellites: PreviewNode[];
+    })
+  | (SpecBase & {
+      /** Trend line chart — satellites are points left→right, values drive the curve; center = the subject chip. */
+      layout: 'chart-line';
+      center: PreviewNode;
+      satellites: PreviewNode[];
+    })
+  | (SpecBase & {
+      /** Donut / parts-of-whole — satellites are segments, values drive shares; center sits in the hole. */
+      layout: 'donut';
       center: PreviewNode;
       satellites: PreviewNode[];
     });
@@ -1225,6 +1250,439 @@ function icebergGeo(
   };
 }
 
+// ---- chart layouts (bars / chart-line / donut) ---------------------------------
+//
+// The base chrome is STATIC (full bars, drawn curve, complete ring) — like the
+// pyramid bands or column panels — so PNG/thumbnail captures are always
+// readable and the SMIL accents loop seamlessly for GIF/MP4 export. All motion
+// lives in the mode accents (pulses / dots / beams / arrows).
+
+/** Font stack for SVG value text — inline so standalone rasterization keeps it. */
+const CHART_FONT = 'ui-sans-serif, system-ui, -apple-system, sans-serif';
+
+/** Structural ink used by the shape chrome throughout this file. */
+const CHART_INK = 'rgba(15,42,62,0.6)';
+
+/** Ordered categorical palette; `accent` leads, near-duplicates are skipped. */
+function chartPalette(accent: string): string[] {
+  const fixed = [
+    '#3b82f6',
+    '#8b5cf6',
+    '#ec4899',
+    '#f59e0b',
+    '#10b981',
+    '#0ea5e9',
+    '#ef4444',
+    '#14b8a6',
+  ];
+  const acc = accent.toLowerCase();
+  return [accent, ...fixed.filter((c) => c !== acc)];
+}
+
+/** First numeric token in a label ("$1.2M ARR" → 1.2, "45%" → 45), else null. */
+function valueFromLabel(label?: string): number | null {
+  const m = (label || '').match(/-?\d+(?:[.,]\d+)?/);
+  if (!m) return null;
+  const n = Number.parseFloat(m[0].replace(',', '.'));
+  return Number.isFinite(n) ? n : null;
+}
+
+/** Pleasing fallback series so charts render well before values are edited in. */
+const SYNTH_SERIES: Record<'bars' | 'chart-line' | 'donut', number[]> = {
+  bars: [62, 84, 45, 95, 58, 76, 50, 88],
+  'chart-line': [18, 30, 26, 44, 58, 52, 74, 92],
+  donut: [38, 26, 18, 11, 7, 5, 4, 3],
+};
+
+/** Resolve the numeric series for a chart's satellites (value → label → synth). */
+function chartSeries(
+  sats: PreviewNode[],
+  kind: 'bars' | 'chart-line' | 'donut'
+): number[] {
+  return sats.map((s, i) => {
+    if (typeof s.value === 'number' && Number.isFinite(s.value) && s.value >= 0)
+      return s.value;
+    const parsed = valueFromLabel(s.label);
+    if (parsed !== null && parsed > 0) return parsed;
+    return SYNTH_SERIES[kind][i % SYNTH_SERIES[kind].length];
+  });
+}
+
+/** "1200000" → "1.2M", "45.0" → "45"; prepends/appends the node's unit. */
+function fmtChartValue(v: number, unit?: string): string {
+  const abs = Math.abs(v);
+  let num: string;
+  if (abs >= 1_000_000)
+    num = `${(v / 1_000_000).toFixed(abs >= 10_000_000 ? 0 : 1).replace(/\.0$/, '')}M`;
+  else if (abs >= 10_000)
+    num = `${(v / 1000).toFixed(abs >= 100_000 ? 0 : 1).replace(/\.0$/, '')}k`;
+  else num = Number.isInteger(v) ? `${v}` : v.toFixed(1);
+  if (!unit) return num;
+  return /^[$€£]$/.test(unit) ? `${unit}${num}` : `${num}${unit}`;
+}
+
+/** Shared plot frame: tiles row along the bottom, subject chip top-left. */
+function chartFrame(d: Dims) {
+  const padEst = tilePad(d);
+  const labelSpace = d.labelSize > 0 ? d.labelSize + 10 : 4;
+  const tileRow = d.tileBase + padEst;
+  const ix = d.margin * 0.55;
+  const top = d.margin * 0.45;
+  const tileY = d.H - d.margin * 0.28 - labelSpace - tileRow / 2;
+  const baseY = tileY - tileRow / 2 - 10;
+  const valSize = Math.max(9, d.labelSize + 1);
+  const plotTop = top + d.tileLarge + valSize + 16;
+  return {
+    ix,
+    top,
+    tileY,
+    baseY,
+    valSize,
+    plotTop,
+    plotL: ix,
+    plotR: d.W - ix,
+  };
+}
+
+interface ChartValueLabel {
+  x: number;
+  y: number;
+  text: string;
+}
+
+interface BarsGeo {
+  tiles: PositionedTile[];
+  edges: Edge[];
+  bars: Array<{ x: number; y: number; w: number; h: number; color: string }>;
+  rx: number;
+  baseline: string;
+  gridYs: number[];
+  plotL: number;
+  plotR: number;
+  baseY: number;
+  valueLabels: ChartValueLabel[];
+  valSize: number;
+  /** Per-bar vertical spine (base → top) for beam/dot accents. */
+  spines: string[];
+  /** Polyline over the bar tops for the arrows accent. */
+  topPath: string;
+}
+
+function barsGeo(
+  spec: Extract<PreviewSpec, { layout: 'bars' }>,
+  d: Dims
+): BarsGeo {
+  const sats = spec.satellites.slice(0, 8);
+  const N = Math.max(sats.length, 1);
+  const f = chartFrame(d);
+  const values = chartSeries(sats, 'bars');
+  const vmax = Math.max(...values, 1);
+  const palette = chartPalette(spec.accent || '#ff5b8a');
+  const range = f.baseY - f.plotTop;
+  const step = (f.plotR - f.plotL) / N;
+  const barW = Math.min(step * 0.56, d.tileLarge * 1.3);
+
+  const tiles: PositionedTile[] = [
+    {
+      key: spec.center.key,
+      icon: spec.center.icon,
+      label: spec.center.label,
+      x: f.ix + d.tileLarge * 0.5,
+      y: f.top + d.tileLarge * 0.5,
+      size: d.tileLarge,
+      center: true,
+      flush: spec.center.flush,
+    },
+  ];
+  const bars: BarsGeo['bars'] = [];
+  const valueLabels: ChartValueLabel[] = [];
+  const spines: string[] = [];
+  const tops: Array<{ x: number; y: number }> = [];
+  sats.forEach((s, i) => {
+    const x = f.plotL + step * (i + 0.5);
+    const h = Math.max(range * 0.08, (values[i] / vmax) * range);
+    const y = f.baseY - h;
+    bars.push({
+      x: x - barW / 2,
+      y,
+      w: barW,
+      h,
+      color: palette[i % palette.length],
+    });
+    valueLabels.push({
+      x,
+      y: y - f.valSize * 0.55,
+      text: fmtChartValue(values[i], s.unit),
+    });
+    spines.push(`M ${x} ${f.baseY} L ${x} ${y}`);
+    tops.push({ x, y: y - f.valSize * 1.6 });
+    tiles.push({
+      key: s.key,
+      icon: s.icon,
+      label: s.label,
+      x,
+      y: f.tileY,
+      size: d.tileBase,
+      flush: s.flush,
+    });
+  });
+  const topPath = tops
+    .map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`)
+    .join(' ');
+  return {
+    tiles,
+    edges: [],
+    bars,
+    rx: Math.max(3, barW * 0.16),
+    baseline: `M ${f.plotL} ${f.baseY} L ${f.plotR} ${f.baseY}`,
+    gridYs: [0.25, 0.5, 0.75].map((t) => f.baseY - t * range),
+    plotL: f.plotL,
+    plotR: f.plotR,
+    baseY: f.baseY,
+    valueLabels,
+    valSize: f.valSize,
+    spines,
+    topPath,
+  };
+}
+
+interface ChartLineGeo {
+  tiles: PositionedTile[];
+  edges: Edge[];
+  linePath: string;
+  areaPath: string;
+  points: Array<{ x: number; y: number }>;
+  baseline: string;
+  gridYs: number[];
+  plotL: number;
+  plotR: number;
+  baseY: number;
+  valueLabels: ChartValueLabel[];
+  valSize: number;
+}
+
+function chartLineGeo(
+  spec: Extract<PreviewSpec, { layout: 'chart-line' }>,
+  d: Dims
+): ChartLineGeo {
+  const sats = spec.satellites.slice(0, 8);
+  const N = Math.max(sats.length, 1);
+  const f = chartFrame(d);
+  const values = chartSeries(sats, 'chart-line');
+  const vmax = Math.max(...values, 1);
+  const range = f.baseY - f.plotTop;
+  const step = (f.plotR - f.plotL) / N;
+
+  const tiles: PositionedTile[] = [
+    {
+      key: spec.center.key,
+      icon: spec.center.icon,
+      label: spec.center.label,
+      x: f.ix + d.tileLarge * 0.5,
+      y: f.top + d.tileLarge * 0.5,
+      size: d.tileLarge,
+      center: true,
+      flush: spec.center.flush,
+    },
+  ];
+  const points: Array<{ x: number; y: number }> = [];
+  const valueLabels: ChartValueLabel[] = [];
+  sats.forEach((s, i) => {
+    const x = f.plotL + step * (i + 0.5);
+    const y = f.baseY - Math.max(range * 0.06, (values[i] / vmax) * range);
+    points.push({ x, y });
+    valueLabels.push({
+      x,
+      y: y - f.valSize * 1.1,
+      text: fmtChartValue(values[i], s.unit),
+    });
+    tiles.push({
+      key: s.key,
+      icon: s.icon,
+      label: s.label,
+      x,
+      y: f.tileY,
+      size: d.tileBase,
+      flush: s.flush,
+    });
+  });
+
+  // Smooth Catmull-Rom → cubic-bezier curve through the points.
+  let linePath = '';
+  if (points.length === 1) {
+    linePath = `M ${points[0].x} ${points[0].y}`;
+  } else {
+    linePath = `M ${points[0].x} ${points[0].y}`;
+    for (let i = 0; i < points.length - 1; i++) {
+      const p0 = points[Math.max(0, i - 1)];
+      const p1 = points[i];
+      const p2 = points[i + 1];
+      const p3 = points[Math.min(points.length - 1, i + 2)];
+      const c1x = p1.x + (p2.x - p0.x) / 6;
+      const c1y = p1.y + (p2.y - p0.y) / 6;
+      const c2x = p2.x - (p3.x - p1.x) / 6;
+      const c2y = p2.y - (p3.y - p1.y) / 6;
+      linePath += ` C ${c1x.toFixed(1)} ${c1y.toFixed(1)}, ${c2x.toFixed(1)} ${c2y.toFixed(1)}, ${p2.x.toFixed(1)} ${p2.y.toFixed(1)}`;
+    }
+  }
+  const last = points[points.length - 1];
+  const first = points[0];
+  const areaPath = `${linePath} L ${last.x} ${f.baseY} L ${first.x} ${f.baseY} Z`;
+
+  return {
+    tiles,
+    edges: [],
+    linePath,
+    areaPath,
+    points,
+    baseline: `M ${f.plotL} ${f.baseY} L ${f.plotR} ${f.baseY}`,
+    gridYs: [0.25, 0.5, 0.75].map((t) => f.baseY - t * range),
+    plotL: f.plotL,
+    plotR: f.plotR,
+    baseY: f.baseY,
+    valueLabels,
+    valSize: f.valSize,
+  };
+}
+
+interface DonutGeo {
+  tiles: PositionedTile[];
+  edges: Edge[];
+  cx: number;
+  cy: number;
+  r: number;
+  thickness: number;
+  segments: Array<{
+    path: string;
+    color: string;
+    midAngle: number;
+    share: number;
+  }>;
+  /** Full ring circle path for orbiting mode accents. */
+  ringPath: string;
+  shareLabels: ChartValueLabel[];
+  valSize: number;
+}
+
+function donutGeo(
+  spec: Extract<PreviewSpec, { layout: 'donut' }>,
+  d: Dims
+): DonutGeo {
+  const sats = spec.satellites.slice(0, 6);
+  const values = chartSeries(sats, 'donut');
+  const total = values.reduce((a, b) => a + b, 0) || 1;
+  const palette = chartPalette(spec.accent || '#ff5b8a');
+  const padEst = tilePad(d);
+  const labelSpace = d.labelSize > 0 ? d.labelSize + 10 : 4;
+  const cx = d.W / 2;
+  const cy = (d.H - labelSpace * 0.6) / 2;
+  const thickness = Math.max(10, d.tileBase * 0.52);
+  // Ring sized so the satellite tiles (placed just outside it) stay in frame,
+  // including the top edge where tiles have no label but do have a shadow.
+  const tileReach = thickness / 2 + (d.tileBase + padEst) * 0.62 + 6;
+  const r = Math.max(
+    d.tileLarge * 1.05,
+    Math.min(d.W, d.H) / 2 - d.margin * 0.52 - tileReach
+  );
+  const valSize = Math.max(9, d.labelSize + 1);
+
+  const gap = 0.045; // radians between segments
+  const polar = (angle: number, radius: number) => ({
+    x: cx + Math.cos(angle) * radius,
+    y: cy + Math.sin(angle) * radius,
+  });
+
+  const tiles: PositionedTile[] = [
+    {
+      key: spec.center.key,
+      icon: spec.center.icon,
+      label: spec.center.label,
+      x: cx,
+      y: cy,
+      size: d.tileLarge,
+      center: true,
+      flush: spec.center.flush,
+    },
+  ];
+  const segments: DonutGeo['segments'] = [];
+  const shareLabels: ChartValueLabel[] = [];
+  let angle = -Math.PI / 2;
+  sats.forEach((s, i) => {
+    const share = values[i] / total;
+    const sweep = share * Math.PI * 2 - gap;
+    const a0 = angle + gap / 2;
+    const a1 = a0 + Math.max(sweep, 0.02);
+    const mid = (a0 + a1) / 2;
+    const s0 = polar(a0, r);
+    const s1 = polar(a1, r);
+    segments.push({
+      path: `M ${s0.x.toFixed(1)} ${s0.y.toFixed(1)} A ${r} ${r} 0 ${a1 - a0 > Math.PI ? 1 : 0} 1 ${s1.x.toFixed(1)} ${s1.y.toFixed(1)}`,
+      color: palette[i % palette.length],
+      midAngle: mid,
+      share,
+    });
+    // % on the band when the slice can fit it, otherwise skip (the tile's
+    // label still names the slice).
+    if (share >= 0.07) {
+      const p = polar(mid, r);
+      // Fixed precision: trig can differ in the last ulp between server and
+      // client, which would trip hydration on SSR-rendered previews.
+      shareLabels.push({
+        x: Number(p.x.toFixed(2)),
+        y: Number(p.y.toFixed(2)),
+        text:
+          s.unit === '%'
+            ? fmtChartValue(values[i], '%')
+            : `${Math.round(share * 100)}%`,
+      });
+    }
+    angle = a0 + share * Math.PI * 2 - gap / 2;
+  });
+
+  // Place the satellite tiles at their segment mid-angles, then relax
+  // neighbours apart so tiny adjacent slices (3%, 5%…) don't stack their
+  // callout tiles on top of each other.
+  const tileR = r + tileReach;
+  const minSep =
+    2 * Math.asin(Math.min(0.95, ((d.tileBase + tilePad(d)) * 0.6) / tileR));
+  const tileAngles = segments.map((seg) => seg.midAngle);
+  for (let pass = 0; pass < 3; pass++) {
+    for (let i = 1; i < tileAngles.length; i++) {
+      const delta = tileAngles[i] - tileAngles[i - 1];
+      if (delta < minSep) {
+        const push = (minSep - delta) / 2;
+        tileAngles[i - 1] -= push;
+        tileAngles[i] += push;
+      }
+    }
+  }
+  sats.forEach((s, i) => {
+    const tp = polar(tileAngles[i], tileR);
+    tiles.push({
+      key: s.key,
+      icon: s.icon,
+      label: s.label,
+      x: tp.x,
+      y: tp.y,
+      size: d.tileBase,
+      flush: s.flush,
+    });
+  });
+
+  return {
+    tiles,
+    edges: [],
+    cx,
+    cy,
+    r,
+    thickness,
+    segments,
+    ringPath: `M ${cx + r} ${cy} A ${r} ${r} 0 1 1 ${cx - r} ${cy} A ${r} ${r} 0 1 1 ${cx + r} ${cy}`,
+    shareLabels,
+    valSize,
+  };
+}
+
 function computeLayout(spec: PreviewSpec, d: Dims) {
   switch (spec.layout) {
     case 'hub-lr':
@@ -1265,6 +1723,18 @@ function computeLayout(spec: PreviewSpec, d: Dims) {
     }
     case 'iceberg': {
       const { tiles, edges } = icebergGeo(spec, d);
+      return { tiles, edges };
+    }
+    case 'bars': {
+      const { tiles, edges } = barsGeo(spec, d);
+      return { tiles, edges };
+    }
+    case 'chart-line': {
+      const { tiles, edges } = chartLineGeo(spec, d);
+      return { tiles, edges };
+    }
+    case 'donut': {
+      const { tiles, edges } = donutGeo(spec, d);
       return { tiles, edges };
     }
   }
@@ -1355,6 +1825,9 @@ export function AnimatedPreview(props: PreviewSpec & AnimatedPreviewProps) {
   const colsG = spec.layout === 'columns' ? columnsGeo(spec, dims) : null;
   const tlG = spec.layout === 'timeline' ? timelineGeo(spec, dims) : null;
   const bergG = spec.layout === 'iceberg' ? icebergGeo(spec, dims) : null;
+  const barsG = spec.layout === 'bars' ? barsGeo(spec, dims) : null;
+  const lineG = spec.layout === 'chart-line' ? chartLineGeo(spec, dims) : null;
+  const donutG = spec.layout === 'donut' ? donutGeo(spec, dims) : null;
 
   // Apply position overrides on top of computed layout
   const tiles = layout.tiles.map((t) => {
@@ -1415,6 +1888,10 @@ export function AnimatedPreview(props: PreviewSpec & AnimatedPreviewProps) {
   return (
     <div
       ref={containerRef}
+      // Flags the diagram's own backdrop for the export pipeline: transparent
+      // PNG/SVG exports temporarily clear inline backgrounds carrying this
+      // attribute (see stripExportBackgrounds in use-export).
+      data-export-bg
       className={
         variant === 'canvas'
           ? 'relative w-full h-full overflow-hidden rounded-xl select-none'
@@ -1462,6 +1939,18 @@ export function AnimatedPreview(props: PreviewSpec & AnimatedPreviewProps) {
             >
               <stop offset="0%" stopColor="rgba(15,42,62,0.03)" />
               <stop offset="100%" stopColor="rgba(15,42,62,0.075)" />
+            </linearGradient>
+          )}
+          {lineG && (
+            <linearGradient
+              id={`${gradId}-areafill`}
+              x1="0"
+              y1="0"
+              x2="0"
+              y2="1"
+            >
+              <stop offset="0%" stopColor={accent} stopOpacity="0.22" />
+              <stop offset="100%" stopColor={accent} stopOpacity="0.02" />
             </linearGradient>
           )}
           {quadG && (
@@ -2698,6 +3187,400 @@ export function AnimatedPreview(props: PreviewSpec & AnimatedPreviewProps) {
                         repeatCount="indefinite"
                         rotate="auto"
                         path={r}
+                      />
+                    </path>
+                  ))}
+              </g>
+            );
+          })()}
+
+        {/* bars: static bar chart + looping mode accents */}
+        {barsG &&
+          (() => {
+            const dotR = variant === 'canvas' ? 5 : 3.2;
+            const s = variant === 'canvas' ? 1.8 : 1;
+            const structW = variant === 'canvas' ? 1.6 : 1.1;
+            return (
+              <g>
+                {barsG.gridYs.map((gy, i) => (
+                  <path
+                    key={`bgrid-${i}`}
+                    d={`M ${barsG.plotL} ${gy} L ${barsG.plotR} ${gy}`}
+                    fill="none"
+                    stroke="rgba(15,42,62,0.08)"
+                    strokeWidth={structW * 0.8}
+                    strokeDasharray={variant === 'canvas' ? '5 7' : '3 4'}
+                  />
+                ))}
+                {barsG.bars.map((b, i) => (
+                  <rect
+                    key={`bar-${i}`}
+                    x={b.x}
+                    y={b.y}
+                    width={b.w}
+                    height={b.h}
+                    rx={barsG.rx}
+                    fill={b.color}
+                    fillOpacity={0.9}
+                  >
+                    {mode === 'pulses' && (
+                      <animate
+                        attributeName="fill-opacity"
+                        values="0.9;0.55;0.9"
+                        dur={sm(2.6)}
+                        begin={`${i * 0.28}s`}
+                        repeatCount="indefinite"
+                      />
+                    )}
+                  </rect>
+                ))}
+                <path
+                  d={barsG.baseline}
+                  fill="none"
+                  stroke="rgba(15,42,62,0.3)"
+                  strokeWidth={structW * 1.2}
+                  strokeLinecap="round"
+                />
+                {barsG.valueLabels.map((v, i) => (
+                  <text
+                    key={`bval-${i}`}
+                    x={v.x}
+                    y={v.y}
+                    textAnchor="middle"
+                    fontSize={barsG.valSize}
+                    fontWeight={700}
+                    fill="rgba(15,42,62,0.8)"
+                    stroke="#ffffff"
+                    strokeWidth={3}
+                    paintOrder="stroke"
+                    fontFamily={CHART_FONT}
+                  >
+                    {v.text}
+                    {mode === 'pulses' && (
+                      <animate
+                        attributeName="y"
+                        values={`${v.y};${v.y - 3};${v.y}`}
+                        dur={sm(2.6)}
+                        begin={`${i * 0.28}s`}
+                        repeatCount="indefinite"
+                      />
+                    )}
+                  </text>
+                ))}
+                {mode === 'beams' &&
+                  barsG.spines.map((sp, i) => (
+                    <path
+                      key={`bbeam-${i}`}
+                      d={sp}
+                      pathLength={100}
+                      stroke={`url(#${gradId}-glow)`}
+                      strokeWidth={variant === 'canvas' ? 5 : 3.5}
+                      strokeLinecap="round"
+                      strokeDasharray="40 60"
+                      fill="none"
+                    >
+                      <animate
+                        attributeName="stroke-dashoffset"
+                        from={100}
+                        to={0}
+                        dur={sm(2.4)}
+                        begin={`${i * 0.35}s`}
+                        repeatCount="indefinite"
+                      />
+                    </path>
+                  ))}
+                {mode === 'dots' &&
+                  [0, 0.9, 1.8].map((off) => (
+                    <circle key={`bdot-${off}`} r={dotR} fill={accent}>
+                      <animateMotion
+                        dur={sm(2.8)}
+                        begin={`${off}s`}
+                        repeatCount="indefinite"
+                        path={barsG.baseline}
+                      />
+                    </circle>
+                  ))}
+                {mode === 'arrows' &&
+                  [0, 1.5].map((off) => (
+                    <path
+                      key={`barr-${off}`}
+                      d={`M ${-5 * s},${-3 * s} L ${5 * s},0 L ${-5 * s},${3 * s} Z`}
+                      fill={accent}
+                    >
+                      <animateMotion
+                        dur={sm(3)}
+                        begin={`${off}s`}
+                        repeatCount="indefinite"
+                        rotate="auto"
+                        path={barsG.topPath}
+                      />
+                    </path>
+                  ))}
+              </g>
+            );
+          })()}
+
+        {/* chart-line: static area + curve + looping mode accents */}
+        {lineG &&
+          (() => {
+            const dotR = variant === 'canvas' ? 5 : 3.2;
+            const s = variant === 'canvas' ? 1.8 : 1;
+            const structW = variant === 'canvas' ? 1.6 : 1.1;
+            const curveW = variant === 'canvas' ? 3.5 : 2.2;
+            const ptR = variant === 'canvas' ? 5.5 : 3.6;
+            return (
+              <g>
+                {lineG.gridYs.map((gy, i) => (
+                  <path
+                    key={`lgrid-${i}`}
+                    d={`M ${lineG.plotL} ${gy} L ${lineG.plotR} ${gy}`}
+                    fill="none"
+                    stroke="rgba(15,42,62,0.08)"
+                    strokeWidth={structW * 0.8}
+                    strokeDasharray={variant === 'canvas' ? '5 7' : '3 4'}
+                  />
+                ))}
+                <path d={lineG.areaPath} fill={`url(#${gradId}-areafill)`} />
+                <path
+                  d={lineG.linePath}
+                  fill="none"
+                  stroke={accent}
+                  strokeWidth={curveW}
+                  strokeLinecap="round"
+                />
+                <path
+                  d={lineG.baseline}
+                  fill="none"
+                  stroke="rgba(15,42,62,0.3)"
+                  strokeWidth={structW * 1.2}
+                  strokeLinecap="round"
+                />
+                {lineG.points.map((p, i) => (
+                  <circle
+                    key={`lpt-${i}`}
+                    cx={p.x}
+                    cy={p.y}
+                    r={ptR}
+                    fill="#ffffff"
+                    stroke={accent}
+                    strokeWidth={variant === 'canvas' ? 2.5 : 1.8}
+                  />
+                ))}
+                {lineG.valueLabels.map((v, i) => (
+                  <text
+                    key={`lval-${i}`}
+                    x={v.x}
+                    y={v.y}
+                    textAnchor="middle"
+                    fontSize={lineG.valSize}
+                    fontWeight={700}
+                    fill="rgba(15,42,62,0.8)"
+                    stroke="#ffffff"
+                    strokeWidth={3}
+                    paintOrder="stroke"
+                    fontFamily={CHART_FONT}
+                  >
+                    {v.text}
+                  </text>
+                ))}
+                {mode === 'beams' && (
+                  <path
+                    d={lineG.linePath}
+                    pathLength={100}
+                    stroke={`url(#${gradId}-glow)`}
+                    strokeWidth={curveW * 2}
+                    strokeLinecap="round"
+                    strokeDasharray="30 70"
+                    fill="none"
+                  >
+                    <animate
+                      attributeName="stroke-dashoffset"
+                      from={100}
+                      to={0}
+                      dur={sm(3)}
+                      repeatCount="indefinite"
+                    />
+                  </path>
+                )}
+                {mode === 'dots' &&
+                  [0, 1, 2].map((off) => (
+                    <circle key={`ldot-${off}`} r={dotR} fill={accent}>
+                      <animateMotion
+                        dur={sm(3)}
+                        begin={`${off}s`}
+                        repeatCount="indefinite"
+                        path={lineG.linePath}
+                      />
+                    </circle>
+                  ))}
+                {mode === 'pulses' &&
+                  lineG.points.map((p, i) => (
+                    <circle
+                      key={`lpu-${i}`}
+                      cx={p.x}
+                      cy={p.y}
+                      r={0}
+                      fill="none"
+                      stroke={accent}
+                      strokeWidth={variant === 'canvas' ? 2 : 1.5}
+                      opacity={0}
+                    >
+                      <animate
+                        attributeName="r"
+                        values={`${ptR};${ptR * (variant === 'canvas' ? 3.2 : 2.6)}`}
+                        dur={sm(2.6)}
+                        begin={`${i * 0.3}s`}
+                        repeatCount="indefinite"
+                      />
+                      <animate
+                        attributeName="opacity"
+                        values="0;0.7;0"
+                        dur={sm(2.6)}
+                        begin={`${i * 0.3}s`}
+                        repeatCount="indefinite"
+                      />
+                    </circle>
+                  ))}
+                {mode === 'arrows' &&
+                  [0, 1.4].map((off) => (
+                    <path
+                      key={`larr-${off}`}
+                      d={`M ${-5 * s},${-3 * s} L ${5 * s},0 L ${-5 * s},${3 * s} Z`}
+                      fill={accent}
+                    >
+                      <animateMotion
+                        dur={sm(2.8)}
+                        begin={`${off}s`}
+                        repeatCount="indefinite"
+                        rotate="auto"
+                        path={lineG.linePath}
+                      />
+                    </path>
+                  ))}
+              </g>
+            );
+          })()}
+
+        {/* donut: static ring segments + looping mode accents */}
+        {donutG &&
+          (() => {
+            const dotR = variant === 'canvas' ? 5 : 3.2;
+            const s = variant === 'canvas' ? 1.8 : 1;
+            return (
+              <g>
+                {donutG.segments.map((seg, i) => (
+                  <path
+                    key={`dseg-${i}`}
+                    d={seg.path}
+                    fill="none"
+                    stroke={seg.color}
+                    strokeWidth={donutG.thickness}
+                    strokeLinecap="butt"
+                  >
+                    {mode === 'pulses' && (
+                      <animate
+                        attributeName="stroke-width"
+                        values={`${donutG.thickness};${donutG.thickness * 1.22};${donutG.thickness}`}
+                        dur={sm(2.8)}
+                        begin={`${i * 0.35}s`}
+                        repeatCount="indefinite"
+                      />
+                    )}
+                  </path>
+                ))}
+                {donutG.shareLabels.map((v, i) => (
+                  <text
+                    key={`dval-${i}`}
+                    x={v.x}
+                    y={v.y}
+                    textAnchor="middle"
+                    dominantBaseline="central"
+                    fontSize={donutG.valSize}
+                    fontWeight={700}
+                    fill="#ffffff"
+                    fontFamily={CHART_FONT}
+                  >
+                    {v.text}
+                  </text>
+                ))}
+                {mode === 'beams' && (
+                  <circle
+                    cx={donutG.cx}
+                    cy={donutG.cy}
+                    r={donutG.r}
+                    pathLength={100}
+                    fill="none"
+                    stroke="#ffffff"
+                    strokeOpacity={0.5}
+                    strokeWidth={donutG.thickness * 0.5}
+                    strokeLinecap="round"
+                    strokeDasharray="18 82"
+                  >
+                    <animate
+                      attributeName="stroke-dashoffset"
+                      from={0}
+                      to={-100}
+                      dur={sm(3.2)}
+                      repeatCount="indefinite"
+                    />
+                  </circle>
+                )}
+                {mode === 'dots' &&
+                  [0, 1.6].map((off) => (
+                    <circle
+                      key={`ddot-${off}`}
+                      r={dotR}
+                      fill="#ffffff"
+                      stroke={accent}
+                      strokeWidth={1.5}
+                    >
+                      <animateMotion
+                        dur={sm(3.2)}
+                        begin={`${off}s`}
+                        repeatCount="indefinite"
+                        path={donutG.ringPath}
+                      />
+                    </circle>
+                  ))}
+                {mode === 'pulses' && (
+                  <circle
+                    cx={donutG.cx}
+                    cy={donutG.cy}
+                    r={0}
+                    fill="none"
+                    stroke={accent}
+                    strokeWidth={variant === 'canvas' ? 2 : 1.5}
+                    opacity={0}
+                  >
+                    <animate
+                      attributeName="r"
+                      values={`${dims.tileLarge * 0.6};${donutG.r - donutG.thickness * 0.7}`}
+                      dur={sm(2.8)}
+                      begin="0.5s"
+                      repeatCount="indefinite"
+                    />
+                    <animate
+                      attributeName="opacity"
+                      values="0;0.45;0"
+                      dur={sm(2.8)}
+                      begin="0.5s"
+                      repeatCount="indefinite"
+                    />
+                  </circle>
+                )}
+                {mode === 'arrows' &&
+                  [0, 1.6].map((off) => (
+                    <path
+                      key={`darr-${off}`}
+                      d={`M ${-5 * s},${-3 * s} L ${5 * s},0 L ${-5 * s},${3 * s} Z`}
+                      fill={accent}
+                    >
+                      <animateMotion
+                        dur={sm(3.2)}
+                        begin={`${off}s`}
+                        repeatCount="indefinite"
+                        rotate="auto"
+                        path={donutG.ringPath}
                       />
                     </path>
                   ))}

@@ -116,6 +116,8 @@ export function derivePreviewSpec(
       svgIcon: sv.node,
       letter: sv.letter,
       tint: sv.tint,
+      value: s.value,
+      unit: s.unit,
     };
   });
 
@@ -179,7 +181,10 @@ export function derivePreviewSpec(
     layout === 'quadrant' ||
     layout === 'columns' ||
     layout === 'timeline' ||
-    layout === 'iceberg'
+    layout === 'iceberg' ||
+    layout === 'bars' ||
+    layout === 'chart-line' ||
+    layout === 'donut'
   ) {
     return {
       layout,

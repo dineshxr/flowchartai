@@ -56,6 +56,9 @@ const DESCS: Record<string, string> = {
   'ai-tool-ecosystem-orbit': 'Models & tools revolving around your stack',
   'saas-integration-orbit': 'Slack, Stripe & friends orbiting your product',
   'social-media-ecosystem-orbit': 'Every channel circling your brand',
+  'github-stars-growth-chart': 'The up-and-to-the-right chart, animated',
+  'quarterly-results-bar-chart': 'Value-driven bars with a living pulse',
+  'browser-market-share-donut': 'Who owns the market, slice by slice',
 };
 
 function build(slug: string, size: Size): ShowcaseItem | null {
@@ -87,11 +90,14 @@ export const showcaseHeroes: ShowcaseItem[] = compact([
 export const showcaseGallery: ShowcaseItem[] = compact([
   build('aws-cloud-architecture-diagram', 'wide'),
   build('ai-tool-ecosystem-orbit', 'square'),
+  build('github-stars-growth-chart', 'wide'),
   build('supply-chain-diagram', 'wide'),
   build('ai-agent-architecture-diagram', 'square'),
+  build('quarterly-results-bar-chart', 'wide'),
   build('microservices-architecture-diagram', 'wide'),
   build('kubernetes-architecture-diagram', 'square'),
   build('org-chart-template', 'tall'),
+  build('browser-market-share-donut', 'square'),
   build('saas-integration-orbit', 'wide'),
   build('zero-trust-architecture-diagram', 'square'),
   build('ci-cd-pipeline-diagram', 'wide'),

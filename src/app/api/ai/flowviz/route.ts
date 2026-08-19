@@ -71,7 +71,7 @@ export async function POST(req: Request) {
 REQUIREMENTS
 - Choose EXACTLY 5 to 7 satellites — never more than 7 — so the diagram stays readable and well spaced. Pick the most important, distinct components; no duplicates, no filler.
 - center.label: the single core entity of the topic, 1-3 words.
-- Each satellites[].label: 1-3 words, at most 20 characters. When one specific real product/tool is the obvious choice, use its brand name (e.g. Stripe, PostgreSQL, OpenAI, Slack, Shopify, GitHub, Notion, WhatsApp, Instagram) so its logo can be shown; otherwise use a short plain noun (Auth, Analytics, Payments, Search, Database).
+- Each satellites[].label: 1-3 words, at most 20 characters. When one specific real product/tool is the obvious choice, use its EXACT official name (e.g. Stripe, PostgreSQL, OpenAI, Slack, Shopify, GitHub, Notion, WhatsApp, Next.js, Supabase, Kubernetes, Figma) — real brand logos are rendered automatically for 600+ products when the label matches the official name; otherwise use a short plain noun (Auth, Analytics, Payments, Search, Database).
 - icon: ONE lowercase keyword describing the node, chosen ONLY from this set: bot, database, cloud, web, chat, drive, mobile, mail, search, process, automation, social, payment, analytics, security, api, code, storage. Pick the closest match.
 - Order the satellites in a logical sequence (by flow or importance).
 

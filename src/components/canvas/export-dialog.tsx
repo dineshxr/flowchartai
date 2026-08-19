@@ -19,6 +19,7 @@ import { cn } from '@/lib/utils';
 import {
   Check,
   Download,
+  FileCode2,
   FileImage,
   Film,
   ImageOff,
@@ -26,9 +27,9 @@ import {
   Sparkles,
   Video,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
-export type ExportFormat = 'gif' | 'mp4' | 'png';
+export type ExportFormat = 'gif' | 'mp4' | 'png' | 'svg';
 
 /**
  * What each format is and who it's for. Shown in the modal so the user isn't
@@ -67,12 +68,19 @@ export const EXPORT_FORMATS: Record<
     icon: FileImage,
     animated: false,
   },
+  svg: {
+    label: 'SVG snapshot',
+    short: 'SVG',
+    blurb: 'A high-resolution frame wrapped as SVG — drops into Figma & docs.',
+    icon: FileCode2,
+    animated: false,
+  },
 };
 
 /** Human-readable dimensions for a preset, or a note for pass-through sizing. */
-function presetDims(preset: ExportPreset): string {
+function presetDims(preset: ExportPreset, scale = 1): string {
   const p = EXPORT_PRESETS[preset];
-  return p.w && p.h ? `${p.w} × ${p.h}` : 'Matches the canvas';
+  return p.w && p.h ? `${p.w * scale} × ${p.h * scale}` : 'Matches the canvas';
 }
 
 /** Short chip label — "1:1 Square (1080×1080)" → "1:1 Square". */
@@ -103,6 +111,10 @@ export function ExportDialog({
   format,
   preset,
   onPresetChange,
+  scale,
+  onScaleChange,
+  transparent,
+  onTransparentChange,
   plan,
   isExporting,
   exportProgress,
@@ -117,6 +129,12 @@ export function ExportDialog({
   format: ExportFormat;
   preset: ExportPreset;
   onPresetChange: (preset: ExportPreset) => void;
+  /** Output resolution multiplier (1 = standard, 2 = HD; HD is plan-gated). */
+  scale: number;
+  onScaleChange: (scale: number) => void;
+  /** Transparent background — offered for PNG/SVG only. */
+  transparent: boolean;
+  onTransparentChange: (transparent: boolean) => void;
   plan: PlanId;
   isExporting: boolean;
   exportProgress: number;
@@ -130,12 +148,24 @@ export function ExportDialog({
 }) {
   const [yearly, setYearly] = useState(false);
   const [checkingOut, setCheckingOut] = useState(false);
+  // A free user tapped the locked HD chip — call HD out in the upgrade pitch.
+  // Reset when the dialog closes so the next open starts on the watermark line.
+  const [hdNudge, setHdNudge] = useState(false);
+  useEffect(() => {
+    if (!open) setHdNudge(false);
+  }, [open]);
 
   const meta = EXPORT_FORMATS[format];
   const Icon = meta.icon;
   const watermarked = PLAN_BY_ID[plan].limits.watermark;
+  const hdLocked = !PLAN_BY_ID[plan].limits.hdExport;
   const pro = PLAN_BY_ID.pro;
   const price = yearly ? pro.priceYearlyMonthly : pro.priceMonthly;
+  // GIFs always export at 1× (a 4K GIF is a payload nobody wants); PNG/SVG are
+  // the only formats where a transparent backdrop makes sense.
+  const supportsHd = format !== 'gif';
+  const supportsTransparent = format === 'png' || format === 'svg';
+  const effectiveScale = supportsHd && !hdLocked ? scale : 1;
 
   const onUpgrade = async () => {
     setCheckingOut(true);
@@ -204,9 +234,82 @@ export function ExportDialog({
             })}
           </div>
           <div className="mt-2 text-xs tabular-nums text-muted-foreground">
-            {presetDims(preset)}
+            {presetDims(preset, effectiveScale)}
           </div>
         </div>
+
+        {/* ── Quality / background ─────────────────────────────────────── */}
+        {supportsHd || supportsTransparent ? (
+          <div className="mt-2">
+            {supportsHd ? (
+              <>
+                <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  Quality
+                </div>
+                <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                  <button
+                    type="button"
+                    disabled={isExporting}
+                    onClick={() => onScaleChange(1)}
+                    className={cn(
+                      'rounded-full border px-3 py-1.5 text-xs font-medium transition-[color,background-color,border-color,transform] duration-150 ease-out active:scale-[0.97] disabled:opacity-50',
+                      effectiveScale === 1
+                        ? 'border-foreground bg-foreground text-background'
+                        : 'border-border bg-background text-foreground/70 hover:border-foreground/40 hover:text-foreground'
+                    )}
+                  >
+                    Standard
+                  </button>
+                  <button
+                    type="button"
+                    disabled={isExporting}
+                    aria-disabled={hdLocked}
+                    title={
+                      hdLocked
+                        ? 'HD 2× export is a Pro feature'
+                        : 'Double the output resolution'
+                    }
+                    onClick={() =>
+                      hdLocked ? setHdNudge(true) : onScaleChange(2)
+                    }
+                    className={cn(
+                      'flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-[color,background-color,border-color,transform] duration-150 ease-out active:scale-[0.97] disabled:opacity-50',
+                      effectiveScale === 2
+                        ? 'border-foreground bg-foreground text-background'
+                        : hdLocked
+                          ? 'border-border bg-background text-foreground/40'
+                          : 'border-border bg-background text-foreground/70 hover:border-foreground/40 hover:text-foreground'
+                    )}
+                  >
+                    HD 2×
+                    {hdLocked ? (
+                      <span className="ig-gradient rounded-full px-1.5 py-px text-[9px] font-bold uppercase tracking-wide text-white">
+                        Pro
+                      </span>
+                    ) : null}
+                  </button>
+                </div>
+              </>
+            ) : null}
+
+            {supportsTransparent ? (
+              <button
+                type="button"
+                disabled={isExporting}
+                onClick={() => onTransparentChange(!transparent)}
+                className={cn(
+                  'mt-2 flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium transition-[color,background-color,border-color,transform] duration-150 ease-out active:scale-[0.97] disabled:opacity-50',
+                  transparent
+                    ? 'border-foreground bg-foreground text-background'
+                    : 'border-border bg-background text-foreground/70 hover:border-foreground/40 hover:text-foreground'
+                )}
+              >
+                {transparent ? <Check className="h-3.5 w-3.5" /> : null}
+                Transparent background
+              </button>
+            ) : null}
+          </div>
+        ) : null}
 
         {/* ── Watermark / upgrade ──────────────────────────────────────── */}
         {watermarked ? (
@@ -215,10 +318,14 @@ export function ExportDialog({
               <ImageOff className="mt-0.5 h-4 w-4 shrink-0 text-foreground/70" />
               <div className="min-w-0">
                 <div className="text-sm font-semibold text-foreground">
-                  This export will carry the Infogiph watermark
+                  {hdNudge
+                    ? 'HD 2× export is a Pro feature'
+                    : 'This export will carry the Infogiph watermark'}
                 </div>
                 <div className="mt-0.5 text-xs text-muted-foreground">
-                  Pro removes it from every export and gives you{' '}
+                  {hdNudge
+                    ? 'Pro unlocks 4K-class exports, removes the watermark from every download, and gives you '
+                    : 'Pro removes it from every export, unlocks HD 2×, and gives you '}
                   {pro.limits.aiGenerations} AI generations a month instead of
                   the {PLAN_BY_ID.free.limits.aiGenerations} you get free.
                 </div>
@@ -263,7 +370,9 @@ export function ExportDialog({
                 ) : (
                   <>
                     <Sparkles className="h-3.5 w-3.5" />
-                    Remove watermark — ${price}/mo
+                    {hdNudge
+                      ? `Unlock HD — $${price}/mo`
+                      : `Remove watermark — $${price}/mo`}
                   </>
                 )}
               </Button>

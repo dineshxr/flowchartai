@@ -144,6 +144,15 @@ export const categories: CategoryMeta[] = [
       'Healthcare and life sciences diagram templates — patient journeys, clinical workflows, telehealth architectures, and EHR systems to document care and operations.',
     accent: '#e11d48',
   },
+  {
+    key: 'charts',
+    name: 'Charts & Data Visualization',
+    label: 'Charts & Data',
+    tagline: 'Animated bar, line, and donut charts.',
+    description:
+      'Animated chart templates — bar charts, trend lines, donut and share-of-total charts with editable values, labels and real brand logos. Turn metrics into shareable animated visuals and export them as GIF or MP4.',
+    accent: '#f43f5e',
+  },
 ];
 
 const categoryByKey = new Map(categories.map((c) => [c.key, c]));
@@ -181,7 +190,12 @@ function toDiagramData(raw: RawTemplate): DiagramData {
   }
   return {
     center: { label: raw.centerLabel, icon: raw.centerIcon },
-    satellites: raw.satellites.map((s) => ({ label: s.label, icon: s.icon })),
+    satellites: raw.satellites.map((s) => ({
+      label: s.label,
+      icon: s.icon,
+      value: s.value,
+      unit: s.unit,
+    })),
   };
 }
 

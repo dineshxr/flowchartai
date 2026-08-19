@@ -81,9 +81,9 @@ export const VISUAL_CATEGORIES: VisualCategory[] = [
     label: 'Data',
     tagline: 'Quantitative or structured metrics.',
     structure:
-      'The measurable facts: metrics, quantities, capabilities or attributes stated in the text. Put the number/value in the label when present (e.g. "200 partners").',
-    layout: 'radial',
-    variants: ['radial', 'columns', 'quadrant', 'hub-lr'],
+      'The measurable facts: metrics, quantities or attributes stated in the text. Put each number in the satellite\'s `value` field (plain number) with its `unit` ("%", "$", "k", "users"…), keeping the label short (e.g. label "Partners", value 200). Comparable magnitudes → bars; a series over time → chart-line; shares of a whole → donut.',
+    layout: 'bars',
+    variants: ['bars', 'donut', 'chart-line', 'radial', 'columns', 'quadrant'],
     mode: 'pulses',
     accent: '#14b8a6',
   },
@@ -94,7 +94,7 @@ export const VISUAL_CATEGORIES: VisualCategory[] = [
     structure:
       'Chronological milestones IN ORDER (dates, releases, phases). Satellites must be ordered earliest → latest.',
     layout: 'timeline',
-    variants: ['timeline', 'pipeline', 'steps', 'cycle'],
+    variants: ['timeline', 'pipeline', 'steps', 'cycle', 'chart-line'],
     mode: 'arrows',
     accent: '#0ea5e9',
   },
@@ -105,7 +105,7 @@ export const VISUAL_CATEGORIES: VisualCategory[] = [
     structure:
       'Two things being contrasted. Use an EVEN satellite count: the first half describes side A, the second half describes side B, in matching order. Center names the comparison axis.',
     layout: 'hub-lr',
-    variants: ['hub-lr', 'columns', 'quadrant'],
+    variants: ['hub-lr', 'columns', 'quadrant', 'bars'],
     mode: 'beams',
     accent: '#f59e0b',
   },
@@ -234,6 +234,9 @@ export const VARIANT_MODE: Partial<Record<TemplateLayout, TemplateMode>> = {
   quadrant: 'pulses',
   columns: 'beams',
   iceberg: 'pulses',
+  bars: 'pulses',
+  'chart-line': 'beams',
+  donut: 'pulses',
 };
 
 /** Effective mode for a suggestion rendered in `layout`. */
@@ -258,6 +261,12 @@ export function isLayoutEligible(layout: TemplateLayout, n: number): boolean {
     case 'funnel':
     case 'steps':
       return n >= 3 && n <= 6;
+    case 'bars':
+      return n >= 2 && n <= 8;
+    case 'chart-line':
+      return n >= 3 && n <= 8;
+    case 'donut':
+      return n >= 2 && n <= 6;
     default:
       return true;
   }
@@ -327,6 +336,10 @@ export interface VisualSuggestionChild {
 export interface VisualSuggestionNode {
   label: string;
   icon: string;
+  /** Numeric magnitude for chart layouts (bars / chart-line / donut). */
+  value?: number;
+  /** Display unit for `value` — "%", "$", "k", "users"… */
+  unit?: string;
   /** Only present for tree categories (hierarchy, business frameworks). */
   children?: VisualSuggestionChild[];
 }
@@ -378,6 +391,8 @@ export function suggestionToDiagramData(s: VisualSuggestion): DiagramData {
     satellites: s.satellites.map((sat) => ({
       label: sat.label,
       icon: sat.icon,
+      value: sat.value,
+      unit: sat.unit,
     })),
   };
 }

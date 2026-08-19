@@ -1,12 +1,12 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // Plan model — the single source of truth for the pricing page AND feature
-// gating (AI credits, watermark).
+// gating (AI credits, watermark, HD exports).
 //
-// The paid tiers differ from free on exactly two axes: exports carry no
-// watermark, and you get more AI generations. Export format, size and quality
-// are identical on every plan — there are deliberately no resolution tiers to
-// choose from, because a resolution picker made the export flow confusing and
-// gated the wrong thing.
+// The paid tiers differ from free on three axes: exports carry no watermark,
+// HD (2×, 4K-class) exports are unlocked, and you get more AI generations.
+// Formats and size presets stay identical on every plan — the quality gate is
+// a single Standard/HD choice inside the export dialog, not a confusing
+// resolution matrix.
 //
 // Price IDs are resolved from env at request time (see src/lib/stripe/prices.ts),
 // not from this file.
@@ -24,6 +24,8 @@ export interface PlanLimits {
   exports: number | 'unlimited';
   /** Whether exports carry the "infogiph.com" watermark. */
   watermark: boolean;
+  /** Whether HD (2× / 4K-class) export resolution is unlocked. */
+  hdExport: boolean;
 }
 
 export interface Plan {
@@ -58,12 +60,13 @@ export const PLANS: Plan[] = [
       aiPeriod: 'lifetime',
       exports: 'unlimited',
       watermark: true,
+      hdExport: false,
     },
     features: [
       '5 AI generations (lifetime)',
       'Unlimited exports',
-      'All 98 templates & the full editor',
-      'GIF, MP4 & static image export',
+      'All 106 templates & the full editor',
+      'GIF, MP4, PNG & SVG export (1080p-class)',
       'Infogiph watermark on exports',
     ],
   },
@@ -81,12 +84,13 @@ export const PLANS: Plan[] = [
       aiPeriod: 'month',
       exports: 'unlimited',
       watermark: false,
+      hdExport: true,
     },
     features: [
       'No watermark on any export',
+      'HD 2× exports (4K-class MP4 & PNG)',
       '500 AI generations / month',
       'Unlimited exports',
-      'GIF, MP4 & static image export',
       'Priority AI generation',
       'Commercial usage license',
     ],
@@ -104,6 +108,7 @@ export const PLANS: Plan[] = [
       aiPeriod: 'month',
       exports: 'unlimited',
       watermark: false,
+      hdExport: true,
     },
     features: [
       'Unlimited AI generations',
@@ -140,6 +145,11 @@ export const UPGRADE_VALUE_PROPS: {
     icon: 'image-off',
     title: 'No watermark',
     desc: 'Clean, professional exports with no “infogiph.com” badge.',
+  },
+  {
+    icon: 'film',
+    title: 'HD 2× exports',
+    desc: '4K-class MP4 and razor-sharp PNG for decks and print.',
   },
   {
     icon: 'sparkles',

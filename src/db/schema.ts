@@ -60,6 +60,18 @@ export interface UserDoc {
     capHitAt?: Date | null;
     capHitEmailAt?: Date | null;
     winBackAt?: Date | null;
+    // Onboarding sequence (day-1 / day-3 / day-5 after signup).
+    firstWinAt?: Date | null;
+    templatesTourAt?: Date | null;
+    linkedinPlaybookAt?: Date | null;
+    /** Second upgrade touch, ~4 days after the cap was hit. */
+    upgradeNudgeAt?: Date | null;
+    /** ISO week key ("2026-W33") of the last weekly digest sent. */
+    digestWeekKey?: string | null;
+  } | null;
+  /** Email consent. `marketing: false` stops every non-transactional email. */
+  emailPrefs?: {
+    marketing?: boolean | null;
   } | null;
 }
 

@@ -53,7 +53,7 @@ export class ResendProvider implements MailProvider {
   public async sendTemplate(
     params: SendTemplateParams
   ): Promise<SendEmailResult> {
-    const { to, template, context, locale } = params;
+    const { to, template, context, locale, subject, headers } = params;
 
     try {
       // Get rendered template
@@ -66,9 +66,10 @@ export class ResendProvider implements MailProvider {
       // Send using raw email
       return this.sendRawEmail({
         to,
-        subject: mailTemplate.subject,
+        subject: subject || mailTemplate.subject,
         html: mailTemplate.html,
         text: mailTemplate.text,
+        headers,
       });
     } catch (error) {
       console.error('Error sending template email:', error);
@@ -87,7 +88,7 @@ export class ResendProvider implements MailProvider {
   public async sendRawEmail(
     params: SendRawEmailParams
   ): Promise<SendEmailResult> {
-    const { to, subject, html, text } = params;
+    const { to, subject, html, text, headers } = params;
 
     if (!this.from || !to || !subject || !html) {
       console.warn('Missing required fields for email send', {
@@ -109,6 +110,7 @@ export class ResendProvider implements MailProvider {
         subject,
         html,
         text,
+        ...(headers ? { headers } : {}),
       });
 
       if (error) {

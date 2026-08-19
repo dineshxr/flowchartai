@@ -49,7 +49,8 @@ export function CanvasComposer({
   hasImage: boolean;
   onPickImage: (file: File) => void;
   onClearImage: () => void;
-  examplePrompts: string[];
+  /** Curated starter chips: a short label to show, the full prompt to fill. */
+  examplePrompts: { label: string; prompt: string }[];
   /** Hands pasted text to the Text-to-visuals panel and opens it. */
   onPasteSubmit: (text: string) => void;
   pasteBusy: boolean;
@@ -133,15 +134,15 @@ export function CanvasComposer({
             className="p-3"
           >
             <div className="mb-2 flex flex-wrap gap-1.5">
-              {examplePrompts.slice(0, 4).map((ex) => (
+              {examplePrompts.slice(0, 5).map((ex) => (
                 <button
-                  key={ex}
+                  key={ex.label}
                   type="button"
-                  onClick={() => onTopicChange(ex)}
-                  title={ex}
+                  onClick={() => onTopicChange(ex.prompt)}
+                  title={ex.prompt}
                   className="rounded-full border border-border bg-[#fafafa] px-2 py-1 text-[10px] font-medium text-foreground/65 transition-[color,border-color,transform] duration-150 ease-out hover:border-foreground/30 hover:text-foreground active:scale-[0.97]"
                 >
-                  {ex.split(' ').slice(0, 3).join(' ')}…
+                  {ex.label}
                 </button>
               ))}
             </div>

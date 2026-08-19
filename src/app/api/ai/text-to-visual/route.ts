@@ -26,7 +26,7 @@ function iconGuidance(illustration: VisualIllustration): string {
     return `icon: ONE lowercase key from this flat-glyph set only: ${CONCEPT_ICONS}. Keep labels conceptual — no product/brand names.`;
   }
   if (illustration === 'concrete') {
-    return `icon: ONE lowercase key, preferring the vivid 3D set: ${GLYPH_ICONS} (fallback: ${CONCEPT_ICONS}). When the text names a real product (Stripe, Slack, GitHub, OpenAI…), use its name as the label so its logo shows.`;
+    return `icon: ONE lowercase key, preferring the vivid 3D set: ${GLYPH_ICONS} (fallback: ${CONCEPT_ICONS}). When the text names a real product (Stripe, Slack, GitHub, OpenAI…), use its EXACT official name as the label — real logos are rendered automatically for 600+ products when the label matches the official name.`;
   }
   return `icon: ONE lowercase key from ${CONCEPT_ICONS} or, when a node deserves emphasis, from the 3D set ${GLYPH_ICONS}.`;
 }
@@ -90,10 +90,11 @@ RULES FOR EVERY SUGGESTION
 - Ordered categories (process, timeline, narrative, cause-effect): satellites MUST be in sequence order.
 - Paired categories (comparison, problems-solutions): satellites MUST be an even count, first half side A, second half side B, in matching order.
 - shape: OPTIONAL, only for visual-metaphor — name the supported shape your metaphor maps to: one of "iceberg" | "steps" | "pyramid" | "funnel" | "cycle" (ladder/climb → steps, flywheel/engine → cycle, hidden depth → iceberg). Pick metaphors that fit these shapes; keep satellites to 5-6 for them.
+- Quantitative content (data, timeline, comparison): when the text states a magnitude for a satellite, add "value" (plain number, no separators: 42, 1200000) and "unit" ("%", "$", "k", "users"…) to that satellite, and keep the number OUT of the label. Values drive real chart rendering (bar heights, line points, donut shares). Omit value/unit entirely when the text gives no numbers.
 - ${iconGuidance(illustration)}
 
 Return STRICT minified JSON ONLY — no markdown, no code fences — exactly:
-{"suggestions":[{"title":"string","category":"string","shape":"string (optional)","center":{"label":"string","icon":"string"},"satellites":[{"label":"string","icon":"string","children":[{"label":"string","icon":"string"}]}]}]}`;
+{"suggestions":[{"title":"string","category":"string","shape":"string (optional)","center":{"label":"string","icon":"string"},"satellites":[{"label":"string","icon":"string","value":123,"unit":"string (optional)","children":[{"label":"string","icon":"string"}]}]}]}`;
 }
 
 const tidy = (s: unknown, max = 22) =>
@@ -117,6 +118,11 @@ function sanitiseSuggestion(raw: any, index: number): VisualSuggestion | null {
     .map((s: any) => ({
       label: tidy(s?.label),
       icon: tidy(s?.icon, 24).toLowerCase(),
+      value:
+        typeof s?.value === 'number' && Number.isFinite(s.value) && s.value >= 0
+          ? s.value
+          : undefined,
+      unit: tidy(s?.unit, 8) || undefined,
       children: tree
         ? (Array.isArray(s?.children) ? s.children : [])
             .map((c: any) => ({

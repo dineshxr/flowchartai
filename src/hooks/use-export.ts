@@ -80,29 +80,42 @@ function drawWatermark(ctx: CanvasRenderingContext2D, w: number, h: number) {
 // ─── finalise (preset + resolution + watermark) ───────────────────────────────
 
 /**
- * Per-export options. Every plan exports at the same size and quality — the
- * only difference paid plans make is dropping the watermark. There is
- * deliberately no resolution tier to pick: the presets below already emit
- * 1080-class dimensions, which is what social and slides want.
+ * Per-export options. The watermark and the HD (2×) resolution tier are the
+ * plan-gated axes (see PlanLimits.watermark / PlanLimits.hdExport); callers
+ * clamp `scale` to what the user's plan allows before invoking an export.
  */
 export interface ExportOptions {
   /** Whether to stamp the infogiph.com watermark. */
   watermark: boolean;
+  /**
+   * Output resolution multiplier applied to the fixed size presets
+   * (1 = standard 1080-class, 2 = HD/4K-class). 'original' ignores it for
+   * video; PNG/SVG bump their capture scale so HD stays genuinely sharp.
+   */
+  scale?: number;
+  /** Transparent background — PNG/SVG only (video needs an opaque canvas). */
+  transparent?: boolean;
 }
 
 const DEFAULT_EXPORT_OPTIONS: ExportOptions = {
   watermark: true,
 };
 
-/** Contain-fit `source` onto `target` on white, then stamp the watermark. */
+/**
+ * Contain-fit `source` onto `target` (white, or transparent when asked), then
+ * stamp the watermark.
+ */
 function finaliseInto(
   target: HTMLCanvasElement,
   source: HTMLCanvasElement,
   opts: ExportOptions
 ) {
   const ctx = target.getContext('2d')!;
-  ctx.fillStyle = '#ffffff';
-  ctx.fillRect(0, 0, target.width, target.height);
+  ctx.clearRect(0, 0, target.width, target.height);
+  if (!opts.transparent) {
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, target.width, target.height);
+  }
   const scale = Math.min(
     target.width / source.width,
     target.height / source.height
@@ -121,16 +134,21 @@ function finaliseInto(
   if (opts.watermark) drawWatermark(ctx, target.width, target.height);
 }
 
-/** Target pixel size for a preset (original = 2× the source, like before). */
+/**
+ * Target pixel size for a preset (original = the source as captured). The
+ * quality `scale` multiplies the FIXED presets only — 'original' already
+ * matches the capture resolution, so scaling it would just upsample.
+ */
 function targetSize(
   preset: ExportPreset,
   sourceW: number,
   sourceH: number,
-  evenDims = false
+  evenDims = false,
+  scale = 1
 ): { w: number; h: number } {
   const p = EXPORT_PRESETS[preset];
-  let w = Math.round(p.w ?? sourceW);
-  let h = Math.round(p.h ?? sourceH);
+  let w = Math.round(p.w ? p.w * scale : sourceW);
+  let h = Math.round(p.h ? p.h * scale : sourceH);
   if (evenDims) {
     // yuv420 (H.264) requires even dimensions.
     w -= w % 2;
@@ -144,7 +162,13 @@ function finaliseCanvas(
   preset: ExportPreset,
   opts: ExportOptions = DEFAULT_EXPORT_OPTIONS
 ): HTMLCanvasElement {
-  const { w, h } = targetSize(preset, source.width, source.height);
+  const { w, h } = targetSize(
+    preset,
+    source.width,
+    source.height,
+    false,
+    opts.scale ?? 1
+  );
   const target = document.createElement('canvas');
   target.width = w;
   target.height = h;
@@ -154,12 +178,32 @@ function finaliseCanvas(
 
 // ─── capture helpers ──────────────────────────────────────────────────────────
 
-async function capture(el: HTMLElement, scale = 2): Promise<HTMLCanvasElement> {
+async function capture(
+  el: HTMLElement,
+  scale = 2,
+  transparent = false
+): Promise<HTMLCanvasElement> {
   return domToCanvas(el, {
     scale,
-    backgroundColor: '#ffffff',
+    backgroundColor: transparent ? undefined : '#ffffff',
     debug: false,
   });
+}
+
+/**
+ * Temporarily clear the inline backgrounds flagged with `data-export-bg`
+ * (the diagram's own bg gradient) so a transparent export is truly
+ * transparent instead of keeping the template's backdrop baked in.
+ */
+function stripExportBackgrounds(root: HTMLElement): () => void {
+  const saved: Array<[HTMLElement, string]> = [];
+  for (const el of root.querySelectorAll<HTMLElement>('[data-export-bg]')) {
+    saved.push([el, el.style.background]);
+    el.style.background = 'transparent';
+  }
+  return () => {
+    for (const [el, bg] of saved) el.style.background = bg;
+  };
 }
 
 function canvasToBlob(
@@ -255,8 +299,16 @@ export function useFlowchartExport(
     setIsExporting(true);
     setExportStage('rendering');
     setExportProgress(20);
+    // HD needs a denser capture or the upscale to 2× preset dims goes soft.
+    const restoreBg = opts.transparent
+      ? stripExportBackgrounds(containerRef.current)
+      : null;
     try {
-      const raw = await capture(containerRef.current, 3);
+      const raw = await capture(
+        containerRef.current,
+        (opts.scale ?? 1) >= 2 ? 4 : 3,
+        opts.transparent
+      );
       const out = finaliseCanvas(raw, preset, opts);
       setExportProgress(100);
       download(out.toDataURL('image/png'), `${title || 'infogiph'}.png`);
@@ -265,6 +317,7 @@ export function useFlowchartExport(
       console.error('[export:png]', err);
       toast.error('Failed to export PNG');
     } finally {
+      restoreBg?.();
       busyRef.current = false;
       setIsExporting(false);
       setExportStage('idle');
@@ -284,10 +337,13 @@ export function useFlowchartExport(
     setIsExporting(true);
     setExportStage('rendering');
     setExportProgress(40);
+    const restoreBg = opts.transparent
+      ? stripExportBackgrounds(containerRef.current)
+      : null;
     try {
       const dataUrl = await domToDataUrl(containerRef.current, {
-        scale: 2,
-        backgroundColor: '#ffffff',
+        scale: (opts.scale ?? 1) >= 2 ? 4 : 2,
+        backgroundColor: opts.transparent ? undefined : '#ffffff',
       });
       const img = new Image();
       img.crossOrigin = 'anonymous';
@@ -316,6 +372,7 @@ export function useFlowchartExport(
       console.error('[export:svg]', err);
       toast.error('Failed to export SVG');
     } finally {
+      restoreBg?.();
       busyRef.current = false;
       setIsExporting(false);
       setExportStage('idle');
@@ -353,7 +410,8 @@ export function useFlowchartExport(
         preset,
         rect.width * 2,
         rect.height * 2,
-        format === 'mp4'
+        format === 'mp4',
+        opts.scale ?? 1
       );
       // Rasterize the composite at exactly the scale the target needs — the
       // SVG layer is vector, so high-res exports stay crisp.
@@ -455,7 +513,8 @@ export function useFlowchartExport(
           preset,
           rect.width * 2,
           rect.height * 2,
-          true
+          true,
+          opts.scale ?? 1
         );
         const { canEncodeMp4, createMp4Encoder } = await import(
           '@/lib/webcodecs-export'
@@ -567,13 +626,23 @@ export function useFlowchartExport(
     title: string,
     preset: ExportPreset = 'original',
     opts: ExportOptions = DEFAULT_EXPORT_OPTIONS
-  ) => runAnimatedExport('gif', title, preset, opts);
+  ) =>
+    // GIFs stay 1× and opaque: a 4K GIF is a payload nobody wants, and GIF
+    // transparency is 1-bit (ragged edges) — MOV/WebM would be the right
+    // vehicle for transparent motion, not GIF.
+    runAnimatedExport('gif', title, preset, {
+      ...opts,
+      scale: 1,
+      transparent: false,
+    });
 
   const exportMP4 = (
     title: string,
     preset: ExportPreset = 'original',
     opts: ExportOptions = DEFAULT_EXPORT_OPTIONS
-  ) => runAnimatedExport('mp4', title, preset, opts);
+  ) =>
+    // H.264 has no alpha channel — MP4 is always opaque.
+    runAnimatedExport('mp4', title, preset, { ...opts, transparent: false });
 
   return {
     exportPNG,
