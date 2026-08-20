@@ -23,7 +23,7 @@ function dimsForLayout(layout: PreviewSpec['layout']): Dims {
   if (layout === 'tree') return TALL_DIMS;
   // Charts read left→right (bars/line) or need a square ring (donut).
   if (layout === 'bars' || layout === 'chart-line') return WIDE_DIMS;
-  if (layout === 'donut') return SQUARE_DIMS;
+  if (layout === 'donut' || layout === 'iso-steps') return SQUARE_DIMS;
   return HOME_DIMS; // radial
 }
 

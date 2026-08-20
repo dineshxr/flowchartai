@@ -221,6 +221,7 @@ const buildPreviewFromAI = (
     case 'columns':
     case 'timeline':
     case 'iceberg':
+    case 'iso-steps':
     case 'bars':
     case 'chart-line':
     case 'donut':
@@ -346,6 +347,7 @@ function applyElementEdits(
     case 'pyramid':
     case 'timeline':
     case 'iceberg':
+    case 'iso-steps':
     case 'bars':
     case 'chart-line':
     case 'donut':
@@ -416,6 +418,7 @@ function indexSpecNodes(
     case 'columns':
     case 'timeline':
     case 'iceberg':
+    case 'iso-steps':
     case 'bars':
     case 'chart-line':
     case 'donut':
@@ -1885,11 +1888,25 @@ export default function FlowVizArchitect({
     setUpgradeOpen(true);
   };
 
+  // Pro-only templates: anyone can open and edit them, but exporting is the
+  // paywall moment (same philosophy as the watermark and HD gates).
+  const activeTemplateProLocked =
+    userPlan === 'free' &&
+    !!(
+      activeTemplate &&
+      allTemplates.find((t) => t.slug === activeTemplate.id)?.pro
+    );
+
   // Runs the actual download. The plan gates two things: the watermark stamp
   // and the HD 2× resolution tier (clamped here so a stale HD selection can
   // never leak past a downgrade). Per-format clamps (GIF 1×, video opaque)
   // live in the hook.
   const runExport = (format: ExportFormat | 'svg') => {
+    if (activeTemplateProLocked) {
+      setExportDialogOpen(false);
+      openUpgrade('This is a Pro template — upgrade to export it.');
+      return;
+    }
     const limits = PLAN_BY_ID[userPlan].limits;
     const opts = {
       watermark: limits.watermark,
@@ -1907,6 +1924,10 @@ export default function FlowVizArchitect({
   // picks the export back up afterwards. Otherwise open the export dialog,
   // which is where size is chosen and the run is confirmed.
   const handleExport = (format: ExportFormat) => {
+    if (activeTemplateProLocked) {
+      openUpgrade('This is a Pro template — upgrade to export it.');
+      return;
+    }
     if (!isAuthenticated) {
       try {
         localStorage.setItem(
@@ -2106,6 +2127,7 @@ export default function FlowVizArchitect({
                   <SelectItem value="quadrant">Quadrant</SelectItem>
                   <SelectItem value="columns">Columns</SelectItem>
                   <SelectItem value="iceberg">Iceberg</SelectItem>
+                  <SelectItem value="iso-steps">Cube stack</SelectItem>
                   <SelectItem value="tree">Tree</SelectItem>
                   <SelectItem value="bars">Bar chart</SelectItem>
                   <SelectItem value="chart-line">Line chart</SelectItem>
@@ -2499,8 +2521,13 @@ export default function FlowVizArchitect({
                               }}
                             />
                             <div className="min-w-0">
-                              <div className="truncate text-xs font-medium text-foreground">
-                                {t.title}
+                              <div className="flex items-center gap-1.5 text-xs font-medium text-foreground">
+                                <span className="truncate">{t.title}</span>
+                                {t.pro ? (
+                                  <span className="ig-gradient shrink-0 rounded-full px-1.5 py-px text-[8px] font-bold uppercase tracking-wide text-white">
+                                    Pro
+                                  </span>
+                                ) : null}
                               </div>
                               <div className="mt-0.5 truncate text-[11px] text-muted-foreground">
                                 {t.categoryName}

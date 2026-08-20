@@ -123,6 +123,14 @@ export type PreviewSpec =
       satellites: PreviewNode[];
     })
   | (SpecBase & {
+      /** Isometric cube staircase — satellites are numbered cubes climbing
+       *  left-high to right-low; center = the white logo cube on top, its
+       *  label rendered as the big heading beside the stack. */
+      layout: 'iso-steps';
+      center: PreviewNode;
+      satellites: PreviewNode[];
+    })
+  | (SpecBase & {
       /** Animated bar chart — one bar per satellite, values drive heights; center = the subject chip. */
       layout: 'bars';
       center: PreviewNode;
@@ -1250,6 +1258,129 @@ function icebergGeo(
   };
 }
 
+// ---- iso-steps (isometric cube staircase) -------------------------------------
+// Faithful to the "numbered cubes" infographic style: a staircase of isometric
+// cubes (front face carries the satellite label — usually 01…NN), crowned by a
+// white cube bearing the center's logo. A lift-and-flash wave travels up the
+// numbering order on a shared SMIL clock (one `dur`, begin 0) so the export
+// pipeline sees a clean seekable period and GIF/MP4 loop seamlessly, while the
+// structure itself stays static — PNG exports and thumbnails always read.
+
+interface IsoCube {
+  key: string;
+  /** wave order = the numbering order (row-major, bottom row first) */
+  k: number;
+  /** front-bottom-left anchor vertex in svg coords */
+  x: number;
+  y: number;
+  label?: string;
+}
+
+interface IsoGeo {
+  tiles: PositionedTile[];
+  edges: Edge[];
+  /** cube edge length (screen px in the svg viewBox) */
+  s: number;
+  /** face outline width */
+  sw: number;
+  /** cubes in painter order (back column → front column, bottom → top) */
+  cubes: IsoCube[];
+  /** anchor of the white logo cube (crowns the tallest column) */
+  logo: { x: number; y: number };
+  /** svg-x where the heading zone begins, or null when no heading is shown */
+  headingLeft: number | null;
+  /** shared SMIL loop period (seconds, before speed scaling) */
+  period: number;
+  /** seconds between successive cube pulses */
+  gap: number;
+  /** quiet lead-in before the wave starts */
+  lead: number;
+  /** pulse lift height (px) */
+  lift: number;
+}
+
+/** amt > 0 tints toward white, amt < 0 shades toward black. */
+function isoShade(hex: string, amt: number): string {
+  const h = hex.replace('#', '');
+  const full =
+    h.length === 3
+      ? h
+          .split('')
+          .map((c) => c + c)
+          .join('')
+      : h.padEnd(6, '0');
+  const n = Number.parseInt(full.slice(0, 6), 16);
+  const t = amt > 0 ? 255 : 0;
+  const p = Math.abs(amt);
+  const ch = (v: number) =>
+    Math.max(0, Math.min(255, Math.round(v + (t - v) * p)));
+  return `rgb(${ch((n >> 16) & 255)},${ch((n >> 8) & 255)},${ch(n & 255)})`;
+}
+
+function isoGeo(
+  spec: Extract<PreviewSpec, { layout: 'iso-steps' }>,
+  d: Dims
+): IsoGeo {
+  const sats = spec.satellites.slice(0, 15);
+  const N = Math.max(sats.length, 1);
+  // Smallest staircase base whose shrinking rows (C, C-1, …) hold N cubes.
+  const C = Math.max(2, Math.ceil((Math.sqrt(8 * N + 1) - 1) / 2));
+
+  // Fill row-major bottom-up — the numbering order of the reference visual.
+  const cells: Array<{ c: number; h: number; sat: PreviewNode; k: number }> =
+    [];
+  let k = 0;
+  for (let h = 0; k < N; h++) {
+    const rowW = Math.max(1, C - h);
+    for (let c = 0; c < rowW && k < N; c++) {
+      cells.push({ c, h, sat: sats[k], k });
+      k++;
+    }
+  }
+  const col0H = cells.filter((cell) => cell.c === 0).length;
+  const Htot = col0H + 1; // + the logo cube
+
+  // Iso axes: column u = right-down, depth = right-up, stack = straight up.
+  // Scene bbox in cube-edge units: width (C+1)·0.866, height Htot+0.5 (top
+  // face far corner) + C·0.5 (the last column's descent).
+  const headed = d.labelSize > 0 && !!spec.center.label;
+  const unitsW = (C + 1) * 0.866;
+  const unitsH = Htot + 0.5 + C * 0.5;
+  const zoneW = d.W * (headed ? 0.56 : 0.92);
+  const zoneX = d.W * 0.04;
+  const s = Math.min(zoneW / unitsW, (d.H * 0.88) / unitsH);
+  const sceneW = unitsW * s;
+  const sceneH = unitsH * s;
+  const x0 = headed ? zoneX + (zoneW - sceneW) / 2 : (d.W - sceneW) / 2;
+  const anchorY0 = (d.H - sceneH) / 2 + (Htot + 0.5) * s;
+
+  const cubes: IsoCube[] = [...cells]
+    .sort((a, b) => a.c - b.c || a.h - b.h) // painter order
+    .map((cell) => ({
+      key: cell.sat.key,
+      k: cell.k,
+      x: x0 + cell.c * 0.866 * s,
+      y: anchorY0 + cell.c * 0.5 * s - cell.h * s,
+      label: cell.sat.label,
+    }));
+
+  const gap = 0.22;
+  const lead = 0.5;
+  return {
+    tiles: [],
+    edges: [],
+    s,
+    sw: Math.max(1.4, s * 0.055),
+    cubes,
+    logo: { x: x0, y: anchorY0 - col0H * s },
+    headingLeft: headed ? zoneX + zoneW + d.W * 0.02 : null,
+    period: lead + (N - 1) * gap + 0.55 + 1.5,
+    gap,
+    lead,
+    lift: s * 0.16,
+  };
+}
+
 // ---- chart layouts (bars / chart-line / donut) ---------------------------------
 //
 // The base chrome is STATIC (full bars, drawn curve, complete ring) — like the
@@ -1725,6 +1856,10 @@ function computeLayout(spec: PreviewSpec, d: Dims) {
       const { tiles, edges } = icebergGeo(spec, d);
       return { tiles, edges };
     }
+    case 'iso-steps': {
+      const { tiles, edges } = isoGeo(spec, d);
+      return { tiles, edges };
+    }
     case 'bars': {
       const { tiles, edges } = barsGeo(spec, d);
       return { tiles, edges };
@@ -1825,6 +1960,7 @@ export function AnimatedPreview(props: PreviewSpec & AnimatedPreviewProps) {
   const colsG = spec.layout === 'columns' ? columnsGeo(spec, dims) : null;
   const tlG = spec.layout === 'timeline' ? timelineGeo(spec, dims) : null;
   const bergG = spec.layout === 'iceberg' ? icebergGeo(spec, dims) : null;
+  const isoG = spec.layout === 'iso-steps' ? isoGeo(spec, dims) : null;
   const barsG = spec.layout === 'bars' ? barsGeo(spec, dims) : null;
   const lineG = spec.layout === 'chart-line' ? chartLineGeo(spec, dims) : null;
   const donutG = spec.layout === 'donut' ? donutGeo(spec, dims) : null;
@@ -2441,6 +2577,147 @@ export function AnimatedPreview(props: PreviewSpec & AnimatedPreviewProps) {
             )}
           </g>
         )}
+
+        {/* iso-steps: isometric cube staircase, all-SVG (labels + logo included)
+            so the export pipeline captures the full visual in the animated
+            layer. A lift+flash wave rides the numbering order on one shared
+            SMIL clock. */}
+        {spec.layout === 'iso-steps' &&
+          isoG &&
+          (() => {
+            const g = isoG;
+            const s = g.s;
+            const front = accent;
+            const side = isoShade(accent, -0.16);
+            const top = isoShade(accent, 0.18);
+            const outline = isoShade(accent, -0.62);
+            const P = g.period;
+            const pc = (t: number) =>
+              Math.min(1, Math.max(0, t / P)).toFixed(4);
+
+            // face corner math — u right-down, dd right-up, w straight up
+            const facesFor = (x: number, y: number) => {
+              const ux = 0.866 * s;
+              const uy = 0.5 * s;
+              const topD = `M ${x} ${y - s} L ${x + ux} ${y - s + uy} L ${x + 2 * ux} ${y - s} L ${x + ux} ${y - s - uy} Z`;
+              const sideD = `M ${x + ux} ${y + uy} L ${x + 2 * ux} ${y} L ${x + 2 * ux} ${y - s} L ${x + ux} ${y - s + uy} Z`;
+              const frontD = `M ${x} ${y} L ${x + ux} ${y + uy} L ${x + ux} ${y - s + uy} L ${x} ${y - s} Z`;
+              return { topD, sideD, frontD };
+            };
+            const faceProps = (selected: boolean) => ({
+              stroke: selected ? SELECTION_COLOR : outline,
+              strokeWidth: selected ? g.sw * 1.25 : g.sw,
+              strokeLinejoin: 'round' as const,
+            });
+
+            return (
+              <g>
+                {g.cubes.map((cube) => {
+                  const t0 = g.lead + cube.k * g.gap;
+                  const kt = `0;${pc(t0)};${pc(t0 + 0.28)};${pc(t0 + 0.55)};1`;
+                  const label = labelOverrides[cube.key] ?? cube.label;
+                  const fs =
+                    s *
+                    0.38 *
+                    Math.min(1, 2.6 / Math.max(1, (label ?? '').length));
+                  const { topD, sideD, frontD } = facesFor(cube.x, cube.y);
+                  const fp = faceProps(selectedKey === cube.key);
+                  return (
+                    <g key={cube.key}>
+                      <animateTransform
+                        attributeName="transform"
+                        type="translate"
+                        values={`0 0;0 0;0 ${-g.lift};0 0;0 0`}
+                        keyTimes={kt}
+                        dur={sm(P)}
+                        repeatCount="indefinite"
+                      />
+                      <path d={topD} fill={top} {...fp} />
+                      <path d={sideD} fill={side} {...fp} />
+                      <path d={frontD} fill={front} {...fp} />
+                      <path d={frontD} fill="#ffffff" opacity={0}>
+                        <animate
+                          attributeName="opacity"
+                          values="0;0;0.32;0;0"
+                          keyTimes={kt}
+                          dur={sm(P)}
+                          repeatCount="indefinite"
+                        />
+                      </path>
+                      {label ? (
+                        <g
+                          transform={`matrix(0.866,0.5,0,1,${cube.x},${cube.y - s})`}
+                        >
+                          <text
+                            x={s * 0.5}
+                            y={s * 0.64}
+                            textAnchor="middle"
+                            fill="#ffffff"
+                            fontWeight={800}
+                            fontSize={fs}
+                            fontFamily={CHART_FONT}
+                          >
+                            {label}
+                          </text>
+                        </g>
+                      ) : null}
+                    </g>
+                  );
+                })}
+
+                {/* the white logo cube crowning the stack */}
+                {(() => {
+                  const t0 = g.lead + g.cubes.length * g.gap;
+                  const kt = `0;${pc(t0)};${pc(t0 + 0.3)};${pc(t0 + 0.6)};1`;
+                  const { topD, sideD, frontD } = facesFor(g.logo.x, g.logo.y);
+                  const fp = faceProps(selectedKey === spec.center.key);
+                  const inset = s * 0.62;
+                  return (
+                    <g>
+                      <animateTransform
+                        attributeName="transform"
+                        type="translate"
+                        values={`0 0;0 0;0 ${-g.lift * 0.9};0 0;0 0`}
+                        keyTimes={kt}
+                        dur={sm(P)}
+                        repeatCount="indefinite"
+                      />
+                      <path d={topD} fill="#ffffff" {...fp} />
+                      <path d={sideD} fill="#EDEBE6" {...fp} />
+                      <path d={frontD} fill="#FBFAF7" {...fp} />
+                      <g
+                        transform={`matrix(0.866,0.5,0,1,${g.logo.x},${g.logo.y - s})`}
+                      >
+                        {spec.center.svgIcon ? (
+                          <svg
+                            x={(s - inset) / 2}
+                            y={(s - inset) / 2 - s * 0.04}
+                            width={inset}
+                            height={inset}
+                          >
+                            {spec.center.svgIcon}
+                          </svg>
+                        ) : (
+                          <text
+                            x={s * 0.5}
+                            y={s * 0.66}
+                            textAnchor="middle"
+                            fontWeight={800}
+                            fontSize={s * 0.44}
+                            fill={spec.center.tint ?? accent}
+                            fontFamily={CHART_FONT}
+                          >
+                            {spec.center.letter ??
+                              (spec.center.label ?? '?').charAt(0)}
+                          </text>
+                        )}
+                      </g>
+                    </g>
+                  );
+                })()}
+              </g>
+            );
+          })()}
 
         {/* funnel / pyramid: banded silhouettes + leader rails + mode motion */}
         {(funnelG || pyramidG) &&
@@ -3618,6 +3895,29 @@ export function AnimatedPreview(props: PreviewSpec & AnimatedPreviewProps) {
                     }
                   }
                 }
+                // Iso cubes live in the SVG under this overlay — hit-test
+                // their (static) boxes, topmost first: logo cube, then cubes
+                // in reverse painter order so overlaps pick the front one.
+                if (isoG && spec.layout === 'iso-steps') {
+                  const p = toSvg(e.clientX, e.clientY);
+                  const s = isoG.s;
+                  const inCube = (x: number, y: number) =>
+                    p.x >= x &&
+                    p.x <= x + 1.732 * s &&
+                    p.y >= y - 1.5 * s &&
+                    p.y <= y + 0.5 * s;
+                  if (inCube(isoG.logo.x, isoG.logo.y)) {
+                    onSelect(spec.center.key);
+                    return;
+                  }
+                  for (let i = isoG.cubes.length - 1; i >= 0; i--) {
+                    const c = isoG.cubes[i];
+                    if (inCube(c.x, c.y)) {
+                      onSelect(c.key);
+                      return;
+                    }
+                  }
+                }
                 // Clicking the empty canvas (not a tile) clears selection.
                 onSelect(null);
               }
@@ -3639,6 +3939,66 @@ export function AnimatedPreview(props: PreviewSpec & AnimatedPreviewProps) {
           />
         ))}
       </div>
+
+      {/* iso-steps heading — the center's label as the big text beside the
+          stack (reference style: dark first half, accent second half). Static
+          HTML layer, so PNG/GIF/MP4 exports all include it. */}
+      {spec.layout === 'iso-steps' &&
+        isoG?.headingLeft != null &&
+        (() => {
+          const raw = labelOverrides[spec.center.key] ?? spec.center.label;
+          if (!raw) return null;
+          const words = raw.split(/\s+/);
+          const mid = Math.max(1, Math.ceil(words.length / 2));
+          const line1 = words.slice(0, mid).join(' ');
+          const line2 = words.slice(mid).join(' ');
+          return (
+            <div
+              className="absolute select-none"
+              style={{
+                left: `${(isoG.headingLeft / dims.W) * 100}%`,
+                right: '4%',
+                top: '50%',
+                transform: 'translateY(-50%)',
+                lineHeight: 1.08,
+                fontFamily: CHART_FONT,
+                cursor: editable ? 'pointer' : undefined,
+              }}
+              onPointerDown={
+                editable && onSelect
+                  ? (e) => {
+                      e.stopPropagation();
+                      onSelect(spec.center.key);
+                    }
+                  : undefined
+              }
+            >
+              <div
+                style={{
+                  fontSize: dims.W * 0.052,
+                  fontWeight: 800,
+                  color: '#232A35',
+                  letterSpacing: '-0.02em',
+                }}
+              >
+                {line1}
+              </div>
+              {line2 ? (
+                <div
+                  style={{
+                    fontSize: dims.W * 0.037,
+                    fontWeight: 800,
+                    color: accent,
+                    letterSpacing: '-0.01em',
+                    marginTop: dims.W * 0.006,
+                  }}
+                >
+                  {line2}
+                </div>
+              ) : null}
+            </div>
+          );
+        })()}
 
       {showModeChip ? (
         <span className="absolute bottom-2.5 left-2.5 inline-flex items-center gap-1 rounded-full bg-white/85 backdrop-blur border border-border px-2 py-0.5 text-[10px] font-medium tracking-wide text-foreground/70 shadow-sm">

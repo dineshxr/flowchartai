@@ -97,11 +97,17 @@ export function derivePreviewSpec(
 
   const hub = data as Extract<DiagramData, { center: unknown }>;
   const ci = resolveIcon(hub.center.icon, hub.center.label, true);
+  // SVG-embeddable variant too — iso-steps draws the center logo inside the
+  // animated <svg> (on the top cube), where HTML icons can't go.
+  const cv = resolveSvgIcon(hub.center.icon, hub.center.label);
   const center = {
     key: 'center',
     label: hub.center.label,
     icon: ci.node,
     flush: centerFlush(ci),
+    svgIcon: cv.node,
+    letter: cv.letter,
+    tint: cv.tint,
   };
   const sats: PreviewNode[] = hub.satellites.map((s, i) => {
     const si = resolveIcon(s.icon, s.label);
@@ -182,6 +188,7 @@ export function derivePreviewSpec(
     layout === 'columns' ||
     layout === 'timeline' ||
     layout === 'iceberg' ||
+    layout === 'iso-steps' ||
     layout === 'bars' ||
     layout === 'chart-line' ||
     layout === 'donut'

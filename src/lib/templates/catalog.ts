@@ -214,6 +214,7 @@ function toTemplate(raw: RawTemplate): Template {
     faqs: raw.faqs,
     useCases: raw.useCases,
     style: raw.style,
+    pro: raw.pro,
   };
 }
 

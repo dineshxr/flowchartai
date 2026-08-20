@@ -136,8 +136,13 @@ export default async function TemplateDetailPage({ params }: PageProps) {
               />
               {cat?.label || template.categoryName}
             </Link>
-            <h1 className="mt-3 text-3xl font-bold leading-[1.1] tracking-tight md:text-4xl">
+            <h1 className="mt-3 flex flex-wrap items-center gap-3 text-3xl font-bold leading-[1.1] tracking-tight md:text-4xl">
               {template.title}
+              {template.pro ? (
+                <span className="ig-gradient rounded-full px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-white shadow-sm">
+                  Pro
+                </span>
+              ) : null}
             </h1>
             <p className="mt-4 text-base leading-relaxed text-muted-foreground md:text-lg">
               {template.shortDescription}.
@@ -158,7 +163,9 @@ export default async function TemplateDetailPage({ params }: PageProps) {
               </Link>
             </div>
             <p className="mt-4 text-xs text-muted-foreground">
-              Free to start · Fully editable · Export to GIF, MP4 &amp; PNG
+              {template.pro
+                ? 'Pro template · Fully editable · Export to GIF, MP4 & PNG'
+                : 'Free to start · Fully editable · Export to GIF, MP4 & PNG'}
             </p>
           </div>
 

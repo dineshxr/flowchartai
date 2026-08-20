@@ -80,6 +80,7 @@ export type TemplateLayout =
   | 'columns'
   | 'timeline'
   | 'iceberg'
+  | 'iso-steps'
   | 'bars'
   | 'chart-line'
   | 'donut';
@@ -130,6 +131,8 @@ export interface RawTemplate {
   categoryName: string;
   /** Optional pinned visual style (curated templates only). */
   style?: TemplateStyle;
+  /** Pro-plan template: badged in the gallery, export gated in the canvas. */
+  pro?: boolean;
 }
 
 /** Runtime template with the canvas diagram `data` assembled. */
@@ -149,6 +152,8 @@ export interface Template {
   useCases: string[];
   /** Optional pinned visual style (curated templates only). */
   style?: TemplateStyle;
+  /** Pro-plan template: badged in the gallery, export gated in the canvas. */
+  pro?: boolean;
 }
 
 export interface CategoryMeta {

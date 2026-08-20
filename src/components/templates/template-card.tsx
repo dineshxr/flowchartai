@@ -24,6 +24,11 @@ export function TemplateCard({ template }: { template: Template }) {
             layout={template.style?.layout}
           />
         </div>
+        {template.pro ? (
+          <span className="ig-gradient absolute right-2 top-2 z-10 rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white shadow-sm">
+            Pro
+          </span>
+        ) : null}
       </div>
       <h3 className="line-clamp-1 text-sm font-semibold text-foreground transition-colors group-hover:text-black sm:text-base">
         {template.title}

@@ -72,7 +72,7 @@ export const VISUAL_CATEGORIES: VisualCategory[] = [
     structure:
       'The sequential steps of the process IN ORDER. Satellites must be ordered step 1 → step N.',
     layout: 'pipeline',
-    variants: ['pipeline', 'steps', 'cycle', 'timeline'],
+    variants: ['pipeline', 'steps', 'iso-steps', 'cycle', 'timeline'],
     mode: 'arrows',
     accent: '#6366f1',
   },
@@ -160,7 +160,15 @@ export const VISUAL_CATEGORIES: VisualCategory[] = [
     structure:
       "Pick ONE strong metaphor for the core idea that maps to a supported shape — iceberg (hidden depth), steps/ladder (climb), funnel (narrowing), pyramid (foundation), cycle/flywheel (loop). Center is the metaphor; satellites map the text's ideas onto its parts, ordered surface-first for iceberg and bottom-first for pyramid.",
     layout: 'iceberg',
-    variants: ['iceberg', 'steps', 'pyramid', 'funnel', 'cycle', 'radial'],
+    variants: [
+      'iceberg',
+      'steps',
+      'iso-steps',
+      'pyramid',
+      'funnel',
+      'cycle',
+      'radial',
+    ],
     mode: 'pulses',
     accent: '#d946ef',
   },
@@ -234,6 +242,7 @@ export const VARIANT_MODE: Partial<Record<TemplateLayout, TemplateMode>> = {
   quadrant: 'pulses',
   columns: 'beams',
   iceberg: 'pulses',
+  'iso-steps': 'pulses',
   bars: 'pulses',
   'chart-line': 'beams',
   donut: 'pulses',
@@ -261,6 +270,8 @@ export function isLayoutEligible(layout: TemplateLayout, n: number): boolean {
     case 'funnel':
     case 'steps':
       return n >= 3 && n <= 6;
+    case 'iso-steps':
+      return n >= 3 && n <= 15;
     case 'bars':
       return n >= 2 && n <= 8;
     case 'chart-line':

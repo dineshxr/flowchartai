@@ -38,6 +38,141 @@ export interface CuratedOverride {
 
 export const curatedTemplates: RawTemplate[] = [
   {
+    slug: 'isometric-cube-countdown',
+    title: '14 Lessons From OpenAI',
+    shortDescription:
+      'A numbered isometric cube staircase — 14 stacked lessons crowned by a logo cube, in the style of the viral "lessons learned" infographics',
+    longDescription:
+      'This template stacks numbered isometric cubes into a staircase — the visual format behind the viral "N lessons from…" infographics. Each cube carries a number (or any short label you type), the staircase builds toward a white cube bearing a logo, and the big heading beside the stack states the takeaway. A soft pulse travels up the numbering order, so the exported GIF or MP4 loops cleanly while every frame stays readable.\n\nSwap the logo to any brand in the icon library, change the cube count by adding or deleting nodes, retitle the heading, and recolor the stack with one accent. Use it to package lessons, principles, milestones, or any countdown-style list as a share-ready animated visual.',
+    tags: [
+      'numbered list',
+      'lessons learned',
+      'isometric',
+      'cube stack',
+      'countdown',
+      'infographic',
+    ],
+    keywords: [
+      'numbered cube infographic template',
+      'isometric steps diagram',
+      '3d cube stack infographic',
+      'lessons learned infographic template',
+      'countdown infographic maker',
+      'animated numbered list gif',
+    ],
+    layout: 'hub',
+    centerLabel: '14 lessons from OpenAI',
+    centerIcon: 'openai',
+    satellites: [
+      { label: '01', icon: 'cube3d' },
+      { label: '02', icon: 'cube3d' },
+      { label: '03', icon: 'cube3d' },
+      { label: '04', icon: 'cube3d' },
+      { label: '05', icon: 'cube3d' },
+      { label: '06', icon: 'cube3d' },
+      { label: '07', icon: 'cube3d' },
+      { label: '08', icon: 'cube3d' },
+      { label: '09', icon: 'cube3d' },
+      { label: '10', icon: 'cube3d' },
+      { label: '11', icon: 'cube3d' },
+      { label: '12', icon: 'cube3d' },
+      { label: '13', icon: 'cube3d' },
+      { label: '14', icon: 'cube3d' },
+    ],
+    faqs: [
+      {
+        q: 'Can I change how many cubes the staircase has?',
+        a: 'Yes — add or delete nodes in the editor and the staircase re-stacks itself automatically, from 3 cubes up to 15. The numbering order always runs along the bottom row first, then up.',
+      },
+      {
+        q: 'Can I put words on the cubes instead of numbers?',
+        a: 'Yes. Each cube face shows its node label, so type any short word — the text auto-shrinks to fit the face. Numbers just match the classic look.',
+      },
+      {
+        q: 'Which logo can sit on the top cube?',
+        a: 'Any icon in the library — real brand logos (OpenAI, Stripe, Docker…), 3D glyphs, or a plain letter tile. Select the top cube and pick a logo in the inspector.',
+      },
+    ],
+    useCases: [
+      '"N lessons learned" posts for LinkedIn and X',
+      'Company principles or values as a numbered stack',
+      'Milestone countdowns for launches and anniversaries',
+      'Listicle summaries of talks, books, and podcasts',
+    ],
+    category: 'process',
+    categoryName: 'Process & Workflow',
+    pro: true,
+    style: {
+      layout: 'iso-steps',
+      mode: 'pulses',
+      accent: '#e2612e',
+      bg: 'linear-gradient(135deg,#fff7ed 0%,#ffffff 100%)',
+    },
+  },
+  {
+    slug: 'launch-countdown-cube-stack',
+    title: 'Product Launch Countdown',
+    shortDescription:
+      'A 10-cube isometric countdown to launch day — numbered steps stacking up to the rocket on top',
+    longDescription:
+      'Count down the steps to a launch as a staircase of numbered isometric cubes, capped by a rocket cube at the summit. The pulse wave climbs the stack in order, making the exported GIF read like progress in motion — while the static frame still works as a poster or slide.\n\nEvery part is editable: cube count (3–15), the label on every face, the heading beside the stack, the accent color, and the icon on the top cube. Swap the rocket for your product logo the day you ship.',
+    tags: [
+      'launch',
+      'countdown',
+      'roadmap',
+      'isometric',
+      'cube stack',
+      'milestones',
+    ],
+    keywords: [
+      'product launch countdown template',
+      'launch checklist infographic',
+      'countdown cube infographic',
+      'isometric roadmap diagram',
+      'animated launch gif template',
+    ],
+    layout: 'hub',
+    centerLabel: '10 steps to launch',
+    centerIcon: 'rocket3d',
+    satellites: [
+      { label: '01', icon: 'cube3d' },
+      { label: '02', icon: 'cube3d' },
+      { label: '03', icon: 'cube3d' },
+      { label: '04', icon: 'cube3d' },
+      { label: '05', icon: 'cube3d' },
+      { label: '06', icon: 'cube3d' },
+      { label: '07', icon: 'cube3d' },
+      { label: '08', icon: 'cube3d' },
+      { label: '09', icon: 'cube3d' },
+      { label: '10', icon: 'cube3d' },
+    ],
+    faqs: [
+      {
+        q: 'Can I rename the heading next to the cubes?',
+        a: 'Yes — the heading is the center node\u2019s label. Click the white top cube (or the heading itself) and edit the label in the inspector.',
+      },
+      {
+        q: 'Does it export as an animated GIF?',
+        a: 'Yes. The pulse wave loops on a fixed period, so GIF and MP4 exports loop seamlessly; PNG and SVG exports capture the full readable staircase.',
+      },
+    ],
+    useCases: [
+      'Launch-week countdown posts',
+      'Release checklists as a visual',
+      'Sprint or quarter milestone tracking',
+      'Kickstarter / waitlist hype graphics',
+    ],
+    category: 'process',
+    categoryName: 'Process & Workflow',
+    pro: true,
+    style: {
+      layout: 'iso-steps',
+      mode: 'pulses',
+      accent: '#6366f1',
+      bg: 'linear-gradient(135deg,#eef2ff 0%,#ffffff 100%)',
+    },
+  },
+  {
     slug: 'how-llms-work-diagram',
     title: 'How LLMs Work',
     shortDescription:

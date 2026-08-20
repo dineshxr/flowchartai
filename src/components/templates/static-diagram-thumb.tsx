@@ -178,6 +178,111 @@ function chartGeom(
   };
 }
 
+// Mini isometric cube-staircase silhouette for iso-steps templates — grid
+// cards show the actual stacked-cubes visual instead of the radial fallback.
+interface IsoThumbGeom {
+  faces: Array<{ d: string; fill: string }>;
+  labels: Array<{ tf: string; x: number; y: number; t: string; fs: number }>;
+  stroke: string;
+}
+
+/** amt > 0 tints toward white, amt < 0 shades toward black. */
+function isoThumbShade(hex: string, amt: number): string {
+  const h = hex.replace('#', '');
+  const full =
+    h.length === 3
+      ? h
+          .split('')
+          .map((c) => c + c)
+          .join('')
+      : h.padEnd(6, '0');
+  const n = Number.parseInt(full.slice(0, 6), 16);
+  const t = amt > 0 ? 255 : 0;
+  const pMix = Math.abs(amt);
+  const ch = (v: number) =>
+    Math.max(0, Math.min(255, Math.round(v + (t - v) * pMix)));
+  return `rgb(${ch((n >> 16) & 255)},${ch((n >> 8) & 255)},${ch(n & 255)})`;
+}
+
+function isoThumb(
+  data: DiagramData,
+  accent: string
+): { tiles: Tile[]; iso: IsoThumbGeom } {
+  const hub = data as Extract<DiagramData, { center: unknown }>;
+  const sats = hub.satellites.slice(0, 15);
+  const N = Math.max(sats.length, 1);
+  const C = Math.max(2, Math.ceil((Math.sqrt(8 * N + 1) - 1) / 2));
+  const cells: Array<{ c: number; h: number; label: string }> = [];
+  let k = 0;
+  for (let h = 0; k < N; h++) {
+    const rowW = Math.max(1, C - h);
+    for (let c = 0; c < rowW && k < N; c++) {
+      cells.push({ c, h, label: sats[k].label });
+      k++;
+    }
+  }
+  const col0H = cells.filter((x) => x.c === 0).length;
+  const Htot = col0H + 1;
+  const unitsW = (C + 1) * 0.866;
+  const unitsH = Htot + 0.5 + C * 0.5;
+  const s = Math.min(204 / unitsW, 266 / unitsH);
+  const x0 = (W - unitsW * s) / 2;
+  const y0 = (H - unitsH * s) / 2 + (Htot + 0.5) * s;
+  // Fixed precision — mirrors the chart thumbs' hydration-safe rounding.
+  const f = (n: number) => Number(n.toFixed(2));
+  const ux = 0.866 * s;
+  const uy = 0.5 * s;
+  const facesFor = (x: number, y: number) => ({
+    top: `M ${f(x)} ${f(y - s)} L ${f(x + ux)} ${f(y - s + uy)} L ${f(x + 2 * ux)} ${f(y - s)} L ${f(x + ux)} ${f(y - s - uy)} Z`,
+    side: `M ${f(x + ux)} ${f(y + uy)} L ${f(x + 2 * ux)} ${f(y)} L ${f(x + 2 * ux)} ${f(y - s)} L ${f(x + ux)} ${f(y - s + uy)} Z`,
+    front: `M ${f(x)} ${f(y)} L ${f(x + ux)} ${f(y + uy)} L ${f(x + ux)} ${f(y - s + uy)} L ${f(x)} ${f(y - s)} Z`,
+  });
+  const faces: IsoThumbGeom['faces'] = [];
+  const labels: IsoThumbGeom['labels'] = [];
+  const frontFill = accent;
+  const sideFill = isoThumbShade(accent, -0.16);
+  const topFill = isoThumbShade(accent, 0.18);
+  for (const cell of [...cells].sort((a, b) => a.c - b.c || a.h - b.h)) {
+    const x = x0 + cell.c * ux;
+    const y = y0 + cell.c * uy - cell.h * s;
+    const q = facesFor(x, y);
+    faces.push(
+      { d: q.top, fill: topFill },
+      { d: q.side, fill: sideFill },
+      { d: q.front, fill: frontFill }
+    );
+    if (cell.label)
+      labels.push({
+        tf: `matrix(0.866,0.5,0,1,${f(x)},${f(y - s)})`,
+        x: f(s * 0.5),
+        y: f(s * 0.64),
+        t: cell.label,
+        fs: f(s * 0.36 * Math.min(1, 2.6 / cell.label.length)),
+      });
+  }
+  const lp = facesFor(x0, y0 - col0H * s);
+  faces.push(
+    { d: lp.top, fill: '#ffffff' },
+    { d: lp.side, fill: '#EDEBE6' },
+    { d: lp.front, fill: '#FBFAF7' }
+  );
+  const ci = resolveIcon(hub.center.icon, hub.center.label);
+  const tiles: Tile[] = [
+    {
+      key: 'center',
+      x: f(x0 + ux * 0.62),
+      y: f(y0 - col0H * s - s * 0.42),
+      size: f(s * 0.56),
+      flush: ci.flush || ci.kind === 'brand',
+      icon: ci.node,
+    },
+  ];
+  return {
+    tiles,
+    iso: { faces, labels, stroke: isoThumbShade(accent, -0.62) },
+  };
+}
+
 function computeLayout(data: DiagramData): { tiles: Tile[]; edges: Edge[] } {
   const tiles: Tile[] = [];
   const edges: Edge[] = [];
@@ -285,10 +390,13 @@ export function StaticDiagramThumb({
   const chartResult = isChart
     ? chartGeom(data, layout as ChartKind, accent)
     : null;
-  const base = chartResult ? null : computeLayout(data);
-  const tiles = chartResult?.tiles ?? base?.tiles ?? [];
+  const isoResult =
+    layout === 'iso-steps' && 'center' in data ? isoThumb(data, accent) : null;
+  const base = chartResult || isoResult ? null : computeLayout(data);
+  const tiles = chartResult?.tiles ?? isoResult?.tiles ?? base?.tiles ?? [];
   const edges = base?.edges ?? [];
   const chart = chartResult?.chart;
+  const iso = isoResult?.iso;
 
   return (
     <div
@@ -314,6 +422,31 @@ export function StaticDiagramThumb({
             strokeOpacity={0.3}
             strokeWidth={1.5}
           />
+        ))}
+        {iso?.faces.map((fa, i) => (
+          <path
+            key={`iso-${i}`}
+            d={fa.d}
+            fill={fa.fill}
+            stroke={iso.stroke}
+            strokeWidth={1.4}
+            strokeLinejoin="round"
+          />
+        ))}
+        {iso?.labels.map((l, i) => (
+          <g key={`isol-${i}`} transform={l.tf}>
+            <text
+              x={l.x}
+              y={l.y}
+              textAnchor="middle"
+              fontWeight={800}
+              fontSize={l.fs}
+              fill="#ffffff"
+              fontFamily="ui-sans-serif, system-ui, sans-serif"
+            >
+              {l.t}
+            </text>
+          </g>
         ))}
         {chart?.bars?.map((b, i) => (
           <rect

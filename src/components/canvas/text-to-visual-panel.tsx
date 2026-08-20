@@ -209,6 +209,8 @@ export function specFromSuggestion(
       return { ...base, layout: 'chart-line', center, satellites: sats };
     case 'donut':
       return { ...base, layout: 'donut', center, satellites: sats };
+    case 'iso-steps':
+      return { ...base, layout: 'iso-steps', center, satellites: sats };
     default:
       return { ...base, layout: 'radial', center, satellites: sats };
   }
@@ -230,6 +232,8 @@ function thumbSpec(spec: PreviewSpec): PreviewSpec {
     case 'timeline':
     case 'iceberg':
       return { ...spec, satellites: spec.satellites.slice(0, 5) };
+    case 'iso-steps':
+      return { ...spec, satellites: spec.satellites.slice(0, 6) };
     case 'bars':
     case 'chart-line':
       return { ...spec, satellites: spec.satellites.slice(0, 5) };

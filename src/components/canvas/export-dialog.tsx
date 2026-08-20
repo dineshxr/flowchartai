@@ -239,77 +239,113 @@ export function ExportDialog({
         </div>
 
         {/* ── Quality / background ─────────────────────────────────────── */}
-        {supportsHd || supportsTransparent ? (
-          <div className="mt-2">
-            {supportsHd ? (
-              <>
-                <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                  Quality
-                </div>
-                <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                  <button
-                    type="button"
-                    disabled={isExporting}
-                    onClick={() => onScaleChange(1)}
-                    className={cn(
-                      'rounded-full border px-3 py-1.5 text-xs font-medium transition-[color,background-color,border-color,transform] duration-150 ease-out active:scale-[0.97] disabled:opacity-50',
-                      effectiveScale === 1
-                        ? 'border-foreground bg-foreground text-background'
+        <div className="mt-2">
+          {supportsHd ? (
+            <>
+              <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                Quality
+              </div>
+              <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                <button
+                  type="button"
+                  disabled={isExporting}
+                  onClick={() => onScaleChange(1)}
+                  className={cn(
+                    'rounded-full border px-3 py-1.5 text-xs font-medium transition-[color,background-color,border-color,transform] duration-150 ease-out active:scale-[0.97] disabled:opacity-50',
+                    effectiveScale === 1
+                      ? 'border-foreground bg-foreground text-background'
+                      : 'border-border bg-background text-foreground/70 hover:border-foreground/40 hover:text-foreground'
+                  )}
+                >
+                  Standard
+                </button>
+                <button
+                  type="button"
+                  disabled={isExporting}
+                  aria-disabled={hdLocked}
+                  title={
+                    hdLocked
+                      ? 'HD 2× export is a Pro feature'
+                      : 'Double the output resolution'
+                  }
+                  onClick={() =>
+                    hdLocked ? setHdNudge(true) : onScaleChange(2)
+                  }
+                  className={cn(
+                    'flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-[color,background-color,border-color,transform] duration-150 ease-out active:scale-[0.97] disabled:opacity-50',
+                    effectiveScale === 2
+                      ? 'border-foreground bg-foreground text-background'
+                      : hdLocked
+                        ? 'border-border bg-background text-foreground/40'
                         : 'border-border bg-background text-foreground/70 hover:border-foreground/40 hover:text-foreground'
-                    )}
-                  >
-                    Standard
-                  </button>
-                  <button
-                    type="button"
-                    disabled={isExporting}
-                    aria-disabled={hdLocked}
-                    title={
-                      hdLocked
-                        ? 'HD 2× export is a Pro feature'
-                        : 'Double the output resolution'
-                    }
-                    onClick={() =>
-                      hdLocked ? setHdNudge(true) : onScaleChange(2)
-                    }
-                    className={cn(
-                      'flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-[color,background-color,border-color,transform] duration-150 ease-out active:scale-[0.97] disabled:opacity-50',
-                      effectiveScale === 2
-                        ? 'border-foreground bg-foreground text-background'
-                        : hdLocked
-                          ? 'border-border bg-background text-foreground/40'
-                          : 'border-border bg-background text-foreground/70 hover:border-foreground/40 hover:text-foreground'
-                    )}
-                  >
-                    HD 2×
-                    {hdLocked ? (
-                      <span className="ig-gradient rounded-full px-1.5 py-px text-[9px] font-bold uppercase tracking-wide text-white">
-                        Pro
-                      </span>
-                    ) : null}
-                  </button>
-                </div>
-              </>
-            ) : null}
+                  )}
+                >
+                  HD 2×
+                  {hdLocked ? (
+                    <span className="ig-gradient rounded-full px-1.5 py-px text-[9px] font-bold uppercase tracking-wide text-white">
+                      Pro
+                    </span>
+                  ) : null}
+                </button>
+              </div>
+            </>
+          ) : null}
 
-            {supportsTransparent ? (
-              <button
-                type="button"
-                disabled={isExporting}
-                onClick={() => onTransparentChange(!transparent)}
-                className={cn(
-                  'mt-2 flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium transition-[color,background-color,border-color,transform] duration-150 ease-out active:scale-[0.97] disabled:opacity-50',
-                  transparent
-                    ? 'border-foreground bg-foreground text-background'
-                    : 'border-border bg-background text-foreground/70 hover:border-foreground/40 hover:text-foreground'
-                )}
-              >
-                {transparent ? <Check className="h-3.5 w-3.5" /> : null}
-                Transparent background
-              </button>
-            ) : null}
+          {/* Background is always visible — a lone toggle hidden behind the
+                right format was undiscoverable. Unsupported formats show it
+                disabled with the reason instead of hiding it. */}
+          <div
+            className={cn(
+              'text-[11px] font-semibold uppercase tracking-wider text-muted-foreground',
+              supportsHd && 'mt-3'
+            )}
+          >
+            Background
           </div>
-        ) : null}
+          <div className="mt-2 flex flex-wrap items-center gap-1.5">
+            <button
+              type="button"
+              disabled={isExporting}
+              onClick={() => onTransparentChange(false)}
+              className={cn(
+                'rounded-full border px-3 py-1.5 text-xs font-medium transition-[color,background-color,border-color,transform] duration-150 ease-out active:scale-[0.97] disabled:opacity-50',
+                !transparent || !supportsTransparent
+                  ? 'border-foreground bg-foreground text-background'
+                  : 'border-border bg-background text-foreground/70 hover:border-foreground/40 hover:text-foreground'
+              )}
+            >
+              White
+            </button>
+            <button
+              type="button"
+              disabled={isExporting || !supportsTransparent}
+              title={
+                supportsTransparent
+                  ? 'Export with a see-through background'
+                  : 'Transparent background is available for PNG and SVG'
+              }
+              onClick={() => onTransparentChange(true)}
+              className={cn(
+                'flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-[color,background-color,border-color,transform] duration-150 ease-out active:scale-[0.97]',
+                transparent && supportsTransparent
+                  ? 'border-foreground bg-foreground text-background'
+                  : supportsTransparent
+                    ? 'border-border bg-background text-foreground/70 hover:border-foreground/40 hover:text-foreground'
+                    : 'cursor-not-allowed border-border bg-background text-foreground/40'
+              )}
+            >
+              {transparent && supportsTransparent ? (
+                <Check className="h-3.5 w-3.5" />
+              ) : null}
+              Transparent
+            </button>
+          </div>
+          {!supportsTransparent ? (
+            <p className="mt-1.5 text-[11px] text-muted-foreground">
+              Transparent background is available for PNG and SVG exports.
+            </p>
+          ) : null}
+        </div>
 
         {/* ── Watermark / upgrade ──────────────────────────────────────── */}
         {watermarked ? (
