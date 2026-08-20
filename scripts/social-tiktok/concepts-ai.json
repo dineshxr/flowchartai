@@ -1,0 +1,443 @@
+[
+  {
+    "slug": "agent-loop-tt",
+    "title": "The AI agent loop",
+    "layout": "cycle",
+    "accent": "#6366f1",
+    "center": "Agent",
+    "centerIcon": "bot3d",
+    "items": [
+      { "label": "Perceive the task", "icon": "search" },
+      { "label": "Plan next step", "icon": "brain3d" },
+      { "label": "Act via tools", "icon": "gear3d" },
+      { "label": "Observe result", "icon": "chart3d" },
+      { "label": "Update memory", "icon": "database3d" }
+    ]
+  },
+  {
+    "slug": "rag-vs-finetune-tt",
+    "title": "RAG vs fine-tuning",
+    "layout": "hub-lr",
+    "accent": "#8b5cf6",
+    "centerIcon": "brain3d",
+    "items": [],
+    "hub": {
+      "center": "Teach the model",
+      "left": [
+        { "label": "RAG: retrieve live", "icon": "database3d" },
+        { "label": "Fresh facts, cited", "icon": "search" },
+        { "label": "No retraining", "icon": "bolt3d" }
+      ],
+      "right": [
+        { "label": "Fine-tune: bake in", "icon": "gear3d" },
+        { "label": "New style & skills", "icon": "spark3d" },
+        { "label": "Stable knowledge", "icon": "lock3d" }
+      ]
+    }
+  },
+  {
+    "slug": "rag-pipeline-tt",
+    "title": "RAG is five things, not one",
+    "layout": "steps",
+    "accent": "#0ea5e9",
+    "centerIcon": "spark3d",
+    "items": [
+      { "label": "User question in", "icon": "chat" },
+      { "label": "Chunk & embed docs", "icon": "layers3d" },
+      { "label": "Retrieve top matches", "icon": "search" },
+      { "label": "Rerank for relevance", "icon": "funnel3d" },
+      { "label": "Grounded answer", "icon": "spark3d" }
+    ]
+  },
+  {
+    "slug": "transformer-loop-tt",
+    "title": "Inside every LLM",
+    "layout": "steps",
+    "accent": "#6366f1",
+    "centerIcon": "rocket3d",
+    "items": [
+      { "label": "Text → tokens", "icon": "cube3d" },
+      { "label": "Tokens → embeddings", "icon": "layers3d" },
+      { "label": "Attention mixes context", "icon": "spark3d" },
+      { "label": "Predict next token", "icon": "brain3d" },
+      { "label": "Repeat, billions of times", "icon": "rocket3d" }
+    ]
+  },
+  {
+    "slug": "llm-training-tt",
+    "title": "How LLMs are trained",
+    "layout": "steps",
+    "accent": "#f59e0b",
+    "centerIcon": "spark3d",
+    "items": [
+      { "label": "Pretrain on the internet", "icon": "globe3d" },
+      { "label": "Learn to follow instructions", "icon": "chat" },
+      { "label": "Humans rank outputs", "icon": "users3d" },
+      { "label": "Reward model scores", "icon": "chart3d" },
+      { "label": "RLHF polish", "icon": "spark3d" }
+    ]
+  },
+  {
+    "slug": "attention-qkv-tt",
+    "title": "What attention actually is",
+    "layout": "steps",
+    "accent": "#8b5cf6",
+    "centerIcon": "spark3d",
+    "items": [
+      { "label": "Token asks: Query", "icon": "search" },
+      { "label": "Others offer: Keys", "icon": "keys" },
+      { "label": "Score every match", "icon": "chart3d" },
+      { "label": "Blend the Values", "icon": "layers3d" },
+      { "label": "Context-aware token", "icon": "spark3d" }
+    ]
+  },
+  {
+    "slug": "vector-db-tt",
+    "title": "Search by meaning",
+    "layout": "funnel",
+    "accent": "#14b8a6",
+    "centerIcon": "spark3d",
+    "items": [
+      { "label": "Docs → embeddings", "icon": "layers3d" },
+      { "label": "Index the vectors", "icon": "database3d" },
+      { "label": "Embed the query too", "icon": "search" },
+      { "label": "Nearest neighbors", "icon": "globe3d" },
+      { "label": "Meaning matches, not words", "icon": "spark3d" }
+    ]
+  },
+  {
+    "slug": "embeddings-tt",
+    "title": "Meaning → coordinates",
+    "layout": "funnel",
+    "accent": "#10b981",
+    "centerIcon": "layers3d",
+    "items": [
+      { "label": "Words go in", "icon": "chat" },
+      { "label": "Model encodes meaning", "icon": "brain3d" },
+      { "label": "Vector out: 1,536 numbers", "icon": "cube3d" },
+      { "label": "Similar meaning = nearby", "icon": "globe3d" },
+      { "label": "Search, recs, RAG, clusters", "icon": "search" }
+    ]
+  },
+  {
+    "slug": "tokenization-tt",
+    "title": "LLMs never see words",
+    "layout": "steps",
+    "accent": "#ec4899",
+    "centerIcon": "brain3d",
+    "items": [
+      { "label": "Raw text", "icon": "chat" },
+      { "label": "Split into chunks", "icon": "cube3d" },
+      { "label": "Chunks → token IDs", "icon": "code" },
+      { "label": "~4 characters per token", "icon": "chart3d" },
+      { "label": "The model sees only IDs", "icon": "brain3d" }
+    ]
+  },
+  {
+    "slug": "hallucination-tt",
+    "title": "Why LLMs make things up",
+    "layout": "iceberg",
+    "accent": "#3b82f6",
+    "centerIcon": "chat",
+    "items": [
+      { "label": "A confident answer", "icon": "chat" },
+      { "label": "Pattern completion, not lookup", "icon": "brain3d" },
+      { "label": "No fact database inside", "icon": "database3d" },
+      { "label": "Likely-sounding ≠ true", "icon": "chart3d" },
+      { "label": "Grounding & citations help", "icon": "shield3d" }
+    ]
+  },
+  {
+    "slug": "context-window-tt",
+    "title": "Every LLM call is a packing problem",
+    "layout": "funnel",
+    "accent": "#f59e0b",
+    "centerIcon": "box3d",
+    "items": [
+      { "label": "System prompt", "icon": "code" },
+      { "label": "Chat history", "icon": "chat" },
+      { "label": "Retrieved docs", "icon": "database3d" },
+      { "label": "Tool results", "icon": "gear3d" },
+      { "label": "What fits: the context window", "icon": "box3d" }
+    ]
+  },
+  {
+    "slug": "temperature-tt",
+    "title": "What temperature really does",
+    "layout": "hub-lr",
+    "accent": "#ec4899",
+    "centerIcon": "spark3d",
+    "items": [],
+    "hub": {
+      "center": "How dice are rolled",
+      "left": [
+        { "label": "Low temp", "icon": "lock3d" },
+        { "label": "Top token wins", "icon": "chart3d" },
+        { "label": "Precise, repetitive", "icon": "shield3d" }
+      ],
+      "right": [
+        { "label": "High temp", "icon": "spark3d" },
+        { "label": "Odds spread out", "icon": "globe3d" },
+        { "label": "Creative, riskier", "icon": "rocket3d" }
+      ]
+    }
+  },
+  {
+    "slug": "lora-tt",
+    "title": "LoRA: fine-tune on a laptop",
+    "layout": "steps",
+    "accent": "#14b8a6",
+    "centerIcon": "rocket3d",
+    "items": [
+      { "label": "Freeze the big model", "icon": "lock3d" },
+      { "label": "Add tiny adapter layers", "icon": "layers3d" },
+      { "label": "Train ~1% of weights", "icon": "gear3d" },
+      { "label": "Swap adapters per task", "icon": "cube3d" },
+      { "label": "Big-model skills, tiny bill", "icon": "rocket3d" }
+    ]
+  },
+  {
+    "slug": "quantization-tt",
+    "title": "How 70B params fit on a laptop",
+    "layout": "steps",
+    "accent": "#0ea5e9",
+    "centerIcon": "rocket3d",
+    "items": [
+      { "label": "Weights as 16-bit floats", "icon": "cpu3d" },
+      { "label": "Round them to 8-bit", "icon": "cube3d" },
+      { "label": "Or even 4-bit", "icon": "box3d" },
+      { "label": "4× smaller, near-same quality", "icon": "chart3d" },
+      { "label": "Frontier model, local machine", "icon": "rocket3d" }
+    ]
+  },
+  {
+    "slug": "speculative-decoding-tt",
+    "title": "Small model types, big model checks",
+    "layout": "cycle",
+    "accent": "#6366f1",
+    "center": "Fast decode",
+    "centerIcon": "rocket3d",
+    "items": [
+      { "label": "Draft model races ahead", "icon": "bolt3d" },
+      { "label": "Proposes 5 tokens", "icon": "cube3d" },
+      { "label": "Big model verifies in one pass", "icon": "brain3d" },
+      { "label": "Keep the matches", "icon": "shield3d" },
+      { "label": "Fix first miss, repeat", "icon": "gear3d" }
+    ]
+  },
+  {
+    "slug": "diffusion-tt",
+    "title": "AI images: un-noising",
+    "layout": "steps",
+    "accent": "#8b5cf6",
+    "centerIcon": "spark3d",
+    "items": [
+      { "label": "Start from pure static", "icon": "cube3d" },
+      { "label": "Predict the noise", "icon": "brain3d" },
+      { "label": "Subtract a little", "icon": "gear3d" },
+      { "label": "Prompt steers every step", "icon": "chat" },
+      { "label": "An image emerges", "icon": "spark3d" }
+    ]
+  },
+  {
+    "slug": "gan-tt",
+    "title": "GANs: a forger vs a detective",
+    "layout": "hub-lr",
+    "accent": "#ec4899",
+    "centerIcon": "users3d",
+    "items": [],
+    "hub": {
+      "center": "The duel",
+      "left": [
+        { "label": "Generator forges", "icon": "spark3d" },
+        { "label": "Learns from catches", "icon": "gear3d" },
+        { "label": "Fakes improve", "icon": "chart3d" }
+      ],
+      "right": [
+        { "label": "Discriminator detects", "icon": "search" },
+        { "label": "Learns from misses", "icon": "brain3d" },
+        { "label": "Detection improves", "icon": "shield3d" }
+      ]
+    }
+  },
+  {
+    "slug": "prompt-loop-tt",
+    "title": "Prompting is a debugging loop",
+    "layout": "cycle",
+    "accent": "#f59e0b",
+    "center": "Iterate",
+    "centerIcon": "spark3d",
+    "items": [
+      { "label": "Write the prompt", "icon": "code" },
+      { "label": "Run it", "icon": "bolt3d" },
+      { "label": "Inspect the failures", "icon": "search" },
+      { "label": "Add examples & constraints", "icon": "layers3d" },
+      { "label": "Eval again", "icon": "chart3d" }
+    ]
+  },
+  {
+    "slug": "agent-capabilities-tt",
+    "title": "A chatbot answers. An agent operates.",
+    "layout": "cycle",
+    "accent": "#6366f1",
+    "center": "Agent, really",
+    "centerIcon": "bot3d",
+    "items": [
+      { "label": "Reasoning", "icon": "brain3d" },
+      { "label": "Tools", "icon": "gear3d" },
+      { "label": "Memory", "icon": "database3d" },
+      { "label": "Planning", "icon": "flow3d" },
+      { "label": "Feedback loop", "icon": "chart3d" },
+      { "label": "Guardrails", "icon": "shield3d" }
+    ]
+  },
+  {
+    "slug": "llm-evals-tt",
+    "title": "From demo to production",
+    "layout": "steps",
+    "accent": "#10b981",
+    "centerIcon": "rocket3d",
+    "items": [
+      { "label": "It works in the demo", "icon": "spark3d" },
+      { "label": "Write real test cases", "icon": "code" },
+      { "label": "Score every change", "icon": "chart3d" },
+      { "label": "Catch regressions", "icon": "shield3d" },
+      { "label": "Ship with confidence", "icon": "rocket3d" }
+    ]
+  },
+  {
+    "slug": "guardrails-tt",
+    "title": "AI guardrails, layer by layer",
+    "layout": "funnel",
+    "accent": "#3b82f6",
+    "centerIcon": "shield3d",
+    "items": [
+      { "label": "User input", "icon": "chat" },
+      { "label": "Input filters", "icon": "funnel3d" },
+      { "label": "Model + system prompt", "icon": "brain3d" },
+      { "label": "Output checks", "icon": "search" },
+      { "label": "Safe response out", "icon": "shield3d" }
+    ]
+  },
+  {
+    "slug": "multimodal-tt",
+    "title": "One model, every medium",
+    "layout": "hub-lr",
+    "accent": "#8b5cf6",
+    "centerIcon": "brain3d",
+    "items": [],
+    "hub": {
+      "center": "One model",
+      "left": [
+        { "label": "Text in", "icon": "chat" },
+        { "label": "Images in", "icon": "color" },
+        { "label": "Audio in", "icon": "mega3d" }
+      ],
+      "right": [
+        { "label": "Shared embedding space", "icon": "layers3d" },
+        { "label": "Cross-modal reasoning", "icon": "spark3d" },
+        { "label": "Any-to-any output", "icon": "bolt3d" }
+      ]
+    }
+  },
+  {
+    "slug": "inference-request-tt",
+    "title": "One AI API call, unpacked",
+    "layout": "steps",
+    "accent": "#0ea5e9",
+    "centerIcon": "bolt3d",
+    "items": [
+      { "label": "Request hits the gateway", "icon": "cloud3d" },
+      { "label": "Queue & batch", "icon": "box3d" },
+      { "label": "Prefill the prompt", "icon": "cpu3d" },
+      { "label": "Decode token by token", "icon": "gear3d" },
+      { "label": "Stream back to you", "icon": "bolt3d" }
+    ]
+  },
+  {
+    "slug": "mlops-tt",
+    "title": "The MLOps loop",
+    "layout": "cycle",
+    "accent": "#14b8a6",
+    "center": "MLOps",
+    "centerIcon": "gear3d",
+    "items": [
+      { "label": "Collect data", "icon": "database3d" },
+      { "label": "Train", "icon": "cpu3d" },
+      { "label": "Evaluate", "icon": "chart3d" },
+      { "label": "Deploy", "icon": "rocket3d" },
+      { "label": "Monitor drift", "icon": "search" },
+      { "label": "Retrain", "icon": "flow3d" }
+    ]
+  },
+  {
+    "slug": "cost-levers-tt",
+    "title": "Your LLM bill, in order of payoff",
+    "layout": "pyramid",
+    "accent": "#f59e0b",
+    "center": "Cut the LLM bill",
+    "centerIcon": "dollar3d",
+    "items": [
+      { "label": "Cache repeated prompts", "icon": "bolt3d" },
+      { "label": "Route to smaller models", "icon": "funnel3d" },
+      { "label": "Trim the context", "icon": "box3d" },
+      { "label": "Batch offline work", "icon": "layers3d" }
+    ]
+  },
+  {
+    "slug": "model-landscape-tt",
+    "title": "Pick models by task, not leaderboard",
+    "layout": "hub-lr",
+    "accent": "#6366f1",
+    "centerIcon": "brain3d",
+    "items": [],
+    "hub": {
+      "center": "Pick by task",
+      "left": [
+        { "label": "Frontier: hard reasoning", "icon": "spark3d" },
+        { "label": "Long context", "icon": "box3d" },
+        { "label": "Highest cost", "icon": "dollar3d" }
+      ],
+      "right": [
+        { "label": "Small: classify & extract", "icon": "funnel3d" },
+        { "label": "Fast & cheap", "icon": "bolt3d" },
+        { "label": "Fine-tunable", "icon": "gear3d" }
+      ]
+    }
+  },
+  {
+    "slug": "ai-stack-tt",
+    "title": "The production AI stack",
+    "layout": "pyramid",
+    "accent": "#8b5cf6",
+    "center": "The 2026 AI stack",
+    "centerIcon": "layers3d",
+    "items": [
+      { "label": "Models via API", "icon": "cloud3d" },
+      { "label": "Orchestration & agents", "icon": "flow3d" },
+      { "label": "Retrieval & memory", "icon": "database3d" },
+      { "label": "Evals & observability", "icon": "chart3d" }
+    ]
+  },
+  {
+    "slug": "vector-store-options-tt",
+    "title": "You may not need a vector DB",
+    "layout": "hub-lr",
+    "accent": "#10b981",
+    "centerIcon": "database3d",
+    "items": [],
+    "hub": {
+      "center": "Where vectors live",
+      "left": [
+        { "label": "Postgres + pgvector", "icon": "postgres" },
+        { "label": "Redis", "icon": "redis" },
+        { "label": "MongoDB Atlas", "icon": "mongodb" }
+      ],
+      "right": [
+        { "label": "Pinecone", "icon": "pinecone" },
+        { "label": "Dedicated & managed", "icon": "cloud3d" },
+        { "label": "For 100M+ vectors", "icon": "rocket3d" }
+      ]
+    }
+  }
+]

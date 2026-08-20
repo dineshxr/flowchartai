@@ -1,0 +1,242 @@
+[
+  {
+    "slug": "agent-loop-tt",
+    "title": "The AI agent loop"
+  },
+  {
+    "slug": "rag-vs-finetune-tt",
+    "title": "RAG vs fine-tuning"
+  },
+  {
+    "slug": "rag-pipeline-tt",
+    "title": "RAG is five things, not one"
+  },
+  {
+    "slug": "transformer-loop-tt",
+    "title": "Inside every LLM"
+  },
+  {
+    "slug": "llm-training-tt",
+    "title": "How LLMs are trained"
+  },
+  {
+    "slug": "attention-qkv-tt",
+    "title": "What attention actually is"
+  },
+  {
+    "slug": "vector-db-tt",
+    "title": "Search by meaning"
+  },
+  {
+    "slug": "embeddings-tt",
+    "title": "Meaning → coordinates"
+  },
+  {
+    "slug": "tokenization-tt",
+    "title": "LLMs never see words"
+  },
+  {
+    "slug": "hallucination-tt",
+    "title": "Why LLMs make things up"
+  },
+  {
+    "slug": "context-window-tt",
+    "title": "Every LLM call is a packing problem"
+  },
+  {
+    "slug": "temperature-tt",
+    "title": "What temperature really does"
+  },
+  {
+    "slug": "lora-tt",
+    "title": "LoRA: fine-tune on a laptop"
+  },
+  {
+    "slug": "quantization-tt",
+    "title": "How 70B params fit on a laptop"
+  },
+  {
+    "slug": "speculative-decoding-tt",
+    "title": "Small model types, big model checks"
+  },
+  {
+    "slug": "diffusion-tt",
+    "title": "AI images: un-noising"
+  },
+  {
+    "slug": "gan-tt",
+    "title": "GANs: a forger vs a detective"
+  },
+  {
+    "slug": "prompt-loop-tt",
+    "title": "Prompting is a debugging loop"
+  },
+  {
+    "slug": "agent-capabilities-tt",
+    "title": "A chatbot answers. An agent operates."
+  },
+  {
+    "slug": "llm-evals-tt",
+    "title": "From demo to production"
+  },
+  {
+    "slug": "guardrails-tt",
+    "title": "AI guardrails, layer by layer"
+  },
+  {
+    "slug": "multimodal-tt",
+    "title": "One model, every medium"
+  },
+  {
+    "slug": "inference-request-tt",
+    "title": "One AI API call, unpacked"
+  },
+  {
+    "slug": "mlops-tt",
+    "title": "The MLOps loop"
+  },
+  {
+    "slug": "cost-levers-tt",
+    "title": "Your LLM bill, in order of payoff"
+  },
+  {
+    "slug": "model-landscape-tt",
+    "title": "Pick models by task, not leaderboard"
+  },
+  {
+    "slug": "ai-stack-tt",
+    "title": "The production AI stack"
+  },
+  {
+    "slug": "vector-store-options-tt",
+    "title": "You may not need a vector DB"
+  },
+  {
+    "slug": "kv-cache-tt",
+    "title": "The KV cache"
+  },
+  {
+    "slug": "ai-latency-tt",
+    "title": "Why AI features feel slow"
+  },
+  {
+    "slug": "queue-decouple-tt",
+    "title": "The 3 seconds behind \"order confirmed\""
+  },
+  {
+    "slug": "scaling-ladder-tt",
+    "title": "Fix slow apps in this order"
+  },
+  {
+    "slug": "pubsub-vs-queue-tt",
+    "title": "Queues vs pub/sub"
+  },
+  {
+    "slug": "webhooks-tt",
+    "title": "Webhooks vs polling"
+  },
+  {
+    "slug": "websockets-tt",
+    "title": "WebSockets: breaking HTTP's rule"
+  },
+  {
+    "slug": "stripe-flow-tt",
+    "title": "The 2 seconds behind \"Pay\""
+  },
+  {
+    "slug": "ci-pipeline-tt",
+    "title": "Questions a CI pipeline asks"
+  },
+  {
+    "slug": "observability-tt",
+    "title": "Metrics, logs, traces"
+  },
+  {
+    "slug": "caching-layers-tt",
+    "title": "5 caches between you and the DB"
+  },
+  {
+    "slug": "cache-invalidation-tt",
+    "title": "The hardest problem in CS"
+  },
+  {
+    "slug": "url-to-pixels-tt",
+    "title": "You hit Enter. Then this."
+  },
+  {
+    "slug": "dns-tt",
+    "title": "The internet's phone book"
+  },
+  {
+    "slug": "tls-tt",
+    "title": "The padlock's handshake"
+  },
+  {
+    "slug": "oauth-tt",
+    "title": "\"Sign in with Google\", unpacked"
+  },
+  {
+    "slug": "jwt-tt",
+    "title": "Stay logged in, statelessly"
+  },
+  {
+    "slug": "rest-vs-graphql-tt",
+    "title": "REST vs GraphQL"
+  },
+  {
+    "slug": "cdn-tt",
+    "title": "CDNs cheat physics"
+  },
+  {
+    "slug": "db-index-tt",
+    "title": "30 seconds → 2 milliseconds"
+  },
+  {
+    "slug": "sql-vs-nosql-tt",
+    "title": "SQL vs NoSQL, minus the hype"
+  },
+  {
+    "slug": "sharding-tt",
+    "title": "Scale out, not up"
+  },
+  {
+    "slug": "replication-tt",
+    "title": "One DB is a single point of failure"
+  },
+  {
+    "slug": "cap-tt",
+    "title": "CAP: when the network splits"
+  },
+  {
+    "slug": "rate-limit-tt",
+    "title": "The token bucket"
+  },
+  {
+    "slug": "idempotency-tt",
+    "title": "Why double-clicks don't double-charge"
+  },
+  {
+    "slug": "docker-tt",
+    "title": "\"Works on my machine\" — solved"
+  },
+  {
+    "slug": "microservices-tt",
+    "title": "Monolith vs microservices"
+  },
+  {
+    "slug": "k8s-tt",
+    "title": "Kubernetes in one loop"
+  },
+  {
+    "slug": "event-driven-tt",
+    "title": "One event, four reactions"
+  },
+  {
+    "slug": "integration-surface-tt",
+    "title": "Your SaaS is mostly integrations"
+  },
+  {
+    "slug": "data-stack-tt",
+    "title": "The modern data stack"
+  }
+]

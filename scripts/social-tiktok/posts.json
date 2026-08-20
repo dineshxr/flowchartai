@@ -1,0 +1,422 @@
+[
+  {
+    "n": 1,
+    "slug": "agent-loop-tt",
+    "title": "The AI agent loop",
+    "scheduled_at": "2026-08-19T23:00:00Z",
+    "caption": "Strip the frameworks away and every AI agent runs the same 5-step loop.\n\nPerceive → plan → act → observe → remember. That's it. That's the product.\n\nMade with Infogiph → infogiph.com\n\n#aiagents #ai #techtok #learnontiktok #aiengineering"
+  },
+  {
+    "n": 2,
+    "slug": "kv-cache-tt",
+    "title": "The KV cache",
+    "scheduled_at": "2026-08-20T15:00:00Z",
+    "caption": "Without this one optimization, ChatGPT would grind to a halt mid-paragraph.\n\nThe KV cache: trade memory for speed.\n\nMade with Infogiph → infogiph.com\n\n#llm #ai #aiengineering #techtok #computerscience"
+  },
+  {
+    "n": 3,
+    "slug": "rag-vs-finetune-tt",
+    "title": "RAG vs fine-tuning",
+    "scheduled_at": "2026-08-20T23:00:00Z",
+    "caption": "\"Should we fine-tune or use RAG?\" — the question every AI team hits in month one.\n\nRAG retrieves live facts. Fine-tuning bakes in skills. Different tools, different jobs.\n\nMade with Infogiph → infogiph.com\n\n#rag #llm #ai #techtok #aiengineering"
+  },
+  {
+    "n": 4,
+    "slug": "ai-latency-tt",
+    "title": "Why AI features feel slow",
+    "scheduled_at": "2026-08-21T15:00:00Z",
+    "caption": "\"Why does our AI feature feel slow?\"\n\nAlmost always one of these — and rarely the one people assume.\n\nMade with Infogiph → infogiph.com\n\n#ai #llm #performance #techtok #aiengineering"
+  },
+  {
+    "n": 5,
+    "slug": "rag-pipeline-tt",
+    "title": "RAG is five things, not one",
+    "scheduled_at": "2026-08-21T23:00:00Z",
+    "caption": "RAG gets described as if it were one thing. It's five — and four of them are where quality actually comes from.\n\nMade with Infogiph → infogiph.com\n\n#rag #ai #llm #techtok #learnontiktok"
+  },
+  {
+    "n": 6,
+    "slug": "queue-decouple-tt",
+    "title": "The 3 seconds behind \"order confirmed\"",
+    "scheduled_at": "2026-08-22T15:00:00Z",
+    "caption": "The order confirmation appears instantly. The warehouse email arrives 3 seconds later.\n\nBetween those two moments sits a queue.\n\nMade with Infogiph → infogiph.com\n\n#systemdesign #backend #coding #techtok #softwareengineer"
+  },
+  {
+    "n": 7,
+    "slug": "transformer-loop-tt",
+    "title": "Inside every LLM",
+    "scheduled_at": "2026-08-22T23:00:00Z",
+    "caption": "Every LLM you've ever used is running this same loop, billions of times.\n\nText → tokens → attention → prediction → repeat.\n\nMade with Infogiph → infogiph.com\n\n#llm #transformers #ai #techtok #computerscience"
+  },
+  {
+    "n": 8,
+    "slug": "scaling-ladder-tt",
+    "title": "Fix slow apps in this order",
+    "scheduled_at": "2026-08-23T15:00:00Z",
+    "caption": "When the app gets slow, there's a correct order to try things.\n\nMost teams start three rungs too high.\n\nMade with Infogiph → infogiph.com\n\n#systemdesign #database #coding #techtok #backend"
+  },
+  {
+    "n": 9,
+    "slug": "llm-training-tt",
+    "title": "How LLMs are trained",
+    "scheduled_at": "2026-08-23T23:00:00Z",
+    "caption": "\"It just predicts the next word\" is only stage one of the story.\n\nPretrain → instructions → human ranking → RLHF polish.\n\nMade with Infogiph → infogiph.com\n\n#llm #machinelearning #ai #techtok #rlhf"
+  },
+  {
+    "n": 10,
+    "slug": "pubsub-vs-queue-tt",
+    "title": "Queues vs pub/sub",
+    "scheduled_at": "2026-08-24T15:00:00Z",
+    "caption": "Queues and pub/sub look identical in a diagram and behave completely differently in production.\n\nMade with Infogiph → infogiph.com\n\n#systemdesign #backend #softwareengineer #techtok #coding"
+  },
+  {
+    "n": 11,
+    "slug": "attention-qkv-tt",
+    "title": "What attention actually is",
+    "scheduled_at": "2026-08-24T23:00:00Z",
+    "caption": "\"Attention is all you need\" — but what IS attention, actually?\n\nQueries, Keys, Values — in one animation.\n\nMade with Infogiph → infogiph.com\n\n#transformers #deeplearning #ai #techtok #learnontiktok"
+  },
+  {
+    "n": 12,
+    "slug": "webhooks-tt",
+    "title": "Webhooks vs polling",
+    "scheduled_at": "2026-08-25T15:00:00Z",
+    "caption": "\"Are we there yet?\" vs \"I'll call you when we arrive.\"\n\nThat's polling vs webhooks, complete with the annoyance.\n\nMade with Infogiph → infogiph.com\n\n#webhooks #api #backend #techtok #coding"
+  },
+  {
+    "n": 13,
+    "slug": "vector-db-tt",
+    "title": "Search by meaning",
+    "scheduled_at": "2026-08-25T23:00:00Z",
+    "caption": "Vector databases don't search for words. They search for meaning.\n\nMade with Infogiph → infogiph.com\n\n#vectordatabase #ai #rag #techtok #coding"
+  },
+  {
+    "n": 14,
+    "slug": "websockets-tt",
+    "title": "WebSockets: breaking HTTP's rule",
+    "scheduled_at": "2026-08-26T15:00:00Z",
+    "caption": "HTTP has a rule: the server speaks only when spoken to.\n\nWebSockets exist to break that rule.\n\nMade with Infogiph → infogiph.com\n\n#websockets #webdev #coding #techtok #computerscience"
+  },
+  {
+    "n": 15,
+    "slug": "embeddings-tt",
+    "title": "Meaning → coordinates",
+    "scheduled_at": "2026-08-26T23:00:00Z",
+    "caption": "One idea powers semantic search, recommendations, RAG and clustering: turn meaning into coordinates.\n\nMade with Infogiph → infogiph.com\n\n#embeddings #ai #machinelearning #techtok #learnontiktok"
+  },
+  {
+    "n": 16,
+    "slug": "stripe-flow-tt",
+    "title": "The 2 seconds behind \"Pay\"",
+    "scheduled_at": "2026-08-27T15:00:00Z",
+    "caption": "A customer clicks Pay. Here's what happens in the two seconds before they see \"thank you\".\n\nMade with Infogiph → infogiph.com\n\n#stripe #payments #backend #techtok #coding"
+  },
+  {
+    "n": 17,
+    "slug": "tokenization-tt",
+    "title": "LLMs never see words",
+    "scheduled_at": "2026-08-27T23:00:00Z",
+    "caption": "LLMs never see words. They see token IDs — about 4 characters each.\n\nEverything else about AI follows from that.\n\nMade with Infogiph → infogiph.com\n\n#llm #ai #nlp #techtok #computerscience"
+  },
+  {
+    "n": 18,
+    "slug": "ci-pipeline-tt",
+    "title": "Questions a CI pipeline asks",
+    "scheduled_at": "2026-08-28T15:00:00Z",
+    "caption": "A CI pipeline is a series of questions you'd rather a machine asked than a customer.\n\nMade with Infogiph → infogiph.com\n\n#cicd #devops #coding #techtok #softwareengineer"
+  },
+  {
+    "n": 19,
+    "slug": "hallucination-tt",
+    "title": "Why LLMs make things up",
+    "scheduled_at": "2026-08-28T23:00:00Z",
+    "caption": "LLMs don't lie. They complete patterns — and sometimes the most likely-sounding completion is false.\n\nMade with Infogiph → infogiph.com\n\n#ai #llm #hallucination #techtok #aisafety"
+  },
+  {
+    "n": 20,
+    "slug": "observability-tt",
+    "title": "Metrics, logs, traces",
+    "scheduled_at": "2026-08-29T15:00:00Z",
+    "caption": "Metrics tell you WHAT broke. Logs tell you WHY. Traces tell you WHERE.\n\nMade with Infogiph → infogiph.com\n\n#devops #sre #observability #techtok #coding"
+  },
+  {
+    "n": 21,
+    "slug": "context-window-tt",
+    "title": "Every LLM call is a packing problem",
+    "scheduled_at": "2026-08-29T23:00:00Z",
+    "caption": "Every LLM call is a packing problem most people don't know they're solving.\n\nMade with Infogiph → infogiph.com\n\n#llm #ai #promptengineering #techtok #aiengineering"
+  },
+  {
+    "n": 22,
+    "slug": "caching-layers-tt",
+    "title": "5 caches between you and the DB",
+    "scheduled_at": "2026-08-30T15:00:00Z",
+    "caption": "There are at least 5 caches between your user and your database — and every one of them can serve yesterday's data.\n\nMade with Infogiph → infogiph.com\n\n#caching #systemdesign #webdev #techtok #backend"
+  },
+  {
+    "n": 23,
+    "slug": "temperature-tt",
+    "title": "What temperature really does",
+    "scheduled_at": "2026-08-30T23:00:00Z",
+    "caption": "Temperature doesn't make AI \"more creative\". It changes how the dice are rolled.\n\nMade with Infogiph → infogiph.com\n\n#llm #ai #techtok #learnontiktok #aiengineering"
+  },
+  {
+    "n": 24,
+    "slug": "cache-invalidation-tt",
+    "title": "The hardest problem in CS",
+    "scheduled_at": "2026-08-31T15:00:00Z",
+    "caption": "\"There are only two hard things in computer science: cache invalidation and naming things.\"\n\nThe loop behind the first one:\n\nMade with Infogiph → infogiph.com\n\n#computerscience #caching #coding #techtok #systemdesign"
+  },
+  {
+    "n": 25,
+    "slug": "lora-tt",
+    "title": "LoRA: fine-tune on a laptop",
+    "scheduled_at": "2026-08-31T23:00:00Z",
+    "caption": "Full fine-tuning a 70B model: hundreds of GB of GPU memory.\n\nLoRA: a single consumer GPU. Same task, wildly different bill.\n\nMade with Infogiph → infogiph.com\n\n#lora #finetuning #llm #ai #techtok"
+  },
+  {
+    "n": 26,
+    "slug": "url-to-pixels-tt",
+    "title": "You hit Enter. Then this.",
+    "scheduled_at": "2026-09-01T15:00:00Z",
+    "caption": "You type a URL and hit Enter. ~300 milliseconds of machinery later: pixels.\n\nMade with Infogiph → infogiph.com\n\n#webdev #computerscience #coding #techtok #learnontiktok"
+  },
+  {
+    "n": 27,
+    "slug": "quantization-tt",
+    "title": "How 70B params fit on a laptop",
+    "scheduled_at": "2026-09-01T23:00:00Z",
+    "caption": "How does a 70B-parameter model run on a laptop? You make the numbers smaller.\n\nMade with Infogiph → infogiph.com\n\n#quantization #llm #ai #techtok #edgeai"
+  },
+  {
+    "n": 28,
+    "slug": "dns-tt",
+    "title": "The internet's phone book",
+    "scheduled_at": "2026-09-02T15:00:00Z",
+    "caption": "DNS is the internet's phone book — and it answers billions of lookups a day by being beautifully lazy.\n\nMade with Infogiph → infogiph.com\n\n#dns #networking #webdev #techtok #computerscience"
+  },
+  {
+    "n": 29,
+    "slug": "speculative-decoding-tt",
+    "title": "Small model types, big model checks",
+    "scheduled_at": "2026-09-02T23:00:00Z",
+    "caption": "My favorite AI inference trick: a small model does the typing, a big model does the checking.\n\nThe output is mathematically identical — just faster.\n\nMade with Infogiph → infogiph.com\n\n#llm #ai #aiengineering #techtok #inference"
+  },
+  {
+    "n": 30,
+    "slug": "tls-tt",
+    "title": "The padlock's handshake",
+    "scheduled_at": "2026-09-03T15:00:00Z",
+    "caption": "The padlock in your browser is the receipt for this dance.\n\nMade with Infogiph → infogiph.com\n\n#cybersecurity #tls #networking #techtok #coding"
+  },
+  {
+    "n": 31,
+    "slug": "diffusion-tt",
+    "title": "AI images: un-noising",
+    "scheduled_at": "2026-09-03T23:00:00Z",
+    "caption": "AI image generators don't paint. They un-noise.\n\n20–50 rounds of subtracting static, until an image emerges.\n\nMade with Infogiph → infogiph.com\n\n#aiart #diffusion #generativeai #techtok #ai"
+  },
+  {
+    "n": 32,
+    "slug": "oauth-tt",
+    "title": "\"Sign in with Google\", unpacked",
+    "scheduled_at": "2026-09-04T15:00:00Z",
+    "caption": "Without OAuth, \"Sign in with Google\" would mean handing every app your actual password.\n\nMade with Infogiph → infogiph.com\n\n#oauth #security #webdev #techtok #coding"
+  },
+  {
+    "n": 33,
+    "slug": "gan-tt",
+    "title": "GANs: a forger vs a detective",
+    "scheduled_at": "2026-09-04T23:00:00Z",
+    "caption": "Before diffusion took over, the coolest idea in AI was a duel: a forger vs a detective, training each other into mastery.\n\nMade with Infogiph → infogiph.com\n\n#gan #deeplearning #ai #techtok #generativeai"
+  },
+  {
+    "n": 34,
+    "slug": "jwt-tt",
+    "title": "Stay logged in, statelessly",
+    "scheduled_at": "2026-09-05T15:00:00Z",
+    "caption": "How do you stay logged in across a fleet of stateless servers? You carry a signed note.\n\nMade with Infogiph → infogiph.com\n\n#jwt #webdev #security #techtok #backend"
+  },
+  {
+    "n": 35,
+    "slug": "prompt-loop-tt",
+    "title": "Prompting is a debugging loop",
+    "scheduled_at": "2026-09-05T23:00:00Z",
+    "caption": "Prompt engineering isn't magic words. It's a debugging loop.\n\nMade with Infogiph → infogiph.com\n\n#promptengineering #ai #llm #techtok #learnontiktok"
+  },
+  {
+    "n": 36,
+    "slug": "rest-vs-graphql-tt",
+    "title": "REST vs GraphQL",
+    "scheduled_at": "2026-09-06T15:00:00Z",
+    "caption": "REST vs GraphQL isn't a war. It's one question: who shapes the response?\n\nMade with Infogiph → infogiph.com\n\n#api #graphql #webdev #techtok #coding"
+  },
+  {
+    "n": 37,
+    "slug": "agent-capabilities-tt",
+    "title": "A chatbot answers. An agent operates.",
+    "scheduled_at": "2026-09-06T23:00:00Z",
+    "caption": "A chatbot answers. An agent operates.\n\nThat gap is six capabilities working together — and most \"AI agent\" products only have two.\n\nMade with Infogiph → infogiph.com\n\n#aiagents #ai #techtok #aiengineering #llm"
+  },
+  {
+    "n": 38,
+    "slug": "cdn-tt",
+    "title": "CDNs cheat physics",
+    "scheduled_at": "2026-09-07T15:00:00Z",
+    "caption": "Physics is the one performance problem you can't code around.\n\nA CDN is how you cheat it.\n\nMade with Infogiph → infogiph.com\n\n#cdn #webperformance #systemdesign #techtok #webdev"
+  },
+  {
+    "n": 39,
+    "slug": "llm-evals-tt",
+    "title": "From demo to production",
+    "scheduled_at": "2026-09-07T23:00:00Z",
+    "caption": "The gap between \"the demo worked\" and \"it's in production\" is five steps. Most teams only plan for the first.\n\nMade with Infogiph → infogiph.com\n\n#ai #llm #aiengineering #techtok #evals"
+  },
+  {
+    "n": 40,
+    "slug": "db-index-tt",
+    "title": "30 seconds → 2 milliseconds",
+    "scheduled_at": "2026-09-08T15:00:00Z",
+    "caption": "The difference between a 30-second query and a 2-millisecond one is usually a single CREATE INDEX.\n\nMade with Infogiph → infogiph.com\n\n#database #sql #backend #techtok #coding"
+  },
+  {
+    "n": 41,
+    "slug": "guardrails-tt",
+    "title": "AI guardrails, layer by layer",
+    "scheduled_at": "2026-09-08T23:00:00Z",
+    "caption": "AI safety in production isn't one filter. It's layers.\n\nMade with Infogiph → infogiph.com\n\n#ai #aisafety #llm #techtok #aiengineering"
+  },
+  {
+    "n": 42,
+    "slug": "sql-vs-nosql-tt",
+    "title": "SQL vs NoSQL, minus the hype",
+    "scheduled_at": "2026-09-09T15:00:00Z",
+    "caption": "Choosing a database by hype is how you end up re-platforming in year two.\n\nHere's the actual trade.\n\nMade with Infogiph → infogiph.com\n\n#sql #nosql #database #techtok #systemdesign"
+  },
+  {
+    "n": 43,
+    "slug": "multimodal-tt",
+    "title": "One model, every medium",
+    "scheduled_at": "2026-09-09T23:00:00Z",
+    "caption": "Text, images, audio — one model, one shared space of meaning.\n\nThat's what \"multimodal\" actually means.\n\nMade with Infogiph → infogiph.com\n\n#ai #multimodal #machinelearning #techtok #learnontiktok"
+  },
+  {
+    "n": 44,
+    "slug": "sharding-tt",
+    "title": "Scale out, not up",
+    "scheduled_at": "2026-09-10T15:00:00Z",
+    "caption": "When one database can't hold your data anymore, you stop scaling UP and start scaling OUT.\n\nMade with Infogiph → infogiph.com\n\n#database #systemdesign #backend #techtok #scalability"
+  },
+  {
+    "n": 45,
+    "slug": "inference-request-tt",
+    "title": "One AI API call, unpacked",
+    "scheduled_at": "2026-09-10T23:00:00Z",
+    "caption": "You call an AI API. Here's the machinery your request actually goes through.\n\nMade with Infogiph → infogiph.com\n\n#ai #llm #api #techtok #aiengineering"
+  },
+  {
+    "n": 46,
+    "slug": "replication-tt",
+    "title": "One DB is a single point of failure",
+    "scheduled_at": "2026-09-11T15:00:00Z",
+    "caption": "One database server is a single point of failure with a job title.\n\nReplication is the fix.\n\nMade with Infogiph → infogiph.com\n\n#database #systemdesign #devops #techtok #backend"
+  },
+  {
+    "n": 47,
+    "slug": "mlops-tt",
+    "title": "The MLOps loop",
+    "scheduled_at": "2026-09-11T23:00:00Z",
+    "caption": "Training the model is the easy part. Keeping it good in production is a loop that never ends.\n\nMade with Infogiph → infogiph.com\n\n#mlops #machinelearning #ai #techtok #devops"
+  },
+  {
+    "n": 48,
+    "slug": "cap-tt",
+    "title": "CAP: when the network splits",
+    "scheduled_at": "2026-09-12T15:00:00Z",
+    "caption": "CAP theorem, minus the mythology: when the network splits, you choose what to sacrifice.\n\nMade with Infogiph → infogiph.com\n\n#captheorem #distributedsystems #systemdesign #techtok #computerscience"
+  },
+  {
+    "n": 49,
+    "slug": "cost-levers-tt",
+    "title": "Your LLM bill, in order of payoff",
+    "scheduled_at": "2026-09-12T23:00:00Z",
+    "caption": "When the LLM bill gets scary, teams reach for the wrong lever first.\n\nHere they are in order of payoff.\n\nMade with Infogiph → infogiph.com\n\n#llm #ai #aiengineering #techtok #startup"
+  },
+  {
+    "n": 50,
+    "slug": "rate-limit-tt",
+    "title": "The token bucket",
+    "scheduled_at": "2026-09-13T15:00:00Z",
+    "caption": "How APIs survive going viral: a bucket of tokens.\n\nBursts OK. Floods blocked.\n\nMade with Infogiph → infogiph.com\n\n#api #systemdesign #backend #techtok #coding"
+  },
+  {
+    "n": 51,
+    "slug": "model-landscape-tt",
+    "title": "Pick models by task, not leaderboard",
+    "scheduled_at": "2026-09-13T23:00:00Z",
+    "caption": "The frontier model landscape, minus the leaderboard theatre.\n\nPick by task, not by hype.\n\nMade with Infogiph → infogiph.com\n\n#ai #llm #machinelearning #techtok #aiengineering"
+  },
+  {
+    "n": 52,
+    "slug": "idempotency-tt",
+    "title": "Why double-clicks don't double-charge",
+    "scheduled_at": "2026-09-14T15:00:00Z",
+    "caption": "Why double-clicking \"Pay\" doesn't charge you twice: one honest little key.\n\nMade with Infogiph → infogiph.com\n\n#backend #payments #systemdesign #techtok #coding"
+  },
+  {
+    "n": 53,
+    "slug": "ai-stack-tt",
+    "title": "The production AI stack",
+    "scheduled_at": "2026-09-14T23:00:00Z",
+    "caption": "Ask ten teams what their \"AI stack\" is and you'll get ten answers.\n\nAsk what's actually in production and it collapses to this.\n\nMade with Infogiph → infogiph.com\n\n#ai #aiengineering #llm #techtok #startup"
+  },
+  {
+    "n": 54,
+    "slug": "docker-tt",
+    "title": "\"Works on my machine\" — solved",
+    "scheduled_at": "2026-09-15T15:00:00Z",
+    "caption": "\"Works on my machine\" used to be a punchline. Docker made it a guarantee.\n\nMade with Infogiph → infogiph.com\n\n#docker #devops #coding #techtok #softwareengineer"
+  },
+  {
+    "n": 55,
+    "slug": "vector-store-options-tt",
+    "title": "You may not need a vector DB",
+    "scheduled_at": "2026-09-15T23:00:00Z",
+    "caption": "Your embeddings probably don't need a dedicated vector database.\n\nThe honest map:\n\nMade with Infogiph → infogiph.com\n\n#vectordatabase #postgres #ai #rag #techtok"
+  },
+  {
+    "n": 56,
+    "slug": "microservices-tt",
+    "title": "Monolith vs microservices",
+    "scheduled_at": "2026-09-16T15:00:00Z",
+    "caption": "Monolith vs microservices: one is simple ops, the other is org-chart-shaped.\n\nChoose deliberately.\n\nMade with Infogiph → infogiph.com\n\n#microservices #systemdesign #softwareengineer #techtok #backend"
+  },
+  {
+    "n": 57,
+    "slug": "k8s-tt",
+    "title": "Kubernetes in one loop",
+    "scheduled_at": "2026-09-16T23:00:00Z",
+    "caption": "Kubernetes in one sentence: declare what you want, and a loop makes reality match. Forever.\n\nMade with Infogiph → infogiph.com\n\n#kubernetes #devops #cloud #techtok #coding"
+  },
+  {
+    "n": 58,
+    "slug": "event-driven-tt",
+    "title": "One event, four reactions",
+    "scheduled_at": "2026-09-17T15:00:00Z",
+    "caption": "One \"order_placed\" event. Four services react. Nobody called anybody.\n\nMade with Infogiph → infogiph.com\n\n#eventdriven #systemdesign #backend #techtok #softwareengineer"
+  },
+  {
+    "n": 59,
+    "slug": "integration-surface-tt",
+    "title": "Your SaaS is mostly integrations",
+    "scheduled_at": "2026-09-17T23:00:00Z",
+    "caption": "Draw the integration surface of a typical B2B SaaS and you've drawn most of its engineering backlog.\n\nMade with Infogiph → infogiph.com\n\n#saas #softwareengineer #startup #techtok #coding"
+  },
+  {
+    "n": 60,
+    "slug": "data-stack-tt",
+    "title": "The modern data stack",
+    "scheduled_at": "2026-09-18T15:00:00Z",
+    "caption": "The modern data stack is really just ETL with better marketing — and one genuinely good idea.\n\nMade with Infogiph → infogiph.com\n\n#dataengineering #analytics #data #techtok #coding"
+  }
+]

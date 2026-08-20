@@ -18,10 +18,13 @@ const cleanSlug = (s: string | null) =>
 
 export async function GET(req: NextRequest) {
   if (isProd()) return new NextResponse(null, { status: 404 });
-  if (req.nextUrl.searchParams.get('action') !== 'concepts')
-    return new NextResponse(null, { status: 400 });
   const read = async (f: string) =>
     JSON.parse(await fs.readFile(path.join(OUT_ROOT, f), 'utf8'));
+  // isometric cube-staircase concepts for /dev-iso (animated GIF format)
+  if (req.nextUrl.searchParams.get('action') === 'iso')
+    return NextResponse.json(await read('iso-concepts.json'));
+  if (req.nextUrl.searchParams.get('action') !== 'concepts')
+    return new NextResponse(null, { status: 400 });
   const ai = await read('concepts-ai.json');
   const tech = await read('concepts-tech.json');
   // Interleave the two tracks so consecutive posts alternate AI / systems.

@@ -1,0 +1,24 @@
+{
+  "$comment": "Isometric cube-staircase → animated GIF. Rendered by render-tiktok.mjs --config <this> --format gif (run from the repo root, dev server on :3000). Concepts live in iso-concepts.json — copy it to the dev-social OUT_ROOT scratchpad so /api/dev-social?action=iso can read it. holdoff in the urlTemplate keeps the CSS animation paused at frame 0 until just before the renderer's settle wait ends, so capture starts at the build-up.",
+
+  "source": {
+    "urlTemplate": "http://localhost:3000/en/dev-iso?show={slug}&w={w}&h={h}&holdoff=2400",
+    "selector": ".iso-stage",
+    "itemsFile": "/Users/dinesh/Infogiph/scripts/social-tiktok/iso-items.json"
+  },
+
+  "brand": {
+    "name": "Infogiph",
+    "url": "https://infogiph.com",
+    "creditLine": "Animated with Infogiph."
+  },
+
+  "watermark": { "text": "" },
+
+  "format": "gif",
+  "workDir": "/private/tmp/claude-501/-Users-dinesh-Infogiph/0d5648f0-4eda-40ce-a06d-80fd8d7e9af8/scratchpad/iso",
+  "framesPerClip": 92,
+  "settleMs": 2600,
+  "padColor": "white",
+  "deviceScaleFactor": 1
+}

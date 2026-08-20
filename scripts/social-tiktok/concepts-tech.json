@@ -1,0 +1,504 @@
+[
+  {
+    "slug": "kv-cache-tt",
+    "title": "The KV cache",
+    "layout": "steps",
+    "accent": "#0ea5e9",
+    "centerIcon": "bolt3d",
+    "items": [
+      { "label": "Prompt tokens in", "icon": "cube3d" },
+      { "label": "Compute K & V once", "icon": "cpu3d" },
+      { "label": "Store in KV cache", "icon": "database3d" },
+      { "label": "New token reads cache", "icon": "bolt3d" },
+      { "label": "No recompute", "icon": "rocket3d" }
+    ]
+  },
+  {
+    "slug": "ai-latency-tt",
+    "title": "Why AI features feel slow",
+    "layout": "iceberg",
+    "accent": "#10b981",
+    "centerIcon": "bolt3d",
+    "items": [
+      { "label": "Waiting for first token", "icon": "bolt3d" },
+      { "label": "Queueing at the provider", "icon": "box3d" },
+      { "label": "Prompt processing", "icon": "cpu3d" },
+      { "label": "Token-by-token decode", "icon": "gear3d" },
+      { "label": "Network round trips", "icon": "globe3d" }
+    ]
+  },
+  {
+    "slug": "queue-decouple-tt",
+    "title": "The 3 seconds behind \"order confirmed\"",
+    "layout": "steps",
+    "accent": "#6366f1",
+    "centerIcon": "rocket3d",
+    "items": [
+      { "label": "API accepts the order", "icon": "cloud3d" },
+      { "label": "Message onto the queue", "icon": "box3d" },
+      { "label": "Respond instantly", "icon": "bolt3d" },
+      { "label": "Workers consume & retry", "icon": "gear3d" },
+      { "label": "User never waited", "icon": "rocket3d" }
+    ]
+  },
+  {
+    "slug": "scaling-ladder-tt",
+    "title": "Fix slow apps in this order",
+    "layout": "steps",
+    "accent": "#f59e0b",
+    "centerIcon": "cube3d",
+    "items": [
+      { "label": "1. Index the query", "icon": "database3d" },
+      { "label": "2. Cache the answer", "icon": "bolt3d" },
+      { "label": "3. Add a read replica", "icon": "layers3d" },
+      { "label": "4. Queue slow work", "icon": "box3d" },
+      { "label": "5. Shard — last resort", "icon": "cube3d" }
+    ]
+  },
+  {
+    "slug": "pubsub-vs-queue-tt",
+    "title": "Queues vs pub/sub",
+    "layout": "hub-lr",
+    "accent": "#8b5cf6",
+    "centerIcon": "mega3d",
+    "items": [],
+    "hub": {
+      "center": "Work or facts?",
+      "left": [
+        { "label": "Queue: distributes work", "icon": "box3d" },
+        { "label": "One consumer claims it", "icon": "lock3d" },
+        { "label": "Compete & complete", "icon": "gear3d" }
+      ],
+      "right": [
+        { "label": "Pub/sub: broadcasts facts", "icon": "mega3d" },
+        { "label": "Every subscriber gets it", "icon": "users3d" },
+        { "label": "Email + analytics + fraud", "icon": "layers3d" }
+      ]
+    }
+  },
+  {
+    "slug": "webhooks-tt",
+    "title": "Webhooks vs polling",
+    "layout": "hub-lr",
+    "accent": "#0ea5e9",
+    "centerIcon": "bolt3d",
+    "items": [],
+    "hub": {
+      "center": "Who calls whom?",
+      "left": [
+        { "label": "Polling: you ask", "icon": "search" },
+        { "label": "On a timer", "icon": "gear3d" },
+        { "label": "Wasted calls, late news", "icon": "chart3d" }
+      ],
+      "right": [
+        { "label": "Webhook: they push", "icon": "bolt3d" },
+        { "label": "Instant on the event", "icon": "spark3d" },
+        { "label": "Verify & dedupe", "icon": "shield3d" }
+      ]
+    }
+  },
+  {
+    "slug": "websockets-tt",
+    "title": "WebSockets: breaking HTTP's rule",
+    "layout": "steps",
+    "accent": "#10b981",
+    "centerIcon": "bolt3d",
+    "items": [
+      { "label": "HTTP + Upgrade header", "icon": "web" },
+      { "label": "Server agrees", "icon": "cloud3d" },
+      { "label": "Connection stays open", "icon": "bolt3d" },
+      { "label": "Both sides push anytime", "icon": "mega3d" },
+      { "label": "Chat, prices, multiplayer", "icon": "users3d" }
+    ]
+  },
+  {
+    "slug": "stripe-flow-tt",
+    "title": "The 2 seconds behind \"Pay\"",
+    "layout": "steps",
+    "accent": "#6366f1",
+    "centerIcon": "dollar3d",
+    "items": [
+      { "label": "Card → Stripe token", "icon": "stripe" },
+      { "label": "Charge created", "icon": "payment" },
+      { "label": "Bank authorizes", "icon": "lock3d" },
+      { "label": "Webhook → your server", "icon": "bolt3d" },
+      { "label": "Order marked paid", "icon": "shield3d" }
+    ]
+  },
+  {
+    "slug": "ci-pipeline-tt",
+    "title": "Questions a CI pipeline asks",
+    "layout": "steps",
+    "accent": "#14b8a6",
+    "centerIcon": "rocket3d",
+    "items": [
+      { "label": "Does it even compile?", "icon": "code" },
+      { "label": "Do the tests pass?", "icon": "shield3d" },
+      { "label": "Does it build?", "icon": "box3d" },
+      { "label": "Does it integrate?", "icon": "gear3d" },
+      { "label": "Then it ships", "icon": "rocket3d" }
+    ]
+  },
+  {
+    "slug": "observability-tt",
+    "title": "Metrics, logs, traces",
+    "layout": "cycle",
+    "accent": "#3b82f6",
+    "center": "Is prod OK?",
+    "centerIcon": "chart3d",
+    "items": [
+      { "label": "Metrics: WHAT broke", "icon": "chart3d" },
+      { "label": "Logs: WHY it broke", "icon": "terminal3d" },
+      { "label": "Traces: WHERE it hides", "icon": "flow3d" }
+    ]
+  },
+  {
+    "slug": "caching-layers-tt",
+    "title": "5 caches between you and the DB",
+    "layout": "funnel",
+    "accent": "#f59e0b",
+    "centerIcon": "database3d",
+    "items": [
+      { "label": "Browser cache", "icon": "web" },
+      { "label": "CDN edge", "icon": "globe3d" },
+      { "label": "App-level cache", "icon": "layers3d" },
+      { "label": "Redis", "icon": "redis" },
+      { "label": "The database, finally", "icon": "database3d" }
+    ]
+  },
+  {
+    "slug": "cache-invalidation-tt",
+    "title": "The hardest problem in CS",
+    "layout": "cycle",
+    "accent": "#ec4899",
+    "center": "Cache-aside",
+    "centerIcon": "bolt3d",
+    "items": [
+      { "label": "Read: try the cache", "icon": "search" },
+      { "label": "Miss: hit the DB", "icon": "database3d" },
+      { "label": "Fill cache + TTL", "icon": "box3d" },
+      { "label": "Write: update the DB", "icon": "code" },
+      { "label": "Delete the stale key", "icon": "bolt3d" }
+    ]
+  },
+  {
+    "slug": "url-to-pixels-tt",
+    "title": "You hit Enter. Then this.",
+    "layout": "funnel",
+    "accent": "#0ea5e9",
+    "centerIcon": "globe3d",
+    "items": [
+      { "label": "DNS lookup", "icon": "search" },
+      { "label": "TLS handshake", "icon": "lock3d" },
+      { "label": "HTML arrives", "icon": "code" },
+      { "label": "Parse & fetch assets", "icon": "layers3d" },
+      { "label": "Render & paint", "icon": "web" }
+    ]
+  },
+  {
+    "slug": "dns-tt",
+    "title": "The internet's phone book",
+    "layout": "cycle",
+    "accent": "#10b981",
+    "center": "Beautifully lazy",
+    "centerIcon": "globe3d",
+    "items": [
+      { "label": "Ask the resolver", "icon": "search" },
+      { "label": "Root → .com → domain", "icon": "globe3d" },
+      { "label": "Get the IP", "icon": "database3d" },
+      { "label": "Cache it everywhere", "icon": "bolt3d" },
+      { "label": "TTL expires, repeat", "icon": "gear3d" }
+    ]
+  },
+  {
+    "slug": "tls-tt",
+    "title": "The padlock's handshake",
+    "layout": "steps",
+    "accent": "#6366f1",
+    "centerIcon": "lock3d",
+    "items": [
+      { "label": "Hello + cipher list", "icon": "chat" },
+      { "label": "Certificate proves identity", "icon": "shield3d" },
+      { "label": "Keys exchanged", "icon": "keys" },
+      { "label": "Session keys derived", "icon": "gear3d" },
+      { "label": "Everything encrypted", "icon": "lock3d" }
+    ]
+  },
+  {
+    "slug": "oauth-tt",
+    "title": "\"Sign in with Google\", unpacked",
+    "layout": "steps",
+    "accent": "#3b82f6",
+    "centerIcon": "keys",
+    "items": [
+      { "label": "Click: Sign in with Google", "icon": "google" },
+      { "label": "Redirect to the provider", "icon": "globe3d" },
+      { "label": "You approve the scopes", "icon": "shield3d" },
+      { "label": "App gets a token", "icon": "keys" },
+      { "label": "Never your password", "icon": "lock3d" }
+    ]
+  },
+  {
+    "slug": "jwt-tt",
+    "title": "Stay logged in, statelessly",
+    "layout": "steps",
+    "accent": "#8b5cf6",
+    "centerIcon": "bolt3d",
+    "items": [
+      { "label": "Log in once", "icon": "lock3d" },
+      { "label": "Server signs a token", "icon": "keys" },
+      { "label": "Client carries it", "icon": "mobile" },
+      { "label": "Any server verifies the signature", "icon": "shield3d" },
+      { "label": "No session lookup", "icon": "bolt3d" }
+    ]
+  },
+  {
+    "slug": "rest-vs-graphql-tt",
+    "title": "REST vs GraphQL",
+    "layout": "hub-lr",
+    "accent": "#ec4899",
+    "centerIcon": "cloud3d",
+    "items": [],
+    "hub": {
+      "center": "Who shapes the response?",
+      "left": [
+        { "label": "REST: server decides", "icon": "cloud3d" },
+        { "label": "Many endpoints", "icon": "layers3d" },
+        { "label": "Cache-friendly", "icon": "bolt3d" }
+      ],
+      "right": [
+        { "label": "GraphQL: client asks", "icon": "search" },
+        { "label": "One endpoint, exact fields", "icon": "funnel3d" },
+        { "label": "No over-fetching", "icon": "chart3d" }
+      ]
+    }
+  },
+  {
+    "slug": "cdn-tt",
+    "title": "CDNs cheat physics",
+    "layout": "steps",
+    "accent": "#f59e0b",
+    "centerIcon": "rocket3d",
+    "items": [
+      { "label": "User in Sydney", "icon": "users3d" },
+      { "label": "Origin in Virginia: 250ms", "icon": "factory3d" },
+      { "label": "Edge node 10km away", "icon": "cloudflare" },
+      { "label": "Cache hit: 20ms", "icon": "bolt3d" },
+      { "label": "Physics, cheated", "icon": "rocket3d" }
+    ]
+  },
+  {
+    "slug": "db-index-tt",
+    "title": "30 seconds → 2 milliseconds",
+    "layout": "hub-lr",
+    "accent": "#10b981",
+    "centerIcon": "database3d",
+    "items": [],
+    "hub": {
+      "center": "One CREATE INDEX",
+      "left": [
+        { "label": "Without: full scan", "icon": "search" },
+        { "label": "Every row checked", "icon": "box3d" },
+        { "label": "30 seconds", "icon": "chart3d" }
+      ],
+      "right": [
+        { "label": "With: B-tree jump", "icon": "flow3d" },
+        { "label": "Straight to the row", "icon": "bolt3d" },
+        { "label": "2 milliseconds", "icon": "rocket3d" }
+      ]
+    }
+  },
+  {
+    "slug": "sql-vs-nosql-tt",
+    "title": "SQL vs NoSQL, minus the hype",
+    "layout": "hub-lr",
+    "accent": "#0ea5e9",
+    "centerIcon": "database3d",
+    "items": [],
+    "hub": {
+      "center": "Shape of your data",
+      "left": [
+        { "label": "SQL: relations & joins", "icon": "postgres" },
+        { "label": "Strong consistency", "icon": "shield3d" },
+        { "label": "Schema up front", "icon": "code" }
+      ],
+      "right": [
+        { "label": "NoSQL: documents & scale", "icon": "mongodb" },
+        { "label": "Flexible shape", "icon": "cube3d" },
+        { "label": "Eventual consistency", "icon": "globe3d" }
+      ]
+    }
+  },
+  {
+    "slug": "sharding-tt",
+    "title": "Scale out, not up",
+    "layout": "steps",
+    "accent": "#6366f1",
+    "centerIcon": "rocket3d",
+    "items": [
+      { "label": "One DB hits its ceiling", "icon": "database3d" },
+      { "label": "Pick a shard key", "icon": "keys" },
+      { "label": "Split data across nodes", "icon": "layers3d" },
+      { "label": "Route queries by key", "icon": "flow3d" },
+      { "label": "Scale out, not up", "icon": "rocket3d" }
+    ]
+  },
+  {
+    "slug": "replication-tt",
+    "title": "One DB is a single point of failure",
+    "layout": "steps",
+    "accent": "#14b8a6",
+    "centerIcon": "shield3d",
+    "items": [
+      { "label": "One DB, one failure away", "icon": "database3d" },
+      { "label": "Writes hit the primary", "icon": "code" },
+      { "label": "Changes stream to replicas", "icon": "flow3d" },
+      { "label": "Reads spread across copies", "icon": "search" },
+      { "label": "Primary dies? Standby takes over", "icon": "shield3d" }
+    ]
+  },
+  {
+    "slug": "cap-tt",
+    "title": "CAP: when the network splits",
+    "layout": "hub-lr",
+    "accent": "#ec4899",
+    "centerIcon": "globe3d",
+    "items": [],
+    "hub": {
+      "center": "Partition happens. Choose.",
+      "left": [
+        { "label": "CP: refuse writes", "icon": "lock3d" },
+        { "label": "Stay consistent", "icon": "shield3d" },
+        { "label": "Banking", "icon": "dollar3d" }
+      ],
+      "right": [
+        { "label": "AP: keep serving", "icon": "bolt3d" },
+        { "label": "Reconcile later", "icon": "gear3d" },
+        { "label": "Social feeds", "icon": "users3d" }
+      ]
+    }
+  },
+  {
+    "slug": "rate-limit-tt",
+    "title": "The token bucket",
+    "layout": "cycle",
+    "accent": "#f59e0b",
+    "center": "Token bucket",
+    "centerIcon": "funnel3d",
+    "items": [
+      { "label": "Bucket holds N tokens", "icon": "box3d" },
+      { "label": "Each request takes one", "icon": "bolt3d" },
+      { "label": "Refill at a fixed rate", "icon": "gear3d" },
+      { "label": "Empty? 429", "icon": "shield3d" },
+      { "label": "Bursts OK, floods blocked", "icon": "chart3d" }
+    ]
+  },
+  {
+    "slug": "idempotency-tt",
+    "title": "Why double-clicks don't double-charge",
+    "layout": "steps",
+    "accent": "#10b981",
+    "centerIcon": "shield3d",
+    "items": [
+      { "label": "User double-clicks Pay", "icon": "payment" },
+      { "label": "Same idempotency key", "icon": "keys" },
+      { "label": "Server spots the retry", "icon": "search" },
+      { "label": "Returns the first result", "icon": "database3d" },
+      { "label": "Charged exactly once", "icon": "shield3d" }
+    ]
+  },
+  {
+    "slug": "docker-tt",
+    "title": "\"Works on my machine\" — solved",
+    "layout": "steps",
+    "accent": "#0ea5e9",
+    "centerIcon": "docker",
+    "items": [
+      { "label": "Works on my machine…", "icon": "terminal3d" },
+      { "label": "Dockerfile pins the env", "icon": "code" },
+      { "label": "Build the image", "icon": "docker" },
+      { "label": "Ship it anywhere", "icon": "box3d" },
+      { "label": "Same env, every machine", "icon": "rocket3d" }
+    ]
+  },
+  {
+    "slug": "microservices-tt",
+    "title": "Monolith vs microservices",
+    "layout": "hub-lr",
+    "accent": "#8b5cf6",
+    "centerIcon": "cube3d",
+    "items": [],
+    "hub": {
+      "center": "Split or stay?",
+      "left": [
+        { "label": "Monolith: one deploy", "icon": "box3d" },
+        { "label": "Simple ops", "icon": "gear3d" },
+        { "label": "Scales as one", "icon": "chart3d" }
+      ],
+      "right": [
+        { "label": "Micro: many deploys", "icon": "layers3d" },
+        { "label": "Teams move independently", "icon": "users3d" },
+        { "label": "The network is your problem", "icon": "globe3d" }
+      ]
+    }
+  },
+  {
+    "slug": "k8s-tt",
+    "title": "Kubernetes in one loop",
+    "layout": "cycle",
+    "accent": "#3b82f6",
+    "center": "Reconcile forever",
+    "centerIcon": "kubernetes",
+    "items": [
+      { "label": "Declare desired state", "icon": "code" },
+      { "label": "Scheduler places pods", "icon": "flow3d" },
+      { "label": "Health checks watch", "icon": "search" },
+      { "label": "Crash? Restart it", "icon": "gear3d" },
+      { "label": "Drift? Fix it", "icon": "shield3d" }
+    ]
+  },
+  {
+    "slug": "event-driven-tt",
+    "title": "One event, four reactions",
+    "layout": "cycle",
+    "accent": "#6366f1",
+    "center": "order_placed",
+    "centerIcon": "bolt3d",
+    "items": [
+      { "label": "Email service", "icon": "mail" },
+      { "label": "Analytics", "icon": "chart3d" },
+      { "label": "Fraud check", "icon": "shield3d" },
+      { "label": "Warehouse", "icon": "box3d" }
+    ]
+  },
+  {
+    "slug": "integration-surface-tt",
+    "title": "Your SaaS is mostly integrations",
+    "layout": "cycle",
+    "accent": "#14b8a6",
+    "center": "Your SaaS",
+    "centerIcon": "cloud3d",
+    "items": [
+      { "label": "Stripe billing", "icon": "stripe" },
+      { "label": "Slack alerts", "icon": "slack" },
+      { "label": "Salesforce sync", "icon": "salesforce" },
+      { "label": "SSO login", "icon": "lock3d" },
+      { "label": "Email delivery", "icon": "mail" },
+      { "label": "Webhooks out", "icon": "bolt3d" }
+    ]
+  },
+  {
+    "slug": "data-stack-tt",
+    "title": "The modern data stack",
+    "layout": "steps",
+    "accent": "#ec4899",
+    "centerIcon": "chart3d",
+    "items": [
+      { "label": "Sources: app, ads, CRM", "icon": "layers3d" },
+      { "label": "Extract & load", "icon": "flow3d" },
+      { "label": "Warehouse: Snowflake", "icon": "snowflake" },
+      { "label": "Transform: dbt", "icon": "dbt" },
+      { "label": "Dashboards decide", "icon": "tableau" }
+    ]
+  }
+]

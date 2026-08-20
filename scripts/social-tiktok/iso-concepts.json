@@ -1,0 +1,22 @@
+[
+  {
+    "slug": "iso-openai-14",
+    "heading": "14 lessons",
+    "headingAccent": "from OpenAI",
+    "logo": "openai",
+    "count": 14,
+    "columns": 5,
+    "accent": "#E2612E",
+    "dots": true
+  },
+  {
+    "slug": "iso-claude-12",
+    "heading": "12 rules",
+    "headingAccent": "of agentic coding",
+    "logo": "claude",
+    "count": 12,
+    "columns": 5,
+    "accent": "#6366F1",
+    "dots": true
+  }
+]

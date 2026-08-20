@@ -1,0 +1,24 @@
+{
+  "$comment": "TikTok vertical campaign config — consumed by scratchpad/render-tiktok.mjs (patched copy of the social-campaign skill renderer). Watermark is intentionally empty here: a prominent pill watermark is added in the audio-mux pass instead, positioned for TikTok's UI safe zones.",
+
+  "source": {
+    "urlTemplate": "http://localhost:3000/en/dev-social?show={slug}&w={w}&h={h}",
+    "selector": ".infogiph-home",
+    "itemsFile": "/private/tmp/claude-501/-Users-dinesh-Infogiph/0d5648f0-4eda-40ce-a06d-80fd8d7e9af8/scratchpad/tiktok/items.json"
+  },
+
+  "brand": {
+    "name": "Infogiph",
+    "url": "https://infogiph.com",
+    "creditLine": "Animated with Infogiph."
+  },
+
+  "watermark": { "text": "" },
+
+  "format": "vertical",
+  "workDir": "/private/tmp/claude-501/-Users-dinesh-Infogiph/0d5648f0-4eda-40ce-a06d-80fd8d7e9af8/scratchpad/tiktok",
+  "framesPerClip": 120,
+  "settleMs": 2600,
+  "padColor": "white",
+  "deviceScaleFactor": 1.5
+}
